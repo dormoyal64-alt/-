@@ -469,14 +469,21 @@ h2.section-title {
 @media (min-width: 860px) {
   .area-layout { grid-template-columns: 1.1fr 0.9fr; }
 }
-.area-map {
+.area-map__frame {
   border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: var(--shadow-md);
   border: 1px solid var(--border);
   aspect-ratio: 4 / 3;
 }
-.area-map iframe { width: 100%; height: 100%; border: 0; display: block; }
+.area-map__frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+.area-map__link {
+  display: inline-block;
+  margin-top: 0.6rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--navy-800);
+}
 .area-list-wrap .areas-list { margin-top: 0; }
 
 /* ---------------- Reviews ---------------- */
