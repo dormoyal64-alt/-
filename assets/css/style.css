@@ -225,6 +225,17 @@ h2.section-title {
 @media (min-width: 960px) {
   .hero__grid { grid-template-columns: 1.15fr 0.85fr; gap: var(--space-5); }
 }
+.hero__grid--center {
+  grid-template-columns: 1fr;
+  max-width: 46rem;
+  margin: 0 auto;
+  text-align: center;
+}
+@media (min-width: 960px) {
+  .hero__grid--center { grid-template-columns: 1fr; }
+}
+.hero__grid--center .hero__sub { margin-inline: auto; }
+.hero__grid--center .cta-row { justify-content: center; }
 .price-badge {
   display: inline-flex;
   align-items: center;
@@ -275,32 +286,6 @@ h2.section-title {
   color: var(--cyan-400);
   font-weight: 900;
 }
-.hero__visual {
-  position: relative;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  min-height: 280px;
-  background:
-    linear-gradient(160deg, rgba(0, 180, 216, 0.35), rgba(11, 37, 69, 0.05)),
-    repeating-linear-gradient(115deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 34px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: var(--space-3);
-}
-.placeholder-card {
-  border: 1.5px dashed rgba(255, 255, 255, 0.45);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-  color: #dfeaf6;
-  font-size: 0.92rem;
-  background: rgba(11, 37, 69, 0.35);
-  max-width: 20rem;
-}
-.placeholder-card strong { display: block; margin-bottom: 0.3rem; color: var(--white); }
-
 /* ---------------- Trust bar ---------------- */
 .trust-bar {
   background: var(--navy-900);
