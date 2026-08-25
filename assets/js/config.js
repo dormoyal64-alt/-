@@ -13,11 +13,11 @@ window.SITE_CONFIG = {
   ownerName: "REPLACE_OWNER_NAME", // לדוגמה: "יוסי כהן"
 
   // טלפון — נדרש פורמט בינלאומי עבור קישור החיוג
-  phoneDisplay: "REPLACE_PHONE_DISPLAY", // לדוגמה: "050-1234567"
-  phoneE164: "REPLACE_PHONE_E164", // לדוגמה: "+972501234567"
+  phoneDisplay: "052-8893809",
+  phoneE164: "+972528893809",
 
   // WhatsApp — מספר בפורמט בינלאומי, ללא + וללא רווחים
-  whatsappNumber: "REPLACE_WHATSAPP_E164", // לדוגמה: "972501234567"
+  whatsappNumber: "972528893809",
   whatsappPrefillText: "היי, יש לי סתימת ביוב ואני צריך/ה עזרה. אפשר בבקשה פרטים?",
 
   // אזורי שירות — אם הרשימה ריקה, יוצג טקסט כללי על אזור הדרום

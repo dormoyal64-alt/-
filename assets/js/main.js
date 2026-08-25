@@ -184,10 +184,76 @@
     }
   }
 
+  /* ----------------------------------------------------------
+     5. Virtual assistant — rule-based, answers mirror the FAQ
+        section verbatim. No external API, no cost, nothing invented.
+     ---------------------------------------------------------- */
+  var ASSISTANT_FAQ = [
+    { q: "כמה עולה לשחרר סתימת ביוב?", a: "שחרור סתימת ביוב מתחיל מ-₪499, והמחיר הסופי משתנה לפי סוג התקלה והעבודה הנדרשת. צרו קשר, ספרו לנו מה הבעיה ונוכל לתת לכם מידע ראשוני לפני ההגעה ככל שניתן." },
+    { q: "אתם מגיעים לכל אזור הדרום?", a: "אנחנו נותנים שירות באזור הדרום. שלחו לנו את היישוב ונבדוק זמינות." },
+    { q: "אפשר לשלוח תמונה ב-WhatsApp?", a: "כן. במקרים רבים תמונה או סרטון יכולים לעזור להבין טוב יותר את סוג הבעיה לפני ההגעה." },
+    { q: "הביוב נסתם שוב. מה עושים?", a: "סתימה שחוזרת יכולה להצביע על בעיה עמוקה יותר בקו. חשוב להבין את סוג החסימה ואת מיקומה לפני שמחליטים על דרך הטיפול." },
+    { q: "כמה מהר אפשר להגיע?", a: "הזמינות משתנה בהתאם למיקום ולעומס הקריאות. אנחנו שמים דגש על זמינות גבוהה ומענה מהיר ככל האפשר." }
+  ];
+
+  function wireAssistant() {
+    var toggle = document.getElementById("assistant-toggle");
+    var panel = document.getElementById("assistant-panel");
+    var closeBtn = document.getElementById("assistant-close");
+    var body = document.getElementById("assistant-body");
+    var quick = document.getElementById("assistant-quick");
+    if (!toggle || !panel || !body || !quick) return;
+
+    function addMessage(text, from) {
+      var div = document.createElement("div");
+      div.className = "assistant-msg assistant-msg--" + from;
+      div.textContent = text;
+      body.appendChild(div);
+      body.scrollTop = body.scrollHeight;
+    }
+
+    function renderQuickReplies() {
+      quick.innerHTML = "";
+      ASSISTANT_FAQ.forEach(function (item) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = item.q;
+        btn.addEventListener("click", function () {
+          addMessage(item.q, "user");
+          window.setTimeout(function () { addMessage(item.a, "bot"); }, 300);
+        });
+        quick.appendChild(btn);
+      });
+    }
+
+    function openPanel() {
+      panel.hidden = false;
+      toggle.setAttribute("aria-expanded", "true");
+      trackEvent("ai_assistant_open");
+      closeBtn.focus();
+    }
+    function closePanel() {
+      panel.hidden = true;
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.focus();
+    }
+
+    toggle.addEventListener("click", function () {
+      if (panel.hidden) openPanel(); else closePanel();
+    });
+    closeBtn.addEventListener("click", closePanel);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !panel.hidden) closePanel();
+    });
+
+    renderQuickReplies();
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     applyConfig();
     wireTracking();
     wireReveal();
     wireForm();
+    wireAssistant();
   });
 })();
