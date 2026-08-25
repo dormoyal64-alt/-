@@ -30,8 +30,8 @@
   --space-1: 0.5rem;
   --space-2: 1rem;
   --space-3: 1.5rem;
-  --space-4: 2.5rem;
-  --space-5: 4rem;
+  --space-4: 2rem;
+  --space-5: 2.75rem;
   font-size: 16px;
 }
 
@@ -429,7 +429,6 @@ h2.section-title {
 .step__text { color: var(--muted); font-size: 0.94rem; }
 
 /* ---------------- WhatsApp mock ---------------- */
-.wa-section { background: linear-gradient(180deg, var(--offwhite), var(--white)); }
 .wa-mock {
   max-width: 30rem;
   margin: var(--space-4) auto 0;
@@ -456,8 +455,6 @@ h2.section-title {
   background: #d9fdd3;
   border-top-left-radius: 3px;
 }
-.wa-section .btn { margin: 1.4rem auto 0; }
-.wa-section .cta-row { justify-content: center; }
 
 /* ---------------- Service area ---------------- */
 .areas-list {
@@ -738,83 +735,6 @@ h2.section-title {
   margin-top: 0.55rem;
 }
 .assistant-panel__footer-actions .btn { flex: 1; padding: 0.55rem 0.5rem; font-size: 0.82rem; }
-
-/* ---------------- Gallery illustrations ---------------- */
-.gallery-card {
-  margin: 0;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.gallery-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
-.gallery-card__art { width: 100%; height: auto; display: block; }
-.gallery-card figcaption { padding: 1.1rem 1.25rem 1.3rem; }
-
-/* ---------------- Gallery animations ---------------- */
-.anim-clog { transform-origin: 82px 60px; animation: clog-pulse 2.4s ease-in-out infinite; }
-@keyframes clog-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
-
-.anim-drip { animation: drip-pulse 1.6s ease-in-out infinite; }
-@keyframes drip-pulse { 0%, 100% { opacity: .9; } 50% { opacity: .2; } }
-
-.anim-tool { animation: tool-slide 2.2s ease-in-out infinite; }
-@keyframes tool-slide { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-18px); } }
-
-.anim-flow { stroke-dasharray: 6 6; opacity: .6; animation: flow-dash 1.2s linear infinite; }
-@keyframes flow-dash { to { stroke-dashoffset: -24; } }
-
-@media (prefers-reduced-motion: reduce) {
-  .anim-clog, .anim-drip, .anim-tool, .anim-flow { animation: none !important; }
-}
-
-/* ---------------- Animated service explainer (replaces static video) ---------------- */
-.video-anim {
-  margin-top: var(--space-3);
-  max-width: 40rem;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: var(--shadow-lg);
-  background: var(--navy-900);
-}
-.video-anim__stage { display: block; width: 100%; height: auto; }
-.video-anim__caption {
-  background: rgba(7, 26, 51, 0.92);
-  color: var(--white);
-  padding: 0.85rem 1.1rem;
-  font-size: 0.92rem;
-  font-weight: 700;
-  text-align: center;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-}
-.video-anim__note {
-  margin-top: 0.7rem;
-  font-size: 0.82rem;
-  color: var(--muted);
-}
-
-.va-truck { animation: va-drive-in 2.2s cubic-bezier(.22,.8,.32,1) forwards; }
-@keyframes va-drive-in { from { transform: translateX(150px); } to { transform: translateX(0); } }
-
-.va-clog { animation: va-dissolve 1s ease-in forwards; animation-delay: 2.1s; }
-@keyframes va-dissolve { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(.3); } }
-
-.va-flow { opacity: 0; stroke-dasharray: 10 8; animation: va-flow-in .6s forwards 3s, va-flow-dash 1.3s linear infinite 3s; }
-@keyframes va-flow-in { to { opacity: 1; } }
-@keyframes va-flow-dash { to { stroke-dashoffset: -36; } }
-
-.va-hose { stroke-dasharray: 140; stroke-dashoffset: 140; animation: va-hose-draw 1s ease-out forwards; animation-delay: 1.9s; }
-@keyframes va-hose-draw { to { stroke-dashoffset: 0; } }
-
-@media (prefers-reduced-motion: reduce) {
-  .va-truck { animation: none; transform: none; }
-  .va-clog { animation: none; opacity: 0; }
-  .va-flow { animation: none; opacity: 1; stroke-dashoffset: 0; }
-  .va-hose { animation: none; stroke-dashoffset: 0; }
-}
 
 /* ---------------- Reviews quote mark ---------------- */
 .review-card { position: relative; }
