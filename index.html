@@ -103,6 +103,12 @@
 -->
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="icon-whatsapp" viewBox="0 0 32 32">
+    <path fill="currentColor" d="M16 3C9.1 3 3.5 8.6 3.5 15.5c0 2.4.7 4.7 1.9 6.7L3 29l7-2.3c1.9 1 4 1.6 6 1.6 6.9 0 12.5-5.6 12.5-12.5S22.9 3 16 3zm0 22.7c-1.9 0-3.7-.5-5.3-1.4l-.4-.2-4.2 1.4 1.4-4.1-.2-.4c-1-1.6-1.5-3.5-1.5-5.5 0-5.8 4.7-10.5 10.5-10.5S26.5 9.7 26.5 15.5 21.8 25.7 16 25.7z"/>
+    <path fill="currentColor" d="M21.4 18.3c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.1-.7.1-.2.3-.8.9-.9 1.1-.2.2-.3.2-.6.1-.3-.1-1.2-.4-2.2-1.4-.8-.7-1.4-1.6-1.5-1.9-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5 0-.1-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3 4.7 4.2.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.5-.1 1.7-.7 2-1.4.2-.6.2-1.1.2-1.3-.1-.1-.3-.2-.6-.3z"/>
+  </symbol>
+</svg>
 <a class="skip-link" href="#main">דלגו לתוכן הראשי</a>
 
 <header class="site-header">
@@ -112,7 +118,7 @@
       <span data-role="business-name">ביובית בדרום</span>
     </div>
     <nav class="header-actions" aria-label="יצירת קשר מהירה">
-      <a class="btn btn--outline" data-role="whatsapp-link" data-wa-text="היי, אשמח לקבל פרטים לגבי שירות פתיחת סתימת ביוב" data-track="whatsapp_click" href="#contact-form">💬 WhatsApp</a>
+      <a class="btn btn--outline" data-role="whatsapp-link" data-wa-text="היי, אשמח לקבל פרטים לגבי שירות פתיחת סתימת ביוב" data-track="whatsapp_click" href="#contact-form"><svg class="icon-wa" aria-hidden="true"><use href="#icon-whatsapp"></use></svg> WhatsApp</a>
       <a class="btn btn--call" data-role="phone-link" data-track="phone_click" href="#contact-form">📞 התקשרו עכשיו</a>
     </nav>
   </div>
@@ -135,7 +141,7 @@
         </ul>
         <div class="cta-row">
           <a class="btn btn--call btn--lg" data-role="phone-link" data-track="hero_cta_click" href="#contact-form">📞 התקשרו עכשיו</a>
-          <a class="btn btn--whatsapp btn--lg" data-role="whatsapp-link" data-wa-text="היי, הביוב אצלי סתום והמים מתחילים לעלות. אפשר לקבל שירות?" data-track="hero_cta_click" href="#contact-form">💬 שלחו WhatsApp</a>
+          <a class="btn btn--whatsapp btn--lg" data-role="whatsapp-link" data-wa-text="היי, הביוב אצלי סתום והמים מתחילים לעלות. אפשר לקבל שירות?" data-track="hero_cta_click" href="#contact-form"><svg class="icon-wa" aria-hidden="true"><use href="#icon-whatsapp"></use></svg> שלחו WhatsApp</a>
         </div>
       </div>
       <div class="reveal" style="transition-delay:.1s">
@@ -219,14 +225,16 @@
       <div class="cards-grid cards-grid--3">
         <figure class="gallery-card reveal">
           <svg class="gallery-card__art" viewBox="0 0 160 120" role="img" aria-labelledby="g1t">
-            <title id="g1t">חתך של קו ביוב סתום</title>
+            <title id="g1t">חתך של קו ביוב סתום (אנימציה להמחשה)</title>
             <rect width="160" height="120" fill="var(--navy-800)"/>
             <rect x="20" y="52" width="120" height="16" rx="8" fill="var(--navy-700)"/>
-            <circle cx="82" cy="60" r="9" fill="#5a3a1a"/>
-            <circle cx="90" cy="55" r="6" fill="#5a3a1a"/>
-            <circle cx="76" cy="66" r="5" fill="#5a3a1a"/>
+            <g class="anim-clog">
+              <circle cx="82" cy="60" r="9" fill="#5a3a1a"/>
+              <circle cx="90" cy="55" r="6" fill="#5a3a1a"/>
+              <circle cx="76" cy="66" r="5" fill="#5a3a1a"/>
+            </g>
             <path d="M20 60 h30" stroke="var(--cyan-400)" stroke-width="4" stroke-linecap="round"/>
-            <path d="M110 60 h10" stroke="var(--cyan-400)" stroke-width="4" stroke-linecap="round" opacity=".4"/>
+            <path class="anim-drip" d="M110 60 h10" stroke="var(--cyan-400)" stroke-width="4" stroke-linecap="round"/>
           </svg>
           <figcaption>
             <h3 class="card__title">איתור החסימה</h3>
@@ -235,11 +243,13 @@
         </figure>
         <figure class="gallery-card reveal">
           <svg class="gallery-card__art" viewBox="0 0 160 120" role="img" aria-labelledby="g2t">
-            <title id="g2t">כלי לשחרור סתימות</title>
+            <title id="g2t">כלי לשחרור סתימות (אנימציה להמחשה)</title>
             <rect width="160" height="120" fill="var(--navy-800)"/>
             <rect x="24" y="56" width="90" height="10" rx="5" fill="var(--navy-700)"/>
-            <path d="M114 61 l26 -14 v28 z" fill="var(--cyan-400)"/>
-            <circle cx="34" cy="61" r="6" fill="var(--cyan-100)"/>
+            <g class="anim-tool">
+              <path d="M114 61 l26 -14 v28 z" fill="var(--cyan-400)"/>
+              <circle cx="34" cy="61" r="6" fill="var(--cyan-100)"/>
+            </g>
           </svg>
           <figcaption>
             <h3 class="card__title">שחרור מקצועי</h3>
@@ -248,11 +258,11 @@
         </figure>
         <figure class="gallery-card reveal">
           <svg class="gallery-card__art" viewBox="0 0 160 120" role="img" aria-labelledby="g3t">
-            <title id="g3t">קו ביוב פתוח וזורם</title>
+            <title id="g3t">קו ביוב פתוח וזורם (אנימציה להמחשה)</title>
             <rect width="160" height="120" fill="var(--navy-800)"/>
             <rect x="20" y="52" width="120" height="16" rx="8" fill="var(--navy-700)"/>
             <path d="M22 60 h116" stroke="var(--cyan-400)" stroke-width="6" stroke-linecap="round"/>
-            <path d="M40 60 q6 -8 12 0 t12 0 t12 0 t12 0 t12 0 t12 0" stroke="var(--cyan-100)" stroke-width="2" fill="none" opacity=".6"/>
+            <path class="anim-flow" d="M40 60 q6 -8 12 0 t12 0 t12 0 t12 0 t12 0 t12 0" stroke="var(--cyan-100)" stroke-width="2" fill="none"/>
           </svg>
           <figcaption>
             <h3 class="card__title">זרימה תקינה</h3>
@@ -371,7 +381,7 @@
         <div class="wa-bubble wa-bubble--out">בטח. שלחו לנו תמונה / סרטון קצר ותיאור של הבעיה וננסה להבין איך אפשר לעזור.</div>
       </div>
       <div class="cta-row reveal">
-        <a class="btn btn--whatsapp btn--lg" data-role="whatsapp-link" data-wa-text="היי, הביוב אצלי סתום והמים מתחילים לעלות. אפשר לקבל שירות?" data-track="whatsapp_click" href="#contact-form">💬 שלחו תמונה ב-WhatsApp</a>
+        <a class="btn btn--whatsapp btn--lg" data-role="whatsapp-link" data-wa-text="היי, הביוב אצלי סתום והמים מתחילים לעלות. אפשר לקבל שירות?" data-track="whatsapp_click" href="#contact-form"><svg class="icon-wa" aria-hidden="true"><use href="#icon-whatsapp"></use></svg> שלחו תמונה ב-WhatsApp</a>
       </div>
     </div>
   </section>
@@ -380,9 +390,22 @@
   <section class="section section--offwhite" id="service-area">
     <div class="container">
       <span class="eyebrow reveal">אזור שירות</span>
-      <h2 class="section-title reveal">ביובית בדרום – שחרור סתימות ביוב באזור הדרום</h2>
-      <ul class="areas-list reveal" data-role="areas-list" hidden></ul>
-      <p class="areas-fallback reveal" data-role="areas-fallback">שירות באזור באר שבע והדרום – צרו קשר כדי לבדוק זמינות באזור שלכם.</p>
+      <h2 class="section-title reveal">ביובית בדרום – מגיעים לכל אזור הדרום</h2>
+      <p class="section-lead reveal">מבאר שבע ועד אילת, מהחוף ועד רמת הנגב — אנחנו מגיעים לכל חלק בדרום.</p>
+      <div class="area-layout">
+        <div class="area-map reveal">
+          <iframe
+            src="https://maps.google.com/maps?q=%D7%91%D7%90%D7%A8+%D7%A9%D7%91%D7%A2%2C+%D7%99%D7%A9%D7%A8%D7%90%D7%9C&z=9&output=embed"
+            title="מפת אזור השירות של ביובית בדרום"
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+            aria-label="מפה של אזור השירות באר שבע והדרום"></iframe>
+        </div>
+        <div class="area-list-wrap reveal">
+          <ul class="areas-list" data-role="areas-list" hidden></ul>
+          <p class="areas-fallback" data-role="areas-fallback">שירות באזור באר שבע והדרום – צרו קשר כדי לבדוק זמינות באזור שלכם.</p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -391,11 +414,31 @@
     <div class="container">
       <span class="eyebrow reveal">וידאו שירות</span>
       <h2 class="section-title reveal">רוצים לראות איך זה עובד?</h2>
-      <p class="section-lead reveal">כאן יוצג סרטון אמיתי של הביובית מגיעה לקריאה ומשחררת סתימה בשטח — כולל הכיתוב על הרכב. הסרטון יועלה ברגע שיתקבל מבעל העסק.</p>
-      <div class="video-placeholder reveal">
-        <div class="video-placeholder__play" aria-hidden="true">▶</div>
-        <p><strong>וידאו שירות בשטח</strong><br>ממתין להעלאה — עדיין לא סופק סרטון אמיתי.</p>
+      <p class="section-lead reveal">אנימציה להמחשת התהליך: הביובית מגיעה, משחררת את הסתימה והזרימה חוזרת לתקן. זו אינה צילום אמיתי — נחליף אותה בסרטון אמיתי ברגע שנקבל אחד מבעל העסק.</p>
+      <div class="video-anim reveal">
+        <svg class="video-anim__stage" viewBox="0 0 400 220" role="img" aria-labelledby="vat">
+          <title id="vat">אנימציה: ביובית מגיעה ומשחררת סתימת ביוב (לא צילום אמיתי)</title>
+          <rect width="400" height="220" fill="var(--navy-900)"/>
+          <rect x="0" y="150" width="400" height="26" fill="var(--navy-700)"/>
+          <circle cx="150" cy="150" r="15" fill="var(--navy-900)" stroke="var(--cyan-400)" stroke-width="3"/>
+          <g class="va-clog">
+            <circle cx="148" cy="152" r="7" fill="#5a3a1a"/>
+            <circle cx="156" cy="148" r="5" fill="#5a3a1a"/>
+            <circle cx="144" cy="146" r="4" fill="#5a3a1a"/>
+          </g>
+          <path class="va-flow" d="M10 163 H390" stroke="var(--cyan-400)" stroke-width="4" stroke-linecap="round"/>
+          <g class="va-truck">
+            <path class="va-hose" d="M236 122 Q195 140 166 148" stroke="var(--cyan-400)" stroke-width="4" fill="none" stroke-linecap="round"/>
+            <rect x="236" y="88" width="98" height="42" rx="8" fill="var(--cyan-500)"/>
+            <rect x="200" y="104" width="42" height="34" rx="6" fill="var(--navy-700)"/>
+            <rect x="206" y="110" width="16" height="12" rx="2" fill="var(--cyan-100)"/>
+            <circle cx="222" cy="140" r="11" fill="#0d1b2f"/>
+            <circle cx="316" cy="140" r="11" fill="#0d1b2f"/>
+          </g>
+        </svg>
+        <p class="video-anim__caption">🚚 ביובית בדרום — שירות לכל אזור הדרום | להזמנות: 052-8893809</p>
       </div>
+      <p class="video-anim__note">* אנימציית וקטור מקורית שיצרנו להמחשה בלבד — אינה צילום אמיתי של רכב או צוות.</p>
     </div>
   </section>
 
@@ -494,7 +537,7 @@
       <p class="reveal">דברו איתנו עכשיו וקבלו מענה מהיר באזור הדרום.</p>
       <div class="cta-row reveal">
         <a class="btn btn--call btn--lg" data-role="phone-link" data-track="phone_click" href="#contact-form">📞 התקשרו עכשיו</a>
-        <a class="btn btn--whatsapp btn--lg" data-role="whatsapp-link" data-wa-text="היי, יש לי סתימת ביוב ואני צריך עזרה" data-track="whatsapp_click" href="#contact-form">💬 WhatsApp</a>
+        <a class="btn btn--whatsapp btn--lg" data-role="whatsapp-link" data-wa-text="היי, יש לי סתימת ביוב ואני צריך עזרה" data-track="whatsapp_click" href="#contact-form"><svg class="icon-wa" aria-hidden="true"><use href="#icon-whatsapp"></use></svg> WhatsApp</a>
       </div>
       <p class="final-cta__strip reveal">זמינות גבוהה • החל מ-₪499 • שירות מקצועי</p>
     </div>
@@ -512,7 +555,7 @@
       </div>
       <div>
         <p><a data-role="phone-link" data-track="phone_click" href="#contact-form">📞 <span data-role="phone-display">התקשרו עכשיו</span></a></p>
-        <p><a data-role="whatsapp-link" data-track="whatsapp_click" href="#contact-form">💬 WhatsApp</a></p>
+        <p><a data-role="whatsapp-link" data-track="whatsapp_click" href="#contact-form"><svg class="icon-wa" aria-hidden="true"><use href="#icon-whatsapp"></use></svg> WhatsApp</a></p>
       </div>
     </div>
     <hr>
@@ -531,7 +574,7 @@
     <span class="visually-hidden">התקשרו עכשיו</span>
   </a>
   <a class="floating-cta__btn floating-cta__btn--whatsapp" data-role="whatsapp-link" data-track="whatsapp_click" href="#contact-form">
-    <span aria-hidden="true">🟢</span>
+    <span aria-hidden="true"><svg class="icon-wa" aria-hidden="true"><use href="#icon-whatsapp"></use></svg></span>
     <span class="visually-hidden">שלחו WhatsApp</span>
   </a>
 </nav>
@@ -550,7 +593,7 @@
     <span>מעדיפים לדבר עם בן אדם?</span>
     <div class="assistant-panel__footer-actions">
       <a class="btn btn--call" data-role="phone-link" data-track="phone_click" href="#contact-form">📞 התקשרו</a>
-      <a class="btn btn--whatsapp" data-role="whatsapp-link" data-track="whatsapp_click" href="#contact-form">💬 WhatsApp</a>
+      <a class="btn btn--whatsapp" data-role="whatsapp-link" data-track="whatsapp_click" href="#contact-form"><svg class="icon-wa" aria-hidden="true"><use href="#icon-whatsapp"></use></svg> WhatsApp</a>
     </div>
   </div>
 </div>

@@ -135,6 +135,8 @@ h2.section-title {
 }
 .btn--whatsapp:hover { background: var(--whatsapp-dark); }
 
+.icon-wa { width: 1.05em; height: 1.05em; vertical-align: -0.15em; color: currentColor; }
+
 .btn--outline {
   background: transparent;
   color: var(--white);
@@ -474,6 +476,27 @@ h2.section-title {
 }
 .areas-fallback { margin-top: var(--space-2); color: var(--muted); }
 
+/* ---------------- Service area: map + list layout ---------------- */
+.area-layout {
+  margin-top: var(--space-4);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (min-width: 860px) {
+  .area-layout { grid-template-columns: 1.1fr 0.9fr; }
+}
+.area-map {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border);
+  aspect-ratio: 4 / 3;
+}
+.area-map iframe { width: 100%; height: 100%; border: 0; display: block; }
+.area-list-wrap .areas-list { margin-top: 0; }
+
 /* ---------------- Reviews ---------------- */
 .reviews-grid {
   margin-top: var(--space-4);
@@ -730,34 +753,67 @@ h2.section-title {
 .gallery-card__art { width: 100%; height: auto; display: block; }
 .gallery-card figcaption { padding: 1.1rem 1.25rem 1.3rem; }
 
-/* ---------------- Video placeholder ---------------- */
-.video-placeholder {
+/* ---------------- Gallery animations ---------------- */
+.anim-clog { transform-origin: 82px 60px; animation: clog-pulse 2.4s ease-in-out infinite; }
+@keyframes clog-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+
+.anim-drip { animation: drip-pulse 1.6s ease-in-out infinite; }
+@keyframes drip-pulse { 0%, 100% { opacity: .9; } 50% { opacity: .2; } }
+
+.anim-tool { animation: tool-slide 2.2s ease-in-out infinite; }
+@keyframes tool-slide { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-18px); } }
+
+.anim-flow { stroke-dasharray: 6 6; opacity: .6; animation: flow-dash 1.2s linear infinite; }
+@keyframes flow-dash { to { stroke-dashoffset: -24; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-clog, .anim-drip, .anim-tool, .anim-flow { animation: none !important; }
+}
+
+/* ---------------- Animated service explainer (replaces static video) ---------------- */
+.video-anim {
   margin-top: var(--space-3);
   max-width: 40rem;
-  aspect-ratio: 16 / 9;
   border-radius: var(--radius-lg);
-  background: linear-gradient(160deg, var(--navy-700), var(--navy-900));
-  border: 1.5px dashed rgba(255, 255, 255, 0.35);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.9rem;
-  color: #dfeaf6;
-  text-align: center;
-  padding: 1.5rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow-lg);
+  background: var(--navy-900);
 }
-.video-placeholder__play {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1.5px solid rgba(255, 255, 255, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.4rem;
+.video-anim__stage { display: block; width: 100%; height: auto; }
+.video-anim__caption {
+  background: rgba(7, 26, 51, 0.92);
   color: var(--white);
+  padding: 0.85rem 1.1rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+.video-anim__note {
+  margin-top: 0.7rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.va-truck { animation: va-drive-in 2.2s cubic-bezier(.22,.8,.32,1) forwards; }
+@keyframes va-drive-in { from { transform: translateX(150px); } to { transform: translateX(0); } }
+
+.va-clog { animation: va-dissolve 1s ease-in forwards; animation-delay: 2.1s; }
+@keyframes va-dissolve { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(.3); } }
+
+.va-flow { opacity: 0; stroke-dasharray: 10 8; animation: va-flow-in .6s forwards 3s, va-flow-dash 1.3s linear infinite 3s; }
+@keyframes va-flow-in { to { opacity: 1; } }
+@keyframes va-flow-dash { to { stroke-dashoffset: -36; } }
+
+.va-hose { stroke-dasharray: 140; stroke-dashoffset: 140; animation: va-hose-draw 1s ease-out forwards; animation-delay: 1.9s; }
+@keyframes va-hose-draw { to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .va-truck { animation: none; transform: none; }
+  .va-clog { animation: none; opacity: 0; }
+  .va-flow { animation: none; opacity: 1; stroke-dashoffset: 0; }
+  .va-hose { animation: none; stroke-dashoffset: 0; }
 }
 
 /* ---------------- Reviews quote mark ---------------- */
