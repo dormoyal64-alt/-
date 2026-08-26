@@ -52,11 +52,13 @@ window.SITE_CONFIG = {
   // ============================================================
   tracking: {
     ga4MeasurementId: "", // "G-XXXXXXXXXX"
-    googleAdsConversionId: "", // "AW-XXXXXXXXX"
+    googleAdsConversionId: "AW-18404266699
+", 
     googleAdsConversionLabels: {
       phone_click: "", // "AW-XXXXXXXXX/xxxxxxxxxxxxxxxxxxxx"
       whatsapp_click: "",
-      form_submit: "",
+      form_submit: "AW-18404266699/PTJbCNGHougcEMul68dE
+",
       hero_cta_click: ""
     },
     metaPixelId: "" // "XXXXXXXXXXXXXXX"
