@@ -56,8 +56,7 @@ window.SITE_CONFIG = {
     googleAdsConversionLabels: {
       phone_click: "", // "AW-XXXXXXXXX/xxxxxxxxxxxxxxxxxxxx"
       whatsapp_click: "",
-      form_submit: "AW-18404266699/PTJbCNGHougcEMul68dE
-",
+      form_submit: "AW-18404266699/PTJbCNGHougcEMul68dE",
       hero_cta_click: ""
     },
     metaPixelId: "" // "XXXXXXXXXXXXXXX"
