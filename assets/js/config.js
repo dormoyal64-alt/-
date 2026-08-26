@@ -52,8 +52,7 @@ window.SITE_CONFIG = {
   // ============================================================
   tracking: {
     ga4MeasurementId: "", // "G-XXXXXXXXXX"
-    googleAdsConversionId: "AW-18404266699
-", 
+    googleAdsConversionId: "AW-18404266699", 
     googleAdsConversionLabels: {
       phone_click: "", // "AW-XXXXXXXXX/xxxxxxxxxxxxxxxxxxxx"
       whatsapp_click: "",
