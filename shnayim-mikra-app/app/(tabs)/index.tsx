@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/ScreenContainer';
+import { Dedication } from '@/components/Dedication';
 import { Card } from '@/components/Card';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { useApp } from '@/hooks/AppProvider';
@@ -56,6 +57,7 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer>
+      <Dedication />
       <Text style={[styles.greeting, { color: colors.text }]}>
         שלום, היום יום {dayInfo.gregorianWeekdayHe}, {dayInfo.hebrew.displayHe}
       </Text>

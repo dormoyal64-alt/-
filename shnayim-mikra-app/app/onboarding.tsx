@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/ScreenContainer';
+import { Dedication } from '@/components/Dedication';
 import { OptionPicker } from '@/components/OptionPicker';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { useApp } from '@/hooks/AppProvider';
@@ -33,6 +34,7 @@ export default function OnboardingScreen() {
     <ScreenContainer>
       {step === 0 && (
         <View style={styles.centerStep}>
+          <Dedication />
           <Text style={[styles.welcome, { color: colors.primary }]}>ברוך הבא</Text>
           <Text style={[styles.tagline, { color: colors.text }]}>
             שניים מקרא ואחד תרגום, יום אחרי יום.
