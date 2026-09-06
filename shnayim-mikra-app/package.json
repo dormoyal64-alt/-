@@ -1,0 +1,64 @@
+{
+  "name": "shnayim-mikra-app",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "dependencies": {
+    "@expo-google-fonts/frank-ruhl-libre": "^0.4.1",
+    "@expo-google-fonts/heebo": "^0.4.2",
+    "@hebcal/core": "^6.9.2",
+    "@hebcal/leyning": "^10.0.0",
+    "@react-native-async-storage/async-storage": "^3.1.1",
+    "date-fns": "^4.4.0",
+    "expo": "~57.0.20",
+    "expo-application": "^57.0.2",
+    "expo-constants": "^18.0.14",
+    "expo-font": "^57.0.3",
+    "expo-haptics": "^57.0.2",
+    "expo-linking": "^8.0.12",
+    "expo-localization": "^57.0.1",
+    "expo-notifications": "^57.0.17",
+    "expo-router": "~6.0.13",
+    "expo-splash-screen": "^57.0.8",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "^57.0.3",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-gesture-handler": "^3.2.1",
+    "react-native-reanimated": "^4.6.0",
+    "react-native-safe-area-context": "^5.9.1",
+    "react-native-screens": "^4.27.0",
+    "react-native-worklets": "^0.12.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/react": "~19.2.2",
+    "babel-preset-expo": "^57.0.10",
+    "jest": "^30.5.1",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "private": true,
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {
+      "^.+\\.(t|j)sx?$": "babel-jest"
+    },
+    "transformIgnorePatterns": [],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1",
+      "^@hebcal/core$": "<rootDir>/node_modules/@hebcal/core/dist/esm/index.js"
+    },
+    "collectCoverageFrom": [
+      "src/services/calendar/**/*.ts",
+      "src/services/streak/**/*.ts"
+    ]
+  }
+}
