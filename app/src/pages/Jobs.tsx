@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useCollection } from '../lib/useCollection';
+import { useAddressSuggestions } from '../lib/useAddressSuggestions';
 import {
   buildJobWhatsAppMessage,
   calcJobBalance,
@@ -309,6 +310,16 @@ function JobFormModal({
     return () => clearTimeout(timer);
   }, [customerAddress]);
 
+  const [addressFocused, setAddressFocused] = useState(false);
+  const { suggestions, loading: suggestionsLoading } = useAddressSuggestions(customerAddress, selectedCityName);
+  const showSuggestions = addressFocused && customerAddress.trim().length >= 3 && (suggestions.length > 0 || suggestionsLoading);
+
+  function selectAddressSuggestion(label: string) {
+    setCustomerAddress(label);
+    setMapAddress(label);
+    setAddressFocused(false);
+  }
+
   function sendToContractorOnWhatsApp() {
     if (!selectedContractor) return;
     const message = buildJobWhatsAppMessage({
@@ -388,9 +399,40 @@ function JobFormModal({
           </Field>
         </div>
 
-        <Field label="כתובת הלקוח">
-          <Input value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} placeholder="רחוב, מספר בית" />
+        <Field label="כתובת הלקוח" hint="מתחילים להקליד ובוחרים מהרשימה כדי לוודא שהכתובת קיימת">
+          <div className="relative">
+            <Input
+              value={customerAddress}
+              onChange={(e) => setCustomerAddress(e.target.value)}
+              onFocus={() => setAddressFocused(true)}
+              onBlur={() => setTimeout(() => setAddressFocused(false), 150)}
+              placeholder="רחוב, מספר בית"
+              autoComplete="off"
+            />
+            {showSuggestions && (
+              <div className="absolute inset-x-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-border bg-surface shadow-lg">
+                {suggestionsLoading && suggestions.length === 0 ? (
+                  <p className="px-3.5 py-2.5 text-sm text-ink-muted">מחפש כתובות…</p>
+                ) : suggestions.length === 0 ? (
+                  <p className="px-3.5 py-2.5 text-sm text-ink-muted">לא נמצאו כתובות תואמות</p>
+                ) : (
+                  suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectAddressSuggestion(s.label)}
+                      className="block w-full px-3.5 py-2.5 text-right text-sm text-ink hover:bg-surface-muted"
+                    >
+                      {s.label}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </Field>
+        <p className="-mt-2.5 text-xs text-ink-muted">חיפוש הכתובות מבוסס על נתוני OpenStreetMap</p>
 
         {mapAddress.trim() && (
           <div className="overflow-hidden rounded-xl border border-border">

@@ -103,7 +103,10 @@ export function whatsAppLink(phone: string, message: string): string {
 
 /** Address query used for both the live map preview and the "open in Google Maps" link. */
 export function addressQuery(address: string, cityName: string): string {
-  return [address.trim(), cityName.trim()].filter(Boolean).join(', ');
+  const a = address.trim();
+  const c = cityName.trim();
+  if (!c || (a && a.includes(c))) return a;
+  return [a, c].filter(Boolean).join(', ');
 }
 
 export function mapEmbedUrl(address: string, cityName: string): string {
