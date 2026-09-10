@@ -101,6 +101,11 @@ export function EditJobModal({
               setAddressQuery(r.displayName);
             }}
             cityHint={job.city?.name}
+            selected={addressResult}
+            onClear={() => {
+              setAddressResult(null);
+              setAddressQuery("");
+            }}
           />
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

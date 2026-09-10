@@ -36,6 +36,23 @@ export function buildNewJobWhatsappMessage(job: JobWithRelations): string {
   return lines.join("\n");
 }
 
+const DEFAULT_ON_THE_WAY =
+  "שלום {customer}, {technician} כבר בדרך אליך 🚚\nנא להיות זמין/ה לקבלת השירות.\nתודה!";
+
+// Tells the customer the tradesperson is on the way, in the wording that fits
+// this profession ("טכנאי האינסטלציה" / "החשמלאי" / "המנעולן"...).
+export function buildOnTheWayMessage(job: JobWithRelations, template?: string | null): string {
+  const technician = job.profession?.technician_label?.trim() || "הטכנאי";
+  const body = (template && template.trim()) || DEFAULT_ON_THE_WAY;
+  const filled = body
+    .replace(/\{technician\}/g, technician)
+    .replace(/\{customer\}/g, job.customer_name)
+    .replace(/\{address\}/g, job.address_full ?? job.city?.name ?? "");
+  // only append the address when the template did not already place it
+  if (!/\{address\}/.test(body) && job.address_full) return filled + "\nכתובת: " + job.address_full;
+  return filled;
+}
+
 export function buildCallLink(phone: string | null | undefined): string | null {
   if (!phone) return null;
   return `tel:${phone.replace(/[^\d+]/g, "")}`;

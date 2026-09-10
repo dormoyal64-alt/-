@@ -14,7 +14,7 @@ import { ContractorForm } from "@/components/contractors/ContractorForm";
 import { updateContractor } from "@/lib/api/contractors";
 import { formatAgorot, formatPercent } from "@/lib/money";
 import { buildCallLink, buildWhatsappLink } from "@/lib/whatsapp";
-import { formatDateHe } from "@/lib/dates";
+import { formatDateHe, formatMinutesHe } from "@/lib/dates";
 import { StatusBadge } from "@/components/ui/Badge";
 import Link from "next/link";
 import type { ContractorStatsRow, ContractorWithRelations, JobWithRelations } from "@/lib/types";
@@ -134,6 +134,8 @@ export default function ContractorDetailPage() {
               value={formatAgorot(stats?.business_owes_contractor_agorot ?? 0)}
               tone={stats?.business_owes_contractor_agorot ? "warning" : undefined}
             />
+            <MiniStat label="זמן ביצוע ממוצע" value={formatMinutesHe(stats?.avg_close_minutes)} />
+            <MiniStat label="מחיר ממוצע לעבודה" value={formatAgorot(stats?.avg_price_agorot ?? 0)} />
           </div>
 
           <Card>

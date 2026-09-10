@@ -12,6 +12,9 @@ create extension if not exists "pgcrypto";
 create table professions (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
+  -- how the customer should hear about the tradesperson:
+  -- "טכנאי האינסטלציה כבר בדרך אליך"
+  technician_label text not null default 'הטכנאי',
   is_active boolean not null default true,
   sort_order int not null default 0,
   created_at timestamptz not null default now(),
@@ -198,6 +201,21 @@ create table notifications (
   created_at timestamptz not null default now()
 );
 
+-- Single-row table holding business-wide preferences.
+create table app_settings (
+  id boolean primary key default true check (id),
+  -- minutes after a job opens before it is flagged for a status check
+  reminder_minutes int not null default 120 check (reminder_minutes >= 5),
+  -- message sent to the customer when the tradesperson sets out;
+  -- {technician}, {customer}, {address} are replaced at send time
+  on_the_way_template text not null default
+    'שלום {customer}, {technician} כבר בדרך אליך 🚚' || chr(10) ||
+    'נא להיות זמין/ה לקבלת השירות.' || chr(10) || 'תודה!',
+  updated_at timestamptz not null default now()
+);
+
+insert into app_settings (id) values (true) on conflict (id) do nothing;
+
 create table profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
@@ -255,6 +273,8 @@ create trigger trg_contractors_updated before update on contractors
   for each row execute function set_updated_at();
 create trigger trg_jobs_updated before update on jobs
   for each row execute function set_updated_at();
+create trigger trg_app_settings_updated before update on app_settings
+  for each row execute function set_updated_at();
 
 create or replace function set_job_number() returns trigger
 language plpgsql as $$
@@ -277,6 +297,32 @@ begin
   return new;
 end;
 $$;
+
+-- The commission split is money, so the percentage must never depend on the
+-- client remembering to send it. Whenever a job has a contractor but no
+-- percentage, fill it from the per-job-type override, else the contractor's
+-- default rate.
+create or replace function set_job_commission_pct() returns trigger
+language plpgsql as $$
+begin
+  if new.contractor_id is not null and new.commission_pct is null then
+    select coalesce(
+             (select cjt.commission_pct
+                from contractor_job_types cjt
+               where cjt.contractor_id = new.contractor_id
+                 and cjt.job_type_id = new.job_type_id),
+             c.default_commission_pct)
+      into new.commission_pct
+      from contractors c
+     where c.id = new.contractor_id;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger trg_jobs_commission
+  before insert or update of contractor_id, commission_pct, job_type_id on jobs
+  for each row execute function set_job_commission_pct();
 
 create trigger trg_jobs_status_history_insert after insert on jobs
   for each row execute function log_job_status_insert();
@@ -636,7 +682,7 @@ begin
     select unnest(array[
       'professions','job_types','cities','payment_methods','lead_sources','job_statuses',
       'contractors','contractor_professions','contractor_cities','contractor_job_types',
-      'settlements','jobs','job_status_history','notifications','profiles'
+      'settlements','jobs','job_status_history','notifications','profiles','app_settings'
     ])
   loop
     execute format('alter table %I enable row level security;', t);

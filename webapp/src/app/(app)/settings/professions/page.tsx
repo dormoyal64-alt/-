@@ -7,6 +7,7 @@ import { useRefData } from "@/lib/refdata";
 import { useToast } from "@/components/ui/Toast";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EditableList } from "@/components/settings/EditableList";
+import { Input } from "@/components/ui/Input";
 
 export default function ProfessionsSettingsPage() {
   const supabase = useMemo(() => createClient(), []);
@@ -28,6 +29,12 @@ export default function ProfessionsSettingsPage() {
   async function toggleProfession(id: string, active: boolean) {
     await supabase.from("professions").update({ is_active: active }).eq("id", id);
     await refresh();
+  }
+
+  async function saveTechnicianLabel(id: string, label: string) {
+    await supabase.from("professions").update({ technician_label: label.trim() || "הטכנאי" }).eq("id", id);
+    await refresh();
+    toast.success("הניסוח ללקוח עודכן");
   }
 
   async function addJobType(professionId: string, name: string) {
@@ -83,6 +90,25 @@ export default function ProfessionsSettingsPage() {
               </button>
               {isOpen && (
                 <CardBody className="pt-0">
+                  <div className="mb-4 rounded-2xl border border-brand-100 bg-brand-50/50 p-3.5">
+                    <p className="mb-2 text-xs font-bold text-ink-500">
+                      איך הלקוח ישמע על בעל המקצוע בהודעת ״בדרך אליך״
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="text-ink-500">שלום ישראל,</span>
+                      <Input
+                        defaultValue={profession.technician_label ?? ""}
+                        onBlur={(e) => {
+                          if (e.target.value.trim() !== (profession.technician_label ?? "")) {
+                            saveTechnicianLabel(profession.id, e.target.value);
+                          }
+                        }}
+                        className="w-auto min-w-[170px] max-w-[240px] flex-1 bg-white py-1.5 font-bold text-brand-700"
+                        placeholder="טכנאי האינסטלציה"
+                      />
+                      <span className="text-ink-500">כבר בדרך אליך 🚚</span>
+                    </div>
+                  </div>
                   <EditableList
                     items={types}
                     addPlaceholder="סוג עבודה חדש"

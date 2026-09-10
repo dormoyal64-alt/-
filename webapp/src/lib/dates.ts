@@ -85,6 +85,30 @@ export function last7Days(): Date {
   return subDays(new Date(), 7);
 }
 
+/** How long a job ran / has been running, in words: "3 שע׳ ו-20 דק׳" */
+export function formatDurationHe(fromIso: string, toIso?: string | null): string {
+  const from = new Date(fromIso).getTime();
+  const to = toIso ? new Date(toIso).getTime() : Date.now();
+  const mins = Math.max(0, Math.round((to - from) / 60000));
+  if (mins < 60) return `${mins} דק׳`;
+  const hours = Math.floor(mins / 60);
+  const rest = mins % 60;
+  if (hours < 24) return rest ? `${hours} שע׳ ו-${rest} דק׳` : `${hours} שע׳`;
+  const days = Math.floor(hours / 24);
+  return `${days} ימים`;
+}
+
+/** Same shape, from a raw minute count (used for contractor averages) */
+export function formatMinutesHe(mins: number | null | undefined): string {
+  if (mins == null || isNaN(mins)) return "—";
+  const rounded = Math.round(mins);
+  if (rounded < 60) return `${rounded} דק׳`;
+  const hours = Math.floor(rounded / 60);
+  const rest = rounded % 60;
+  if (hours < 24) return rest ? `${hours} שע׳ ו-${rest} דק׳` : `${hours} שע׳`;
+  return `${Math.floor(hours / 24)} ימים`;
+}
+
 export function customDateRange(fromStr: string, toStr: string): DateRange {
   return { from: startOfDay(new Date(fromStr)), to: endOfDay(new Date(toStr)) };
 }

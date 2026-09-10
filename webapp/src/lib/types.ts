@@ -7,6 +7,8 @@ export type SettlementStatus = "open" | "settled";
 export interface Profession {
   id: string;
   name: string;
+  /** how the customer hears about the tradesperson: "טכנאי האינסטלציה" */
+  technician_label: string;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -158,6 +160,13 @@ export interface AppNotification {
   created_at: string;
 }
 
+export interface AppSettings {
+  id: boolean;
+  reminder_minutes: number;
+  on_the_way_template: string;
+  updated_at: string;
+}
+
 export interface Profile {
   id: string;
   email: string | null;
@@ -169,7 +178,7 @@ export interface Profile {
 // ---- Enriched / joined shapes used across the UI ----
 
 export interface JobWithRelations extends Job {
-  profession: Pick<Profession, "id" | "name"> | null;
+  profession: Pick<Profession, "id" | "name" | "technician_label"> | null;
   job_type: Pick<JobType, "id" | "name"> | null;
   city: Pick<City, "id" | "name"> | null;
   contractor: Pick<Contractor, "id" | "name" | "phone" | "whatsapp"> | null;

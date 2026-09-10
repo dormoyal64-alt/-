@@ -43,11 +43,12 @@ insert into lead_sources (name, sort_order) values
 -- ----------------------------------------------------------------------------
 -- Professions + job types
 -- ----------------------------------------------------------------------------
-insert into professions (name, sort_order) values
-  ('אינסטלציה', 1),
-  ('חשמל', 2),
-  ('מנעולנות', 3),
-  ('מזגנים', 4);
+-- technician_label is what the customer reads: "טכנאי האינסטלציה כבר בדרך אליך"
+insert into professions (name, technician_label, sort_order) values
+  ('אינסטלציה', 'טכנאי האינסטלציה', 1),
+  ('חשמל', 'החשמלאי', 2),
+  ('מנעולנות', 'המנעולן', 3),
+  ('מזגנים', 'טכנאי המזגנים', 4);
 
 insert into job_types (profession_id, name, sort_order)
 select id, jt.name, jt.sort_order

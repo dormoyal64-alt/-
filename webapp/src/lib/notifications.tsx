@@ -4,8 +4,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { createClient } from "@/lib/supabase/client";
 import type { AppNotification } from "@/lib/types";
 
-const STALE_JOB_HOURS = 2;
+const DEFAULT_REMINDER_MINUTES = 120;
 const POLL_INTERVAL_MS = 60_000;
+
+function minutesLabel(mins: number): string {
+  if (mins < 60) return `${mins} דקות`;
+  const hours = mins / 60;
+  return Number.isInteger(hours) ? `${hours} שעות` : `${hours.toFixed(1)} שעות`;
+}
 
 interface NotificationsContextValue {
   notifications: AppNotification[];
@@ -38,7 +44,14 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }, [supabase]);
 
   const checkStaleJobs = useCallback(async () => {
-    const threshold = new Date(Date.now() - STALE_JOB_HOURS * 60 * 60 * 1000).toISOString();
+    // the owner sets how long a job may sit before it needs a status check
+    const { data: settings } = await supabase
+      .from("app_settings")
+      .select("reminder_minutes")
+      .eq("id", true)
+      .maybeSingle();
+    const reminderMinutes: number = settings?.reminder_minutes ?? DEFAULT_REMINDER_MINUTES;
+    const threshold = new Date(Date.now() - reminderMinutes * 60 * 1000).toISOString();
     const { data: staleJobs } = await supabase
       .from("jobs")
       .select("id, job_number, customer_name")
@@ -51,7 +64,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     const rows = staleJobs.map((j) => ({
       job_id: j.id,
       type: "stale_job",
-      message: `עברו ${STALE_JOB_HOURS} שעות מאז פתיחת העבודה ${j.job_number} (${j.customer_name}) והיא עדיין לא נסגרה — יש לבדוק סטטוס.`,
+      message: `עברו ${minutesLabel(reminderMinutes)} מאז פתיחת העבודה ${j.job_number} (${j.customer_name}) והיא עדיין לא נסגרה — יש לבדוק סטטוס.`,
     }));
 
     await supabase.from("notifications").insert(rows);
@@ -66,7 +79,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
       staleJobs.forEach((j) => {
         new Notification("תזכורת עבודה", {
-          body: `עברו ${STALE_JOB_HOURS} שעות מאז פתיחת עבודה ${j.job_number} (${j.customer_name})`,
+          body: `עברו ${minutesLabel(reminderMinutes)} מאז פתיחת עבודה ${j.job_number} (${j.customer_name})`,
           tag: `stale-${j.id}`,
         });
       });

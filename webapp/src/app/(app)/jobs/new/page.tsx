@@ -258,6 +258,11 @@ export default function NewJobPage() {
                 }}
                 onSelect={handleAddressSelect}
                 cityHint={cities.find((c) => c.id === cityId)?.name}
+                selected={addressResult}
+                onClear={() => {
+                  setAddressResult(null);
+                  setAddressQuery("");
+                }}
               />
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

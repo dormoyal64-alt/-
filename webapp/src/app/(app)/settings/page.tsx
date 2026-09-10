@@ -8,7 +8,7 @@ import { useNotifications } from "@/lib/notifications";
 import { useToast } from "@/components/ui/Toast";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Input, Label } from "@/components/ui/Input";
 import { EditableList } from "@/components/settings/EditableList";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
@@ -16,12 +16,23 @@ const STATUS_COLORS = ["#3b82f6", "#6172f3", "#06b6d4", "#8b5cf6", "#f59e0b", "#
 
 export default function SettingsPage() {
   const supabase = useMemo(() => createClient(), []);
-  const { paymentMethods, leadSources, jobStatuses, refresh } = useRefData();
+  const { paymentMethods, leadSources, jobStatuses, settings, refresh } = useRefData();
   const { notificationPermission, requestPermission } = useNotifications();
   const toast = useToast();
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [newStatusName, setNewStatusName] = useState("");
+  const [savingReminder, setSavingReminder] = useState(false);
+
+  async function saveReminderMinutes(minutes: number) {
+    if (!minutes || minutes < 5) return;
+    setSavingReminder(true);
+    const { error } = await supabase.from("app_settings").update({ reminder_minutes: minutes }).eq("id", true);
+    setSavingReminder(false);
+    if (error) return toast.error("שגיאה בשמירת זמן התזכורת");
+    await refresh();
+    toast.success("מעכשיו תישלח תזכורת אחרי " + (minutes < 60 ? minutes + " דקות" : minutes / 60 + " שעות"));
+  }
 
   async function addPaymentMethod(name: string) {
     const { error } = await supabase.from("payment_methods").insert({ name, sort_order: paymentMethods.length });
@@ -67,6 +78,8 @@ export default function SettingsPage() {
     }
   }
 
+  const reminderMinutes = settings?.reminder_minutes ?? 120;
+
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <div>
@@ -76,11 +89,53 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>תזכורת מעקב אחרי עבודה</CardTitle>
+        </CardHeader>
+        <CardBody className="space-y-3">
+          <p className="text-sm text-ink-500">
+            אחרי כמה זמן מפתיחת העבודה לקבל התראה לבדוק מה הסטטוס מול הקבלן?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {[30, 60, 90, 120, 180, 240].map((v) => (
+              <button
+                key={v}
+                onClick={() => saveReminderMinutes(v)}
+                disabled={savingReminder}
+                className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
+                  reminderMinutes === v
+                    ? "border-brand-600 bg-brand-600 text-white"
+                    : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                }`}
+              >
+                {v < 60 ? `${v} דק׳` : v === 60 ? "שעה" : `${v / 60} שעות`}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Label>או זמן מותאם (בדקות)</Label>
+              <Input
+                type="number"
+                min={5}
+                step={5}
+                defaultValue={reminderMinutes}
+                onBlur={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (v >= 5 && v !== reminderMinutes) saveReminderMinutes(v);
+                }}
+              />
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>התראות דפדפן</CardTitle>
         </CardHeader>
         <CardBody className="flex items-center justify-between gap-3">
           <p className="text-sm text-ink-500">
-            קבלו התראה בדפדפן כשעבודה לא נסגרת יותר משעתיים, גם אם המערכת פתוחה ברקע.
+            קבלו התראה בדפדפן כשעבודה חורגת מהזמן שהגדרתם, גם אם המערכת פתוחה ברקע בלבד.
           </p>
           {notificationPermission === "granted" ? (
             <span className="flex shrink-0 items-center gap-1.5 badge bg-success-50 text-success-700">

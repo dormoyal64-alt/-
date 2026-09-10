@@ -84,16 +84,47 @@ export function CloseJobModal({
 
         {closedSuccessfully && (
           <>
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-ink-200 bg-ink-50 px-3.5 py-2.5 text-sm text-ink-500">
+              <span>מחיר שנאמר ללקוח בטלפון</span>
+              <span className="font-bold text-ink-700">
+                {job.quoted_price_agorot ? formatAgorot(job.quoted_price_agorot) : "לא נרשם"}
+              </span>
+            </div>
             <div>
-              <Label required>סכום סופי (₪)</Label>
+              <Label required>כמה העבודה נסגרה בפועל? (₪)</Label>
               <Input
                 type="number"
                 min={0}
+                step={1}
                 value={finalPrice}
                 onChange={(e) => setFinalPrice(e.target.value)}
-                placeholder="850"
+                placeholder="הקלידו את הסכום הסופי"
                 inputMode="decimal"
+                className="border-2 border-brand-500 py-3.5 text-center text-2xl font-extrabold"
               />
+              {job.quoted_price_agorot && finalPriceAgorot > 0 && finalPriceAgorot !== job.quoted_price_agorot ? (
+                <p
+                  className={`mt-1.5 text-center text-xs font-bold ${
+                    finalPriceAgorot > job.quoted_price_agorot ? "text-success-600" : "text-warning-600"
+                  }`}
+                >
+                  {finalPriceAgorot > job.quoted_price_agorot ? "▲ גבוה ב-" : "▼ נמוך ב-"}
+                  {formatAgorot(Math.abs(finalPriceAgorot - job.quoted_price_agorot))} מהמחיר בטלפון
+                </p>
+              ) : (
+                <p className="mt-1.5 text-center text-xs text-ink-400">
+                  אפשר לשנות — החישוב מתעדכן מיד לפי הסכום שתקלידו
+                </p>
+              )}
+              {job.quoted_price_agorot != null && finalPriceAgorot !== job.quoted_price_agorot && (
+                <button
+                  type="button"
+                  onClick={() => setFinalPrice(String(job.quoted_price_agorot! / 100))}
+                  className="btn-secondary mt-2 w-full py-2 text-xs"
+                >
+                  השתמש במחיר מהטלפון ({formatAgorot(job.quoted_price_agorot)})
+                </button>
+              )}
             </div>
             <div>
               <Label>אמצעי תשלום סופי</Label>

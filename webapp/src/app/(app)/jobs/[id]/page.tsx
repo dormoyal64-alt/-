@@ -27,9 +27,9 @@ import { StatusMenu } from "@/components/jobs/StatusMenu";
 import { EditJobModal, type EditJobValues } from "@/components/jobs/EditJobModal";
 import { Timeline, type TimelineEntry } from "@/components/jobs/Timeline";
 import { fetchJob, changeJobStatus, closeJob, reopenJob, duplicateJob } from "@/lib/api/jobs";
-import { buildCallLink, buildMapLink, buildNewJobWhatsappMessage, buildWhatsappLink } from "@/lib/whatsapp";
+import { buildCallLink, buildMapLink, buildNewJobWhatsappMessage, buildOnTheWayMessage, buildWhatsappLink } from "@/lib/whatsapp";
 import { formatAgorot, formatPercent } from "@/lib/money";
-import { formatDateTimeHe } from "@/lib/dates";
+import { formatDateTimeHe, formatDurationHe } from "@/lib/dates";
 import { useRefData } from "@/lib/refdata";
 import type { JobWithRelations } from "@/lib/types";
 
@@ -38,7 +38,7 @@ export default function JobDetailPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const toast = useToast();
-  const { jobStatuses } = useRefData();
+  const { jobStatuses, settings } = useRefData();
 
   const [job, setJob] = useState<JobWithRelations | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
@@ -166,6 +166,11 @@ export default function JobDetailPage() {
   }
 
   const waCustomerLink = buildWhatsappLink(job.customer_phone);
+  const technicianLabel = job.profession?.technician_label?.trim() || "הטכנאי";
+  const onTheWayLink = buildWhatsappLink(
+    job.customer_phone,
+    buildOnTheWayMessage(job, settings?.on_the_way_template)
+  );
   const waContractorLink = job.contractor
     ? buildWhatsappLink(job.contractor.whatsapp || job.contractor.phone, buildNewJobWhatsappMessage(job))
     : null;
@@ -213,6 +218,21 @@ export default function JobDetailPage() {
         <ActionButton icon={StickyNote} label="הוסף הערה" onClick={() => setNoteOpen(true)} />
       </div>
 
+      {!job.is_closed && onTheWayLink && (
+        <a
+          href={onTheWayLink}
+          target="_blank"
+          rel="noreferrer"
+          className="mb-3 flex w-full flex-col items-center gap-0.5 rounded-xl border border-success-100 bg-success-50 px-4 py-3 font-bold text-success-700 transition hover:bg-success-100/60 active:scale-[.99]"
+        >
+          <span className="flex items-center gap-2">
+            <MessageCircle className="h-[18px] w-[18px]" />
+            הודע ללקוח ש{technicianLabel} בדרך
+          </span>
+          <span className="text-xs font-semibold text-success-600/80">״{technicianLabel} כבר בדרך אליך״</span>
+        </a>
+      )}
+
       {!job.is_closed ? (
         <Button size="lg" fullWidth variant="success" onClick={() => setCloseOpen(true)}>
           <CheckCircle2 className="h-5 w-5" />
@@ -239,6 +259,14 @@ export default function JobDetailPage() {
           <InfoRow label="אמצעי תשלום" value={job.payment_method?.name ?? "—"} />
           <InfoRow label="מקור ליד" value={job.lead_source?.name ?? "—"} />
           <InfoRow label="זמן פתיחה" value={formatDateTimeHe(job.opened_at)} />
+          <InfoRow
+            label={job.is_closed && job.closed_at ? "זמן ביצוע" : "פתוחה כבר"}
+            value={
+              job.is_closed && job.closed_at
+                ? formatDurationHe(job.opened_at, job.closed_at)
+                : formatDurationHe(job.opened_at)
+            }
+          />
           {job.notes && <InfoRow label="הערות" value={job.notes} />}
           {job.closing_notes && <InfoRow label="הערות סגירה" value={job.closing_notes} />}
         </CardBody>

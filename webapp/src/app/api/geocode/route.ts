@@ -16,7 +16,10 @@ export async function GET(request: NextRequest) {
   }
 
   const query = city ? `${q}, ${city}, ישראל` : `${q}, ישראל`;
-  const url = new URL("https://nominatim.openstreetmap.org/search");
+  // Defaults to the public OpenStreetMap service. Override NOMINATIM_URL to point
+  // at a self-hosted Nominatim (higher rate limits, no fair-use cap).
+  const base = process.env.NOMINATIM_URL || "https://nominatim.openstreetmap.org";
+  const url = new URL(base.replace(/\/$/, "") + "/search");
   url.searchParams.set("q", query);
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("addressdetails", "1");
