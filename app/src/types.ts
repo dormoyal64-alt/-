@@ -81,8 +81,9 @@ export function buildJobWhatsAppMessage(args: {
   customerAddress: string;
   amount: number;
   paymentMethod: PaymentMethod;
+  notes?: string;
 }): string {
-  return [
+  const lines = [
     'עבודה חדשה 🛠️',
     `תחום: ${args.categoryName}`,
     `עיר: ${args.cityName}`,
@@ -91,11 +92,26 @@ export function buildJobWhatsAppMessage(args: {
     `כתובת: ${args.customerAddress}`,
     `מחיר התחלתי שסוכם: ${args.amount} ₪`,
     `אופן תשלום: ${PAYMENT_METHOD_LABELS[args.paymentMethod]}`,
-  ].join('\n');
+  ];
+  if (args.notes && args.notes.trim()) lines.push(`הערות: ${args.notes.trim()}`);
+  return lines.join('\n');
 }
 
 export function whatsAppLink(phone: string, message: string): string {
   return `https://wa.me/${toWhatsAppDigits(phone)}?text=${encodeURIComponent(message)}`;
+}
+
+/** Address query used for both the live map preview and the "open in Google Maps" link. */
+export function addressQuery(address: string, cityName: string): string {
+  return [address.trim(), cityName.trim()].filter(Boolean).join(', ');
+}
+
+export function mapEmbedUrl(address: string, cityName: string): string {
+  return `https://www.google.com/maps?q=${encodeURIComponent(addressQuery(address, cityName))}&output=embed`;
+}
+
+export function mapLink(address: string, cityName: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressQuery(address, cityName))}`;
 }
 
 export interface JobBalance {

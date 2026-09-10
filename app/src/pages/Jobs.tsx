@@ -5,6 +5,8 @@ import {
   calcJobBalance,
   COLLECTED_BY_LABELS,
   defaultCollectedBy,
+  mapEmbedUrl,
+  mapLink,
   PAYMENT_METHOD_LABELS,
   whatsAppLink,
   type CollectedBy,
@@ -14,7 +16,7 @@ import {
   type Job,
   type PaymentMethod,
 } from '../types';
-import { Badge, Button, Card, ConfirmDialog, EmptyState, Field, Input, Modal, Select, formatCurrency } from '../components/ui';
+import { Badge, Button, Card, ConfirmDialog, EmptyState, Field, Input, Modal, Select, Textarea, formatCurrency } from '../components/ui';
 
 export function Jobs() {
   const categories = useCollection<Category>('categories', { orderByField: 'order' });
@@ -133,6 +135,7 @@ export function Jobs() {
                           customerAddress: job.customerAddress,
                           amount: job.amount,
                           paymentMethod: job.paymentMethod,
+                          notes: job.notes,
                         }),
                       )}
                       target="_blank"
@@ -166,6 +169,13 @@ export function Jobs() {
                 <InfoItem label="כתובת" value={job.customerAddress || '—'} />
                 <InfoItem label="תשלום" value={`${PAYMENT_METHOD_LABELS[job.paymentMethod]} · גבה ${COLLECTED_BY_LABELS[job.collectedBy]}`} />
               </div>
+
+              {job.notes && (
+                <p className="rounded-xl bg-surface-muted p-2.5 text-sm text-ink-muted">
+                  <span className="font-medium text-ink">הערות: </span>
+                  {job.notes}
+                </p>
+              )}
 
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -264,6 +274,7 @@ function JobFormModal({
   const [customerName, setCustomerName] = useState(initial?.customerName ?? '');
   const [customerPhone, setCustomerPhone] = useState(initial?.customerPhone ?? '');
   const [customerAddress, setCustomerAddress] = useState(initial?.customerAddress ?? '');
+  const [notes, setNotes] = useState(initial?.notes ?? '');
   const [date, setDate] = useState(initial?.date ?? todayStr());
   const [amount, setAmount] = useState(initial?.amount ?? 0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(initial?.paymentMethod ?? 'cash');
@@ -292,6 +303,12 @@ function JobFormModal({
   const selectedCityName = cities.find((c) => c.id === cityId)?.name ?? '';
   const canSendWhatsApp = !!selectedContractor?.phone && !!customerName.trim();
 
+  const [mapAddress, setMapAddress] = useState(customerAddress);
+  useEffect(() => {
+    const timer = setTimeout(() => setMapAddress(customerAddress), 600);
+    return () => clearTimeout(timer);
+  }, [customerAddress]);
+
   function sendToContractorOnWhatsApp() {
     if (!selectedContractor) return;
     const message = buildJobWhatsAppMessage({
@@ -302,6 +319,7 @@ function JobFormModal({
       customerAddress: customerAddress.trim(),
       amount: Number(amount) || 0,
       paymentMethod,
+      notes,
     });
     window.open(whatsAppLink(selectedContractor.phone, message), '_blank', 'noopener,noreferrer');
   }
@@ -320,6 +338,7 @@ function JobFormModal({
             customerName: customerName.trim(),
             customerPhone: customerPhone.trim(),
             customerAddress: customerAddress.trim(),
+            notes: notes.trim(),
             date,
             amount: Number(amount) || 0,
             paymentMethod,
@@ -370,7 +389,31 @@ function JobFormModal({
         </div>
 
         <Field label="כתובת הלקוח">
-          <Input value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} />
+          <Input value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} placeholder="רחוב, מספר בית" />
+        </Field>
+
+        {mapAddress.trim() && (
+          <div className="overflow-hidden rounded-xl border border-border">
+            <iframe
+              title="מפה — אימות כתובת הלקוח"
+              src={mapEmbedUrl(mapAddress, selectedCityName)}
+              className="h-48 w-full border-0"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+            <a
+              href={mapLink(mapAddress, selectedCityName)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block bg-surface-muted px-3 py-1.5 text-center text-xs text-brand-900 hover:underline"
+            >
+              פתיחה במפות גוגל בכרטיסייה חדשה
+            </a>
+          </div>
+        )}
+
+        <Field label="הערות" hint="לדוגמה: הוראות הגעה, פרטים לקבלן, מידע נוסף על העבודה">
+          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
         </Field>
 
         <div className="grid grid-cols-2 gap-3">

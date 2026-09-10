@@ -1,4 +1,12 @@
-import { type ButtonHTMLAttributes, type InputHTMLAttributes, type LabelHTMLAttributes, type ReactNode, type SelectHTMLAttributes, useEffect } from 'react';
+import {
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type LabelHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+  useEffect,
+} from 'react';
 
 export function Button({
   variant = 'primary',
@@ -34,6 +42,10 @@ const inputClass =
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${inputClass} ${props.className ?? ''}`} />;
+}
+
+export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea {...props} className={`${inputClass} resize-y ${props.className ?? ''}`} />;
 }
 
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
