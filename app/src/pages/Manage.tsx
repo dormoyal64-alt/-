@@ -98,7 +98,7 @@ function CategoriesTab() {
                       <div>
                         <p className="text-sm font-medium text-ink">{c.name}</p>
                         <p className="text-xs text-ink-muted" dir="ltr">
-                          {c.phone} · {c.defaultCommissionPercent}% עמלת ברירת מחדל
+                          {c.phone} · {c.defaultCommissionPercent}% לקבלן (ברירת מחדל)
                         </p>
                         <p className="mt-1 text-xs text-ink-muted">
                           {c.cityIds && c.cityIds.length > 0
@@ -274,7 +274,7 @@ function ContractorModal({
         <Field label="טלפון">
           <Input value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" placeholder="050-0000000" />
         </Field>
-        <Field label="אחוז עמלה לברירת מחדל" hint="ניתן לשנות בכל עבודה בנפרד">
+        <Field label="אחוז שמועבר לקבלן (ברירת מחדל)" hint="האחוז מסכום העבודה שנשאר אצל הקבלן. ניתן לשנות בכל עבודה בנפרד">
           <Input
             type="number"
             inputMode="decimal"

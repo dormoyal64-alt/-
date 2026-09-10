@@ -118,15 +118,18 @@ export function mapLink(address: string, cityName: string): string {
 }
 
 export interface JobBalance {
+  /** Owner's cut — the rest of the job amount after the contractor's share. */
   commissionAmount: number;
+  /** What the contractor keeps — job.amount * job.commissionPercent / 100. */
   contractorShare: number;
   /** positive: contractor owes owner. negative: owner owes contractor. */
   balance: number;
 }
 
+/** job.commissionPercent is the percentage of the job amount that goes TO the contractor. */
 export function calcJobBalance(job: Pick<Job, 'amount' | 'commissionPercent' | 'collectedBy'>): JobBalance {
-  const commissionAmount = round2((job.amount * job.commissionPercent) / 100);
-  const contractorShare = round2(job.amount - commissionAmount);
+  const contractorShare = round2((job.amount * job.commissionPercent) / 100);
+  const commissionAmount = round2(job.amount - contractorShare);
   const balance = job.collectedBy === 'contractor' ? commissionAmount : -contractorShare;
   return { commissionAmount, contractorShare, balance: round2(balance) };
 }

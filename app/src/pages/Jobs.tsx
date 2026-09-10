@@ -113,7 +113,7 @@ export function Jobs() {
 
       <div className="flex flex-col gap-3">
         {filteredJobs.map((job) => {
-          const { commissionAmount, balance } = calcJobBalance(job);
+          const { contractorShare, balance } = calcJobBalance(job);
           return (
             <Card key={job.id} className="flex flex-col gap-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -181,7 +181,7 @@ export function Jobs() {
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone="accent">סכום עבודה: {formatCurrency(job.amount)}</Badge>
-                  <Badge>עמלה {job.commissionPercent}%: {formatCurrency(commissionAmount)}</Badge>
+                  <Badge>לקבלן {job.commissionPercent}%: {formatCurrency(contractorShare)}</Badge>
                   {balance > 0 ? (
                     <Badge tone="danger">הקבלן חייב לך {formatCurrency(balance)}</Badge>
                   ) : balance < 0 ? (
@@ -488,7 +488,7 @@ function JobFormModal({
           </Field>
         </div>
 
-        <Field label="אחוז עמלה לעבודה זו" hint="ברירת המחדל נלקחת מהקבלן, ניתן לשנות לעבודה ספציפית">
+        <Field label="אחוז שמועבר לקבלן בעבודה זו" hint="האחוז מסכום העבודה שנשאר אצל הקבלן. ברירת המחדל נלקחת מהקבלן, ניתן לשנות לעבודה ספציפית">
           <Input
             type="number"
             inputMode="decimal"
@@ -501,7 +501,10 @@ function JobFormModal({
         </Field>
 
         <div className="rounded-xl bg-surface-muted p-3 text-sm">
-          <p>עמלה שלך מהעבודה: <strong>{formatCurrency(preview.commissionAmount)}</strong></p>
+          <p>
+            לקבלן ({commissionPercent}%): <strong>{formatCurrency(preview.contractorShare)}</strong>
+          </p>
+          <p className="mt-1">עמלה שלך מהעבודה: <strong>{formatCurrency(preview.commissionAmount)}</strong></p>
           <p className="mt-1">
             {preview.balance > 0 && <>הקבלן יצטרך להעביר לך <strong>{formatCurrency(preview.balance)}</strong></>}
             {preview.balance < 0 && <>תצטרך להעביר לקבלן <strong>{formatCurrency(-preview.balance)}</strong></>}
