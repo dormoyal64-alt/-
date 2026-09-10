@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useCollection } from '../lib/useCollection';
 import {
+  buildJobWhatsAppMessage,
   calcJobBalance,
   COLLECTED_BY_LABELS,
   defaultCollectedBy,
   PAYMENT_METHOD_LABELS,
+  whatsAppLink,
   type CollectedBy,
   type Category,
   type City,
@@ -119,6 +121,29 @@ export function Jobs() {
                   </p>
                 </div>
                 <div className="flex gap-1">
+                  {contractorById[job.contractorId]?.phone && (
+                    <a
+                      href={whatsAppLink(
+                        contractorById[job.contractorId].phone,
+                        buildJobWhatsAppMessage({
+                          categoryName: categoryById[job.categoryId]?.name ?? '',
+                          cityName: cityById[job.cityId]?.name ?? '',
+                          customerName: job.customerName,
+                          customerPhone: job.customerPhone,
+                          customerAddress: job.customerAddress,
+                          amount: job.amount,
+                          paymentMethod: job.paymentMethod,
+                        }),
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-lg p-1.5 text-ink-muted hover:bg-surface-muted"
+                      aria-label="שליחה לקבלן בוואטסאפ"
+                      title="שליחה לקבלן בוואטסאפ"
+                    >
+                      📲
+                    </a>
+                  )}
                   <button
                     onClick={() => {
                       setEditingJob(job);
@@ -231,9 +256,11 @@ function JobFormModal({
   onSave: (data: Omit<Job, 'id' | 'createdAt' | 'updatedAt' | 'settled'>) => void;
 }) {
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? categories[0]?.id ?? '');
-  const contractorsInCategory = contractors.filter((c) => c.categoryId === categoryId);
-  const [contractorId, setContractorId] = useState(initial?.contractorId ?? contractorsInCategory[0]?.id ?? '');
   const [cityId, setCityId] = useState(initial?.cityId ?? cities[0]?.id ?? '');
+  const availableContractors = contractors.filter(
+    (c) => c.categoryId === categoryId && (c.cityIds ?? []).includes(cityId),
+  );
+  const [contractorId, setContractorId] = useState(initial?.contractorId ?? availableContractors[0]?.id ?? '');
   const [customerName, setCustomerName] = useState(initial?.customerName ?? '');
   const [customerPhone, setCustomerPhone] = useState(initial?.customerPhone ?? '');
   const [customerAddress, setCustomerAddress] = useState(initial?.customerAddress ?? '');
@@ -242,16 +269,16 @@ function JobFormModal({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(initial?.paymentMethod ?? 'cash');
   const [collectedBy, setCollectedBy] = useState<CollectedBy>(initial?.collectedBy ?? defaultCollectedBy('cash'));
   const [commissionPercent, setCommissionPercent] = useState(
-    initial?.commissionPercent ?? contractorsInCategory[0]?.defaultCommissionPercent ?? 20,
+    initial?.commissionPercent ?? availableContractors[0]?.defaultCommissionPercent ?? 20,
   );
 
   useEffect(() => {
     if (initial) return;
-    const first = contractors.find((c) => c.categoryId === categoryId);
+    const first = contractors.find((c) => c.categoryId === categoryId && (c.cityIds ?? []).includes(cityId));
     setContractorId(first?.id ?? '');
     if (first) setCommissionPercent(first.defaultCommissionPercent);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryId]);
+  }, [categoryId, cityId]);
 
   function handlePaymentMethodChange(method: PaymentMethod) {
     setPaymentMethod(method);
@@ -259,6 +286,25 @@ function JobFormModal({
   }
 
   const preview = calcJobBalance({ amount: Number(amount) || 0, commissionPercent: Number(commissionPercent) || 0, collectedBy });
+
+  const selectedContractor = contractors.find((c) => c.id === contractorId);
+  const selectedCategoryName = categories.find((c) => c.id === categoryId)?.name ?? '';
+  const selectedCityName = cities.find((c) => c.id === cityId)?.name ?? '';
+  const canSendWhatsApp = !!selectedContractor?.phone && !!customerName.trim();
+
+  function sendToContractorOnWhatsApp() {
+    if (!selectedContractor) return;
+    const message = buildJobWhatsAppMessage({
+      categoryName: selectedCategoryName,
+      cityName: selectedCityName,
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      customerAddress: customerAddress.trim(),
+      amount: Number(amount) || 0,
+      paymentMethod,
+    });
+    window.open(whatsAppLink(selectedContractor.phone, message), '_blank', 'noopener,noreferrer');
+  }
 
   return (
     <Modal open={open} onClose={onClose} title={initial ? 'עריכת עבודה' : 'עבודה חדשה'}>
@@ -292,10 +338,9 @@ function JobFormModal({
               ))}
             </Select>
           </Field>
-          <Field label="קבלן ביצוע">
-            <Select value={contractorId} onChange={(e) => setContractorId(e.target.value)} required>
-              {contractorsInCategory.length === 0 && <option value="">אין קבלנים בתחום זה</option>}
-              {contractorsInCategory.map((c) => (
+          <Field label="עיר">
+            <Select value={cityId} onChange={(e) => setCityId(e.target.value)} required>
+              {cities.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
@@ -304,9 +349,10 @@ function JobFormModal({
           </Field>
         </div>
 
-        <Field label="עיר">
-          <Select value={cityId} onChange={(e) => setCityId(e.target.value)} required>
-            {cities.map((c) => (
+        <Field label="קבלן ביצוע" hint="הרשימה מסוננת אוטומטית לפי התחום והעיר שנבחרו">
+          <Select value={contractorId} onChange={(e) => setContractorId(e.target.value)} required>
+            {availableContractors.length === 0 && <option value="">אין קבלן בתחום ובעיר האלה</option>}
+            {availableContractors.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
@@ -377,6 +423,10 @@ function JobFormModal({
             {preview.balance === 0 && <>מאוזן</>}
           </p>
         </div>
+
+        <Button type="button" variant="secondary" onClick={sendToContractorOnWhatsApp} disabled={!canSendWhatsApp} className="w-full">
+          📲 שליחת פרטי העבודה לקבלן בוואטסאפ
+        </Button>
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>

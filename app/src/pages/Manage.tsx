@@ -100,6 +100,11 @@ function CategoriesTab() {
                         <p className="text-xs text-ink-muted" dir="ltr">
                           {c.phone} · {c.defaultCommissionPercent}% עמלת ברירת מחדל
                         </p>
+                        <p className="mt-1 text-xs text-ink-muted">
+                          {c.cityIds && c.cityIds.length > 0
+                            ? c.cityIds.map((id) => cities.items.find((city) => city.id === id)?.name).filter(Boolean).join(', ')
+                            : 'לא הוגדרו ערים'}
+                        </p>
                       </div>
                       <div className="flex gap-1">
                         <button
@@ -157,6 +162,7 @@ function CategoriesTab() {
           open={!!contractorModal}
           categoryId={contractorModal.categoryId}
           initial={contractorModal.contractor}
+          cities={cities.items}
           onClose={() => setContractorModal(null)}
           onSave={async (data) => {
             if (contractorModal.contractor) await contractors.update(contractorModal.contractor.id, data);
@@ -225,18 +231,25 @@ function ContractorModal({
   open,
   categoryId,
   initial,
+  cities,
   onClose,
   onSave,
 }: {
   open: boolean;
   categoryId: string;
   initial: Contractor | null;
+  cities: City[];
   onClose: () => void;
   onSave: (data: Omit<Contractor, 'id' | 'createdAt'>) => void;
 }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [phone, setPhone] = useState(initial?.phone ?? '');
   const [percent, setPercent] = useState(initial?.defaultCommissionPercent ?? 20);
+  const [cityIds, setCityIds] = useState<string[]>(initial?.cityIds ?? []);
+
+  function toggleCity(id: string) {
+    setCityIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
+  }
 
   return (
     <Modal open={open} onClose={onClose} title={initial ? 'עריכת קבלן' : 'קבלן חדש'}>
@@ -249,6 +262,7 @@ function ContractorModal({
             name: name.trim(),
             phone: phone.trim(),
             categoryId,
+            cityIds,
             defaultCommissionPercent: Number(percent) || 0,
             active: true,
           });
@@ -270,6 +284,29 @@ function ContractorModal({
             value={percent}
             onChange={(e) => setPercent(Number(e.target.value))}
           />
+        </Field>
+        <Field label="ערים בהן הקבלן עובד" hint="עבודות בתחום זה יוצעו לקבלן רק בערים שסימנתם">
+          {cities.length === 0 ? (
+            <p className="text-sm text-ink-muted">הוסיפו ערים במסך ניהול → ערים</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {cities.map((city) => {
+                const checked = cityIds.includes(city.id);
+                return (
+                  <button
+                    type="button"
+                    key={city.id}
+                    onClick={() => toggleCity(city.id)}
+                    className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                      checked ? 'border-brand-900 bg-brand-900 text-white' : 'border-border bg-surface text-ink-muted hover:bg-surface-muted'
+                    }`}
+                  >
+                    {city.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </Field>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>

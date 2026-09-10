@@ -1,4 +1,4 @@
-export type PaymentMethod = 'cash' | 'credit' | 'transfer' | 'check';
+export type PaymentMethod = 'cash' | 'credit' | 'transfer' | 'check' | 'bit' | 'paybox';
 
 export type CollectedBy = 'contractor' | 'owner';
 
@@ -14,6 +14,8 @@ export interface Contractor {
   name: string;
   phone: string;
   categoryId: string;
+  /** Cities this contractor serves; used to auto-filter contractors by category+city on the job form. */
+  cityIds: string[];
   defaultCommissionPercent: number;
   active: boolean;
   notes?: string;
@@ -50,6 +52,8 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   credit: 'אשראי',
   transfer: 'העברה בנקאית',
   check: "צ'ק",
+  bit: 'ביט',
+  paybox: 'פייבוקס',
 };
 
 export const COLLECTED_BY_LABELS: Record<CollectedBy, string> = {
@@ -58,7 +62,40 @@ export const COLLECTED_BY_LABELS: Record<CollectedBy, string> = {
 };
 
 export function defaultCollectedBy(method: PaymentMethod): CollectedBy {
-  return method === 'transfer' || method === 'check' ? 'owner' : 'contractor';
+  return method === 'cash' || method === 'credit' ? 'contractor' : 'owner';
+}
+
+/** Normalizes an Israeli local number (e.g. "050-1234567") to E.164 digits for a wa.me link. */
+export function toWhatsAppDigits(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('972')) return digits;
+  if (digits.startsWith('0')) return '972' + digits.slice(1);
+  return digits;
+}
+
+export function buildJobWhatsAppMessage(args: {
+  categoryName: string;
+  cityName: string;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string;
+  amount: number;
+  paymentMethod: PaymentMethod;
+}): string {
+  return [
+    'עבודה חדשה 🛠️',
+    `תחום: ${args.categoryName}`,
+    `עיר: ${args.cityName}`,
+    `לקוח: ${args.customerName}`,
+    `טלפון לקוח: ${args.customerPhone}`,
+    `כתובת: ${args.customerAddress}`,
+    `מחיר התחלתי שסוכם: ${args.amount} ₪`,
+    `אופן תשלום: ${PAYMENT_METHOD_LABELS[args.paymentMethod]}`,
+  ].join('\n');
+}
+
+export function whatsAppLink(phone: string, message: string): string {
+  return `https://wa.me/${toWhatsAppDigits(phone)}?text=${encodeURIComponent(message)}`;
 }
 
 export interface JobBalance {
