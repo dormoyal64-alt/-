@@ -94,11 +94,15 @@ where professions.name = 'מזגנים';
 -- ----------------------------------------------------------------------------
 -- Cities
 -- ----------------------------------------------------------------------------
-insert into cities (name) values
-  ('באר שבע'),
-  ('אשקלון'),
-  ('אשדוד'),
-  ('נתיבות');
+-- The full list lives in seed_cities.sql (200 localities, tagged by region).
+-- Run that file too — everything arrives switched off except the four below, so
+-- the job form stays short until you switch more on from the Cities screen.
+insert into cities (name, region, is_active) values
+  ('באר שבע', 'דרום', true),
+  ('אשקלון', 'דרום', true),
+  ('אשדוד', 'דרום', true),
+  ('נתיבות', 'דרום', true)
+on conflict (name) do update set region = excluded.region, is_active = true;
 
 -- ----------------------------------------------------------------------------
 -- Demo contractors

@@ -6,6 +6,7 @@ import type { ContractorWithRelations } from "@/lib/types";
 import type { ContractorFormInput } from "@/lib/api/contractors";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { CityPicker } from "@/components/ui/CityPicker";
 
 export function ContractorForm({
   initial,
@@ -151,24 +152,13 @@ export function ContractorForm({
 
       <div>
         <Label required>ערים בהן הקבלן עובד</Label>
-        <div className="flex flex-wrap gap-2">
-          {cities
-            .filter((c) => c.is_active)
-            .map((c) => (
-              <button
-                type="button"
-                key={c.id}
-                onClick={() => toggleCity(c.id)}
-                className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
-                  cityIds.includes(c.id)
-                    ? "border-brand-600 bg-brand-600 text-white"
-                    : "border-ink-200 text-ink-600 hover:bg-ink-50"
-                }`}
-              >
-                {c.name}
-              </button>
-            ))}
-        </div>
+        <CityPicker
+          cities={cities.filter((c) => c.is_active)}
+          selectedIds={cityIds}
+          onToggle={toggleCity}
+          mode="multi"
+          emptyHint="לא נמצאה עיר פעילה בשם הזה. אפשר להפעיל עוד ערים במסך ״ערים״."
+        />
       </div>
 
       {relevantJobTypes.length > 0 && (

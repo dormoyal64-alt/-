@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { AddressAutocomplete } from "@/components/jobs/AddressAutocomplete";
 import { ContractorMatchList } from "@/components/jobs/ContractorMatchList";
+import { CityPicker } from "@/components/ui/CityPicker";
 import { useContractorMatch } from "@/hooks/useContractorMatch";
 import { createJob } from "@/lib/api/jobs";
 import { shekelsToAgorot } from "@/lib/money";
@@ -211,7 +212,16 @@ export default function NewJobPage() {
 
       {jobTypeId && (
         <Section title="3. עיר" done={!!cityId}>
-          <ChipGrid items={activeCities.map((c) => ({ id: c.id, label: c.name }))} selectedId={cityId} onSelect={selectCity} />
+          {activeCities.length > 8 ? (
+            <CityPicker
+              cities={activeCities}
+              selectedIds={cityId ? [cityId] : []}
+              onToggle={selectCity}
+              emptyHint="לא נמצאה עיר פעילה בשם הזה. אפשר להפעיל עוד ערים במסך ״ערים״."
+            />
+          ) : (
+            <ChipGrid items={activeCities.map((c) => ({ id: c.id, label: c.name }))} selectedId={cityId} onSelect={selectCity} />
+          )}
         </Section>
       )}
 

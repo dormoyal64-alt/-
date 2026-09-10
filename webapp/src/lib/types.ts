@@ -25,9 +25,12 @@ export interface JobType {
   updated_at: string;
 }
 
+export type CityRegion = "צפון" | "מרכז" | "דרום";
+
 export interface City {
   id: string;
   name: string;
+  region: CityRegion | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

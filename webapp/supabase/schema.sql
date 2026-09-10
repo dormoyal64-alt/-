@@ -35,6 +35,8 @@ create table job_types (
 create table cities (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
+  -- grouping for the city picker; null is allowed for anything hand-added
+  region text check (region in ('צפון', 'מרכז', 'דרום')),
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -233,6 +235,7 @@ create index idx_contractor_professions_contractor on contractor_professions(con
 create index idx_contractor_cities_contractor on contractor_cities(contractor_id);
 create index idx_contractor_job_types_contractor on contractor_job_types(contractor_id);
 
+create index idx_cities_region on cities(region);
 create index idx_jobs_status on jobs(status_id);
 create index idx_jobs_contractor on jobs(contractor_id);
 create index idx_jobs_city on jobs(city_id);
