@@ -26,6 +26,7 @@ export function CloseJobModal({
     paymentReceivedBy: "contractor" | "business";
     closingNotes: string | null;
     closedAt: string;
+    commissionPct: number;
   }) => Promise<void>;
   loading?: boolean;
 }) {
@@ -38,10 +39,19 @@ export function CloseJobModal({
   const [paymentReceivedBy, setPaymentReceivedBy] = useState<"contractor" | "business">("contractor");
   const [closingNotes, setClosingNotes] = useState("");
 
+  // the job's usual split, and the one being applied to this closing
+  const defaultPct = job.commission_pct ?? 0;
+  const [commissionPct, setCommissionPct] = useState<string>(String(defaultPct));
+
+  const parsedPct = parseFloat(commissionPct);
+  const pctValid = !isNaN(parsedPct) && parsedPct >= 0 && parsedPct <= 100;
+  const effectivePct = pctValid ? parsedPct : 0;
+  const pctChanged = pctValid && Math.abs(effectivePct - defaultPct) > 0.001;
+
   const finalPriceAgorot = finalPrice ? shekelsToAgorot(finalPrice) : 0;
   const preview = useMemo(
-    () => previewCommission(finalPriceAgorot, job.commission_pct ?? 0, paymentReceivedBy),
-    [finalPriceAgorot, job.commission_pct, paymentReceivedBy]
+    () => previewCommission(finalPriceAgorot, effectivePct, paymentReceivedBy),
+    [finalPriceAgorot, effectivePct, paymentReceivedBy]
   );
 
   async function handleSubmit() {
@@ -52,6 +62,7 @@ export function CloseJobModal({
       paymentReceivedBy,
       closingNotes: closingNotes || null,
       closedAt: new Date().toISOString(),
+      commissionPct: effectivePct,
     });
   }
 
@@ -140,6 +151,57 @@ export function CloseJobModal({
               </select>
             </div>
             <div>
+              <Label required>חלוקה בינך לבין הקבלן</Label>
+              <div className="rounded-2xl border border-ink-200 p-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <div className="mb-1 flex items-baseline justify-between text-xs">
+                      <span className="font-bold text-ink-700">הקבלן</span>
+                      <span className="font-bold text-ink-400">אני</span>
+                    </div>
+                    <div className="flex h-2.5 overflow-hidden rounded-full bg-ink-100">
+                      <div className="bg-brand-500 transition-all" style={{ width: `${Math.min(Math.max(effectivePct, 0), 100)}%` }} />
+                      <div className="flex-1 bg-success-500 transition-all" />
+                    </div>
+                    <div className="mt-1 flex items-baseline justify-between text-sm font-extrabold">
+                      <span className="text-brand-700">{effectivePct}%</span>
+                      <span className="text-success-700">{Math.round((100 - effectivePct) * 100) / 100}%</span>
+                    </div>
+                  </div>
+                  <div className="w-24 shrink-0">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={commissionPct}
+                      onChange={(e) => setCommissionPct(e.target.value)}
+                      className="py-2 text-center text-lg font-extrabold"
+                      aria-label="אחוז הקבלן"
+                    />
+                  </div>
+                </div>
+
+                {!pctValid && <p className="mt-2 text-xs font-bold text-danger-600">יש להזין אחוז בין 0 ל-100</p>}
+
+                {pctChanged && pctValid && (
+                  <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 pt-2.5">
+                    <span className="text-xs font-semibold text-warning-600">
+                      אחוז מותאם לעבודה זו (הרגיל: {defaultPct}%)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCommissionPct(String(defaultPct))}
+                      className="btn-secondary px-2.5 py-1 text-xs"
+                    >
+                      חזרה ל-{defaultPct}%
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
               <Label required>מי קיבל את התשלום?</Label>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -165,7 +227,7 @@ export function CloseJobModal({
 
             {finalPriceAgorot > 0 && (
               <div className="space-y-1.5 rounded-2xl bg-ink-50 p-4 text-sm">
-                <Row label="חלק הקבלן" value={formatAgorot(preview.contractorShareAgorot)} />
+                <Row label={`חלק הקבלן (${effectivePct}%)`} value={formatAgorot(preview.contractorShareAgorot)} />
                 <Row label="החלק שלי" value={formatAgorot(preview.businessShareAgorot)} />
                 {preview.contractorOwesBusinessAgorot > 0 && (
                   <Row label="הקבלן צריך להעביר לי" value={formatAgorot(preview.contractorOwesBusinessAgorot)} bold />
@@ -188,7 +250,7 @@ export function CloseJobModal({
           size="lg"
           onClick={handleSubmit}
           loading={loading}
-          disabled={closedSuccessfully && finalPriceAgorot <= 0}
+          disabled={closedSuccessfully && (finalPriceAgorot <= 0 || !pctValid)}
         >
           אישור סגירת עבודה
         </Button>

@@ -57,6 +57,8 @@ export interface CloseJobInput {
   paymentReceivedBy: PaymentReceivedBy;
   closingNotes: string | null;
   closedAt: string;
+  /** split for this job only; omit to use the percentage stored on the job */
+  commissionPct?: number | null;
 }
 
 export async function closeJob(supabase: SupabaseClient, jobId: string, input: CloseJobInput) {
@@ -68,6 +70,7 @@ export async function closeJob(supabase: SupabaseClient, jobId: string, input: C
     p_payment_received_by: input.paymentReceivedBy,
     p_closing_notes: input.closingNotes,
     p_closed_at: input.closedAt,
+    p_commission_pct: input.commissionPct ?? null,
   });
   if (error) throw error;
 }

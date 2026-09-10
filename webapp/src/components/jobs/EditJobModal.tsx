@@ -51,10 +51,14 @@ export function EditJobModal({
   const [paymentMethodId, setPaymentMethodId] = useState(job.payment_method_id ?? "");
   const [leadSourceId, setLeadSourceId] = useState(job.lead_source_id ?? "");
   const [contractorId, setContractorId] = useState(job.contractor_id);
+  const [commissionPct, setCommissionPct] = useState(job.commission_pct != null ? String(job.commission_pct) : "");
   const [notes, setNotes] = useState(job.notes ?? "");
 
   const matches = useContractorMatch(job.profession_id, job.job_type_id, job.city_id);
   const selectedContractor = matches.find((m) => m.id === contractorId);
+  const contractorDefaultPct = selectedContractor?.commissionPct ?? null;
+  const parsedPct = parseFloat(commissionPct);
+  const pctValid = commissionPct === "" || (!isNaN(parsedPct) && parsedPct >= 0 && parsedPct <= 100);
 
   async function handleSubmit() {
     await onSubmit({
@@ -70,7 +74,12 @@ export function EditJobModal({
       payment_method_id: paymentMethodId || null,
       lead_source_id: leadSourceId || null,
       contractor_id: contractorId,
-      commission_pct: contractorId ? selectedContractor?.commissionPct ?? job.commission_pct : null,
+      // an explicit percentage wins; blank falls back to the contractor's usual rate
+      commission_pct: contractorId
+        ? commissionPct !== "" && pctValid
+          ? parsedPct
+          : selectedContractor?.commissionPct ?? job.commission_pct
+        : null,
       notes: notes || null,
     });
   }
@@ -142,12 +151,38 @@ export function EditJobModal({
           <ContractorMatchList matches={matches} selectedId={contractorId} onSelect={setContractorId} />
         </div>
 
+        {contractorId && (
+          <div>
+            <Label>אחוז הקבלן בעבודה הזו</Label>
+            <div className="flex items-center gap-3">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={commissionPct}
+                onChange={(e) => setCommissionPct(e.target.value)}
+                placeholder={contractorDefaultPct != null ? String(contractorDefaultPct) : "60"}
+                className="w-28 text-center text-lg font-extrabold"
+              />
+              <p className="flex-1 text-xs text-ink-500">
+                הקבלן {parsedPct >= 0 && parsedPct <= 100 && commissionPct !== "" ? parsedPct : contractorDefaultPct ?? 0}% ·
+                אני {100 - (commissionPct !== "" && pctValid ? parsedPct : contractorDefaultPct ?? 0)}%
+                {contractorDefaultPct != null && (
+                  <span className="block text-ink-400">האחוז הרגיל של הקבלן: {contractorDefaultPct}%</span>
+                )}
+              </p>
+            </div>
+            {!pctValid && <p className="mt-1 text-xs font-bold text-danger-600">יש להזין אחוז בין 0 ל-100</p>}
+          </div>
+        )}
+
         <div>
           <Label>הערות</Label>
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
 
-        <Button fullWidth size="lg" onClick={handleSubmit} loading={loading}>
+        <Button fullWidth size="lg" onClick={handleSubmit} loading={loading} disabled={!pctValid}>
           שמירת שינויים
         </Button>
       </div>
