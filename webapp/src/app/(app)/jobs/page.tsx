@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Search, SlidersHorizontal, ChevronRight, ChevronLeft, Download, Plus, Briefcase } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
@@ -19,6 +20,7 @@ import type { JobWithRelations } from "@/lib/types";
 const PAGE_SIZE = 20;
 
 export default function JobsPage() {
+  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const { professions, jobTypes, cities, contractors, paymentMethods, jobStatuses } = useRefData();
 
@@ -216,7 +218,7 @@ export default function JobsPage() {
                 {jobs.map((job) => (
                   <tr
                     key={job.id}
-                    onClick={() => (window.location.href = `/jobs/${job.id}`)}
+                    onClick={() => router.push(`/jobs/${job.id}`)}
                     className="cursor-pointer border-b border-ink-50 last:border-0 hover:bg-ink-50/60"
                   >
                     <td className="px-4 py-3 font-bold text-brand-700">{job.job_number}</td>

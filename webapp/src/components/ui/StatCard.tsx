@@ -24,16 +24,16 @@ export function StatCard({
   }[tone];
 
   return (
-    <div className="card p-4 sm:p-5">
-      <div className="flex items-start justify-between">
-        <p className="text-sm font-medium text-ink-500">{label}</p>
+    <div className="card p-3 sm:p-5">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-medium leading-snug text-ink-500 sm:text-sm">{label}</p>
         {Icon && (
-          <div className={clsx("flex h-9 w-9 items-center justify-center rounded-xl", toneClass)}>
-            <Icon className="h-[18px] w-[18px]" />
+          <div className={clsx("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg sm:h-9 sm:w-9 sm:rounded-xl", toneClass)}>
+            <Icon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
           </div>
         )}
       </div>
-      <p className="mt-2 text-2xl font-extrabold tracking-tight text-ink-900">{value}</p>
+      <p className="mt-1.5 text-xl font-extrabold tracking-tight text-ink-900 sm:mt-2 sm:text-2xl">{value}</p>
       <div className="mt-1 flex items-center gap-2">
         {subtitle && <span className="text-xs text-ink-400">{subtitle}</span>}
         {changePct !== undefined && changePct !== null && isFinite(changePct) && (

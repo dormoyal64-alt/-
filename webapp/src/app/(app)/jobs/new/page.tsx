@@ -312,7 +312,9 @@ export default function NewJobPage() {
       )}
 
       {cityId && (
-        <div className="sticky bottom-20 lg:bottom-4">
+        // Opaque fade behind the bar so form fields never show through the
+        // (semi-transparent) disabled button while scrolling.
+        <div className="sticky bottom-20 z-20 -mx-4 bg-gradient-to-t from-ink-50 via-ink-50 to-transparent px-4 pb-2 pt-6 lg:bottom-2 lg:-mx-8 lg:px-8">
           <Button size="lg" fullWidth loading={saving} disabled={!canSave} onClick={handleSave} className="shadow-xl">
             שמירה ושליחה לקבלן
           </Button>

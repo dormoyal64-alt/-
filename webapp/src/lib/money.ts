@@ -20,6 +20,13 @@ export function formatAgorot(agorot: number | null | undefined): string {
   }).format(shekels);
 }
 
+// Short form for chart axes, where a full "₪1,234.00" label gets clipped.
+export function formatAgorotCompact(agorot: number | null | undefined): string {
+  const shekels = agorotToShekels(agorot);
+  if (Math.abs(shekels) >= 1000) return `${(shekels / 1000).toFixed(shekels % 1000 === 0 ? 0 : 1)}K`;
+  return String(Math.round(shekels));
+}
+
 export function formatNumber(n: number | null | undefined): string {
   if (n === null || n === undefined || isNaN(n)) return "0";
   return new Intl.NumberFormat("he-IL").format(n);

@@ -14,6 +14,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Legend,
 } from "recharts";
 import { Download, TrendingUp, Wallet, Percent, Receipt } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -23,7 +24,7 @@ import { Button } from "@/components/ui/Button";
 import { StatCard } from "@/components/ui/StatCard";
 import { PeriodPicker } from "@/components/ui/PeriodPicker";
 import { PageSpinner } from "@/components/ui/Misc";
-import { formatAgorot, formatNumber, formatPercent } from "@/lib/money";
+import { formatAgorot, formatAgorotCompact, formatNumber, formatPercent } from "@/lib/money";
 import { getPeriodRange, isoRange, customDateRange, type PeriodKey } from "@/lib/dates";
 import { toCsv, downloadCsv } from "@/lib/csv";
 import type {
@@ -177,7 +178,7 @@ export default function AnalyticsPage() {
               <BarChart data={byProfession} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef0f4" />
                 <XAxis dataKey="profession_name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatAgorot(v)} width={70} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatAgorotCompact(v)} width={46} />
                 <Tooltip formatter={(v: number) => formatAgorot(v)} />
                 <Bar dataKey="revenue_agorot" name="הכנסות" fill="#4650e6" radius={[6, 6, 0, 0]} />
               </BarChart>
@@ -187,7 +188,7 @@ export default function AnalyticsPage() {
               <BarChart data={byCity} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef0f4" />
                 <XAxis dataKey="city_name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatAgorot(v)} width={70} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatAgorotCompact(v)} width={46} />
                 <Tooltip formatter={(v: number) => formatAgorot(v)} />
                 <Bar dataKey="revenue_agorot" name="הכנסות" fill="#06b6d4" radius={[6, 6, 0, 0]} />
               </BarChart>
@@ -208,18 +209,25 @@ export default function AnalyticsPage() {
               <CardHeader>
                 <CardTitle>מקורות ליד</CardTitle>
               </CardHeader>
-              <CardBody className="h-64">
+              <CardBody className="h-72">
                 {byLeadSource.length === 0 ? (
                   <p className="pt-8 text-center text-sm text-ink-400">אין נתוני מקור ליד בטווח זה</p>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={byLeadSource} dataKey="jobs_count" nameKey="lead_source_name" innerRadius={50} outerRadius={80} paddingAngle={2}>
+                      <Pie data={byLeadSource} dataKey="jobs_count" nameKey="lead_source_name" innerRadius={45} outerRadius={72} paddingAngle={2}>
                         {byLeadSource.map((_, i) => (
                           <Cell key={i} fill={COLORS[i % COLORS.length]} />
                         ))}
                       </Pie>
                       <Tooltip />
+                      <Legend
+                        verticalAlign="bottom"
+                        height={48}
+                        iconType="circle"
+                        iconSize={8}
+                        formatter={(value: string) => <span className="text-xs text-ink-600">{value}</span>}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 )}
