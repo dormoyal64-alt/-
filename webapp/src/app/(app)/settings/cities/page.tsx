@@ -11,6 +11,8 @@ import { Input, Label } from "@/components/ui/Input";
 import type { CityRegion } from "@/lib/types";
 
 const REGIONS: CityRegion[] = ["צפון", "מרכז", "דרום"];
+// the list is every locality in the country, so only a screenful is rendered
+const ROW_CAP = 80;
 type Tab = CityRegion | "הכל" | "פעילות";
 
 export default function CitiesSettingsPage() {
@@ -126,7 +128,7 @@ export default function CitiesSettingsPage() {
             </div>
           ) : (
             <div className="max-h-[420px] overflow-y-auto rounded-2xl border border-ink-100">
-              {filtered.map((c) => (
+              {filtered.slice(0, ROW_CAP).map((c) => (
                 <div
                   key={c.id}
                   className="flex items-center gap-3 border-b border-ink-50 px-3.5 py-2.5 last:border-0"
@@ -148,6 +150,11 @@ export default function CitiesSettingsPage() {
                   </button>
                 </div>
               ))}
+              {filtered.length > ROW_CAP && (
+                <div className="bg-ink-50 px-3.5 py-2.5 text-center text-xs font-bold text-ink-400">
+                  מוצגות {ROW_CAP} מתוך {filtered.length} — המשיכו להקליד כדי לצמצם
+                </div>
+              )}
             </div>
           )}
         </CardBody>

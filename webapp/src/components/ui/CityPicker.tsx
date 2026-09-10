@@ -103,7 +103,7 @@ export function CityPicker({
       ) : (
         <div className="max-h-64 overflow-y-auto rounded-2xl border border-ink-100 p-2">
           <div className="flex flex-wrap gap-2">
-            {[...selectedOutsideFilter, ...filtered].map((c) => {
+            {[...selectedOutsideFilter, ...filtered].slice(0, 120).map((c) => {
               const on = selectedIds.includes(c.id);
               return (
                 <button
