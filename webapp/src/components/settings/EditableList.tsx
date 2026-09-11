@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Plus, Pencil, Archive, RotateCcw, Check, X } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -19,6 +19,7 @@ export function EditableList({
   onRename,
   onToggleActive,
   archiveNoun = "פריט",
+  renderExtra,
 }: {
   items: EditableItem[];
   addPlaceholder: string;
@@ -26,6 +27,8 @@ export function EditableList({
   onRename: (id: string, name: string) => Promise<void>;
   onToggleActive: (id: string, active: boolean) => Promise<void>;
   archiveNoun?: string;
+  /** extra control shown on each row, e.g. the standard price of a job type */
+  renderExtra?: (item: EditableItem) => ReactNode;
 }) {
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
@@ -69,7 +72,7 @@ export function EditableList({
       <div className="divide-y divide-ink-100 overflow-hidden rounded-2xl border border-ink-100">
         {items.length === 0 && <p className="p-4 text-sm text-ink-400">אין פריטים עדיין</p>}
         {items.map((item) => (
-          <div key={item.id} className={`flex items-center gap-2 p-3 ${!item.is_active ? "bg-ink-50/60" : ""}`}>
+          <div key={item.id} className={`flex flex-wrap items-center gap-2 p-3 ${!item.is_active ? "bg-ink-50/60" : ""}`}>
             {editingId === item.id ? (
               <>
                 <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} className="flex-1 py-1.5" autoFocus />
@@ -85,6 +88,7 @@ export function EditableList({
                 <span className={`flex-1 text-sm font-semibold ${item.is_active ? "text-ink-800" : "text-ink-400 line-through"}`}>
                   {item.name}
                 </span>
+                {renderExtra?.(item)}
                 {!item.is_active && <span className="badge bg-ink-100 text-ink-500">בארכיון</span>}
                 <button
                   onClick={() => {

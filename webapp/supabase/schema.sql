@@ -25,6 +25,9 @@ create table job_types (
   id uuid primary key default gen_random_uuid(),
   profession_id uuid not null references professions(id) on delete cascade,
   name text not null,
+  -- the standard price quoted to a customer for this kind of job, in agorot.
+  -- null = no standard price, so the job form leaves the field empty.
+  base_price_agorot bigint check (base_price_agorot is null or base_price_agorot >= 0),
   is_active boolean not null default true,
   sort_order int not null default 0,
   created_at timestamptz not null default now(),

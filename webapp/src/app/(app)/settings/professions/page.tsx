@@ -8,6 +8,39 @@ import { useToast } from "@/components/ui/Toast";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EditableList } from "@/components/settings/EditableList";
 import { Input } from "@/components/ui/Input";
+import { agorotToShekels, shekelsToAgorot } from "@/lib/money";
+
+/** Standard price for one job type, in shekels. Saves when the box loses focus. */
+function BasePriceInput({
+  agorot,
+  onSave,
+}: {
+  agorot: number | null;
+  onSave: (shekels: string) => Promise<void>;
+}) {
+  const initial = agorot == null ? "" : String(agorotToShekels(agorot));
+  const [value, setValue] = useState(initial);
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="text-xs font-bold text-ink-400">מחיר קבוע</span>
+      <Input
+        type="number"
+        min={0}
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => {
+          if (value.trim() !== initial) onSave(value);
+        }}
+        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+        placeholder="—"
+        aria-label="מחיר קבוע לסוג העבודה בשקלים"
+        className="w-24 py-1.5 text-center font-bold"
+      />
+      <span className="text-xs font-bold text-ink-400">₪</span>
+    </span>
+  );
+}
 
 export default function ProfessionsSettingsPage() {
   const supabase = useMemo(() => createClient(), []);
@@ -50,6 +83,19 @@ export default function ProfessionsSettingsPage() {
   async function toggleJobType(id: string, active: boolean) {
     await supabase.from("job_types").update({ is_active: active }).eq("id", id);
     await refresh();
+  }
+
+  // the price normally quoted for this kind of job; an empty box clears it
+  async function saveBasePrice(id: string, shekels: string) {
+    const trimmed = shekels.trim();
+    const agorot = trimmed === "" ? null : shekelsToAgorot(trimmed);
+    if (agorot !== null && (!Number.isFinite(agorot) || agorot < 0)) {
+      return toast.error("מחיר חייב להיות מספר חיובי");
+    }
+    const { error } = await supabase.from("job_types").update({ base_price_agorot: agorot }).eq("id", id);
+    if (error) return toast.error("שגיאה בשמירת המחיר");
+    await refresh();
+    toast.success(agorot === null ? "המחיר הקבוע הוסר" : "המחיר הקבוע עודכן");
   }
 
   return (
@@ -109,6 +155,9 @@ export default function ProfessionsSettingsPage() {
                       <span className="text-ink-500">כבר בדרך אליך 🚚</span>
                     </div>
                   </div>
+                  <p className="mb-2 text-xs font-bold text-ink-500">
+                    המחיר הקבוע הוא מה שתגידו ללקוח בטלפון — הוא ימולא לבד בפתיחת עבודה
+                  </p>
                   <EditableList
                     items={types}
                     addPlaceholder="סוג עבודה חדש"
@@ -116,6 +165,16 @@ export default function ProfessionsSettingsPage() {
                     onRename={renameJobType}
                     onToggleActive={toggleJobType}
                     archiveNoun="סוג העבודה"
+                    renderExtra={(item) => {
+                      const jt = jobTypes.find((t) => t.id === item.id);
+                      return (
+                        <BasePriceInput
+                          key={`${item.id}-${jt?.base_price_agorot ?? "none"}`}
+                          agorot={jt?.base_price_agorot ?? null}
+                          onSave={(v) => saveBasePrice(item.id, v)}
+                        />
+                      );
+                    }}
                   />
                 </CardBody>
               )}

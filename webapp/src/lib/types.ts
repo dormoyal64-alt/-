@@ -19,6 +19,8 @@ export interface JobType {
   id: string;
   profession_id: string;
   name: string;
+  /** standard price quoted for this kind of job, in agorot; null = none set */
+  base_price_agorot: number | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;

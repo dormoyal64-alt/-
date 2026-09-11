@@ -50,45 +50,53 @@ insert into professions (name, technician_label, sort_order) values
   ('מנעולנות', 'המנעולן', 3),
   ('מזגנים', 'טכנאי המזגנים', 4);
 
-insert into job_types (profession_id, name, sort_order)
-select id, jt.name, jt.sort_order
+-- base_price_agorot is the price normally quoted on the phone; the job form
+-- fills it in for you and you can still change it per job.
+insert into job_types (profession_id, name, sort_order, base_price_agorot)
+select id, jt.name, jt.sort_order, jt.base_price
 from professions, lateral (values
-  ('פתיחת סתימה', 1),
-  ('פיצוץ בצינור', 2),
-  ('החלפת ברז', 3),
-  ('נזילה', 4),
-  ('החלפת אסלה', 5)
-) as jt(name, sort_order)
+  ('פתיחת סתימה', 1, 35000),
+  ('פיצוץ בצינור', 2, 60000),
+  ('החלפת ברז', 3, 25000),
+  ('נזילה', 4, 38000),
+  ('החלפת אסלה', 5, 45000)
+) as jt(name, sort_order, base_price)
 where professions.name = 'אינסטלציה';
 
-insert into job_types (profession_id, name, sort_order)
-select id, jt.name, jt.sort_order
+-- base_price_agorot is the price normally quoted on the phone; the job form
+-- fills it in for you and you can still change it per job.
+insert into job_types (profession_id, name, sort_order, base_price_agorot)
+select id, jt.name, jt.sort_order, jt.base_price
 from professions, lateral (values
-  ('קצר חשמלי', 1),
-  ('החלפת לוח חשמל', 2),
-  ('תקלת תאורה', 3),
-  ('התקנת נקודות חשמל', 4)
-) as jt(name, sort_order)
+  ('קצר חשמלי', 1, 30000),
+  ('החלפת לוח חשמל', 2, 90000),
+  ('תקלת תאורה', 3, 18000),
+  ('התקנת נקודות חשמל', 4, 50000)
+) as jt(name, sort_order, base_price)
 where professions.name = 'חשמל';
 
-insert into job_types (profession_id, name, sort_order)
-select id, jt.name, jt.sort_order
+-- base_price_agorot is the price normally quoted on the phone; the job form
+-- fills it in for you and you can still change it per job.
+insert into job_types (profession_id, name, sort_order, base_price_agorot)
+select id, jt.name, jt.sort_order, jt.base_price
 from professions, lateral (values
-  ('פתיחת דלת נעולה', 1),
-  ('החלפת צילינדר', 2),
-  ('שכפול מפתחות', 3),
-  ('פריצת רכב', 4)
-) as jt(name, sort_order)
+  ('פתיחת דלת נעולה', 1, 22000),
+  ('החלפת צילינדר', 2, 28000),
+  ('שכפול מפתחות', 3, 9000),
+  ('פריצת רכב', 4, 25000)
+) as jt(name, sort_order, base_price)
 where professions.name = 'מנעולנות';
 
-insert into job_types (profession_id, name, sort_order)
-select id, jt.name, jt.sort_order
+-- base_price_agorot is the price normally quoted on the phone; the job form
+-- fills it in for you and you can still change it per job.
+insert into job_types (profession_id, name, sort_order, base_price_agorot)
+select id, jt.name, jt.sort_order, jt.base_price
 from professions, lateral (values
-  ('ניקוי וטיפול', 1),
-  ('תיקון מזגן לא מקרר', 2),
-  ('הוספת גז', 3),
-  ('התקנת מזגן חדש', 4)
-) as jt(name, sort_order)
+  ('ניקוי וטיפול', 1, 20000),
+  ('תיקון מזגן לא מקרר', 2, 35000),
+  ('הוספת גז', 3, 28000),
+  ('התקנת מזגן חדש', 4, 65000)
+) as jt(name, sort_order, base_price)
 where professions.name = 'מזגנים';
 
 -- ----------------------------------------------------------------------------

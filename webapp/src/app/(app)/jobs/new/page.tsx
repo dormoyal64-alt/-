@@ -14,7 +14,7 @@ import { ContractorMatchList } from "@/components/jobs/ContractorMatchList";
 import { CityPicker } from "@/components/ui/CityPicker";
 import { useContractorMatch } from "@/hooks/useContractorMatch";
 import { createJob } from "@/lib/api/jobs";
-import { shekelsToAgorot } from "@/lib/money";
+import { agorotToShekels, formatAgorot, shekelsToAgorot } from "@/lib/money";
 import { buildNewJobWhatsappMessage, buildWhatsappLink } from "@/lib/whatsapp";
 import type { AddressResult } from "@/hooks/useAddressAutocomplete";
 import type { JobWithRelations } from "@/lib/types";
@@ -52,6 +52,7 @@ export default function NewJobPage() {
 
   const activeProfessions = professions.filter((p) => p.is_active);
   const relevantJobTypes = jobTypes.filter((jt) => jt.profession_id === professionId && jt.is_active);
+  const selectedJobType = relevantJobTypes.find((jt) => jt.id === jobTypeId) ?? null;
   const activeCities = cities.filter((c) => c.is_active);
 
   const matches = useContractorMatch(professionId, jobTypeId, cityId);
@@ -64,8 +65,21 @@ export default function NewJobPage() {
     setContractorId(null);
   }
   function selectJobType(id: string) {
+    const previous = relevantJobTypes.find((jt) => jt.id === jobTypeId) ?? null;
+    const next = relevantJobTypes.find((jt) => jt.id === id) ?? null;
     setJobTypeId(id);
     setContractorId(null);
+
+    // Fill in the standard price for this kind of job, but never overwrite a
+    // number that was typed by hand: only an empty box, or one still holding
+    // the previous job type's standard price, gets replaced.
+    const priceWasUntouched =
+      quotedPrice.trim() === "" ||
+      (previous?.base_price_agorot != null &&
+        quotedPrice.trim() === String(agorotToShekels(previous.base_price_agorot)));
+    if (priceWasUntouched) {
+      setQuotedPrice(next?.base_price_agorot != null ? String(agorotToShekels(next.base_price_agorot)) : "");
+    }
   }
   function selectCity(id: string) {
     setCityId(id);
@@ -205,7 +219,15 @@ export default function NewJobPage() {
           {relevantJobTypes.length === 0 ? (
             <p className="text-sm text-ink-400">אין סוגי עבודה מוגדרים לתחום זה. ניתן להוסיף בהגדרות.</p>
           ) : (
-            <ChipGrid items={relevantJobTypes.map((jt) => ({ id: jt.id, label: jt.name }))} selectedId={jobTypeId} onSelect={selectJobType} />
+            <ChipGrid
+              items={relevantJobTypes.map((jt) => ({
+                id: jt.id,
+                label: jt.name,
+                note: jt.base_price_agorot != null ? formatAgorot(jt.base_price_agorot) : undefined,
+              }))}
+              selectedId={jobTypeId}
+              onSelect={selectJobType}
+            />
           )}
         </Section>
       )}
@@ -286,6 +308,11 @@ export default function NewJobPage() {
                   placeholder="350"
                   inputMode="decimal"
                 />
+                {selectedJobType?.base_price_agorot != null && (
+                  <p className="mt-1 text-xs text-ink-400">
+                    המחיר הקבוע ל״{selectedJobType.name}״ הוא {formatAgorot(selectedJobType.base_price_agorot)} — אפשר לשנות לעבודה הזו
+                  </p>
+                )}
               </div>
               <div>
                 <Label>אופן תשלום</Label>
@@ -364,7 +391,7 @@ function ChipGrid({
   selectedId,
   onSelect,
 }: {
-  items: { id: string; label: string }[];
+  items: { id: string; label: string; note?: string }[];
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
@@ -387,6 +414,15 @@ function ChipGrid({
           }`}
         >
           {item.label}
+          {item.note && (
+            <span
+              className={`mr-1.5 text-xs font-bold ${
+                selectedId === item.id ? "text-white/75" : "text-ink-400"
+              }`}
+            >
+              {item.note}
+            </span>
+          )}
         </button>
       ))}
     </div>
