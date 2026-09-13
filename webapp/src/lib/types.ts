@@ -127,8 +127,17 @@ export interface Job {
   lng: number | null;
   quoted_price_agorot: number | null;
   payment_method_id: string | null;
+  /** who actually does the work */
+  performed_by: PerformedBy;
   contractor_id: string | null;
   commission_pct: number | null;
+  /** travel, for a job done in-house */
+  origin_city_id: string | null;
+  travel_km: number | null;
+  /** what the trip cost; frozen in at closing time */
+  fuel_cost_agorot: number | null;
+  helper_id: string | null;
+  helper_pay_agorot: number | null;
   lead_source_id: string | null;
   notes: string | null;
   status_id: string;
@@ -165,10 +174,74 @@ export interface AppNotification {
   created_at: string;
 }
 
+export type PerformedBy = "contractor" | "self";
+
+export interface Helper {
+  id: string;
+  name: string;
+  phone: string | null;
+  /** what this worker is normally paid for one job */
+  default_pay_agorot: number | null;
+  active: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdSpend {
+  id: string;
+  spent_on: string;
+  lead_source_id: string | null;
+  amount_agorot: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CityDistance {
+  from_city_id: string;
+  to_city_id: string;
+  km: number;
+  updated_at: string;
+}
+
+/** One row from the profit_report() function — every figure in agorot. */
+export interface ProfitReport {
+  self_jobs: number;
+  self_revenue_agorot: number;
+  self_fuel_agorot: number;
+  self_helper_agorot: number;
+  self_gross_agorot: number;
+  contractor_jobs: number;
+  contractor_revenue_agorot: number;
+  contractor_paid_agorot: number;
+  contractor_gross_agorot: number;
+  ad_spend_agorot: number;
+  ad_spend_self_agorot: number;
+  ad_spend_contractor_agorot: number;
+  self_net_agorot: number;
+  contractor_net_agorot: number;
+  net_profit_agorot: number;
+}
+
+export interface AdPerformanceRow {
+  lead_source_id: string | null;
+  lead_source_name: string;
+  spend_agorot: number;
+  jobs_closed: number;
+  revenue_agorot: number;
+  business_share_agorot: number;
+}
+
 export interface AppSettings {
   id: boolean;
   reminder_minutes: number;
   on_the_way_template: string;
+  /** fuel price you keep current yourself — nothing fetches it */
+  fuel_price_per_liter_agorot: number;
+  km_per_liter: number;
+  fuel_price_updated_on: string | null;
+  home_city_id: string | null;
   updated_at: string;
 }
 
@@ -187,6 +260,8 @@ export interface JobWithRelations extends Job {
   job_type: Pick<JobType, "id" | "name"> | null;
   city: Pick<City, "id" | "name"> | null;
   contractor: Pick<Contractor, "id" | "name" | "phone" | "whatsapp"> | null;
+  helper: Pick<Helper, "id" | "name" | "phone"> | null;
+  origin_city: Pick<City, "id" | "name"> | null;
   payment_method: Pick<PaymentMethod, "id" | "name"> | null;
   final_payment_method: Pick<PaymentMethod, "id" | "name"> | null;
   lead_source: Pick<LeadSource, "id" | "name"> | null;

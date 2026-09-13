@@ -140,6 +140,44 @@ create table settlements (
 
 create sequence if not exists job_number_seq start 1;
 
+-- A worker you take along on a job you do yourself
+create table helpers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  phone text,
+  -- what you normally pay this worker for one job; overridable per job
+  default_pay_agorot bigint check (default_pay_agorot is null or default_pay_agorot >= 0),
+  active boolean not null default true,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- What you spent on advertising, by day and by channel. The channel list is the
+-- same one jobs use for "where did this lead come from", so spend on a channel
+-- can be set against what that channel actually brought in.
+create table ad_spend (
+  id uuid primary key default gen_random_uuid(),
+  spent_on date not null default current_date,
+  lead_source_id uuid references lead_sources(id),
+  amount_agorot bigint not null check (amount_agorot >= 0),
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index idx_ad_spend_date on ad_spend(spent_on);
+
+-- A distance already driven once, so the next job on the same route fills
+-- itself in. Real road distance needs a routing service; this learns from you.
+create table city_distances (
+  from_city_id uuid not null references cities(id) on delete cascade,
+  to_city_id uuid not null references cities(id) on delete cascade,
+  km numeric(7,1) not null check (km >= 0),
+  updated_at timestamptz not null default now(),
+  primary key (from_city_id, to_city_id)
+);
+
 create table jobs (
   id uuid primary key default gen_random_uuid(),
   job_number text not null unique,
@@ -161,9 +199,23 @@ create table jobs (
   quoted_price_agorot bigint,
   payment_method_id uuid references payment_methods(id),
 
+  -- who actually does the work: a contractor, or you
+  performed_by text not null default 'contractor' check (performed_by in ('contractor', 'self')),
+
   contractor_id uuid references contractors(id),
   -- snapshot of the commission % at the moment the job was created / assigned
   commission_pct numeric(5,2),
+
+  -- travel, for a job you do yourself
+  origin_city_id uuid references cities(id),
+  travel_km numeric(7,1) check (travel_km is null or travel_km >= 0),
+  -- what the trip cost, frozen in when the job closes, so a later change to the
+  -- fuel price never rewrites what an old job actually cost you
+  fuel_cost_agorot bigint check (fuel_cost_agorot is null or fuel_cost_agorot >= 0),
+
+  -- a worker who came along, and what you paid him for this job
+  helper_id uuid references helpers(id),
+  helper_pay_agorot bigint check (helper_pay_agorot is null or helper_pay_agorot >= 0),
 
   lead_source_id uuid references lead_sources(id),
   notes text,
@@ -216,6 +268,16 @@ create table app_settings (
   on_the_way_template text not null default
     'שלום {customer}, {technician} כבר בדרך אליך 🚚' || chr(10) ||
     'נא להיות זמין/ה לקבלת השירות.' || chr(10) || 'תודה!',
+
+  -- Vehicle and fuel, used to cost a trip on a job you do yourself.
+  -- The price is not fetched from anywhere: Israeli fuel prices are set monthly,
+  -- so you update this yourself and the date below records when.
+  fuel_price_per_liter_agorot int not null default 740 check (fuel_price_per_liter_agorot > 0),
+  km_per_liter numeric(5,2) not null default 12.0 check (km_per_liter > 0),
+  fuel_price_updated_on date,
+  -- where you normally set out from, offered as the default origin of a trip
+  home_city_id uuid references cities(id),
+
   updated_at timestamptz not null default now()
 );
 
@@ -364,6 +426,17 @@ end;
 $$;
 
 -- Close a job: computes the commission split server-side (integer agorot, no floats)
+create or replace function fuel_cost_for_km(p_km numeric)
+returns bigint
+language sql stable as $$
+  select case
+    when p_km is null or p_km <= 0 then 0
+    else round(p_km / s.km_per_liter * s.fuel_price_per_liter_agorot)::bigint
+  end
+  from app_settings s
+  where s.id = true;
+$$;
+
 create or replace function close_job(
   p_job_id uuid,
   p_closed_successfully boolean,
@@ -372,7 +445,6 @@ create or replace function close_job(
   p_payment_received_by text,
   p_closing_notes text default null,
   p_closed_at timestamptz default now(),
-  -- optional per-job split, overriding the contractor's usual rate for this job only
   p_commission_pct numeric default null
 ) returns jobs
 language plpgsql as $$
@@ -381,6 +453,7 @@ declare
   v_commission_pct numeric(5,2);
   v_contractor_share bigint := 0;
   v_business_share bigint := 0;
+  v_fuel bigint := 0;
   v_status_id uuid;
   v_status_name text;
 begin
@@ -389,8 +462,10 @@ begin
     raise exception 'עבודה לא נמצאה';
   end if;
 
-  -- an explicit percentage for this closing wins over the one stored on the job
-  if p_commission_pct is not null then
+  -- a job you did yourself has no contractor to pay
+  if v_job.performed_by = 'self' then
+    v_commission_pct := 0;
+  elsif p_commission_pct is not null then
     if p_commission_pct < 0 or p_commission_pct > 100 then
       raise exception 'אחוז הקבלן חייב להיות בין 0 ל-100';
     end if;
@@ -398,6 +473,10 @@ begin
   else
     v_commission_pct := coalesce(v_job.commission_pct, 0);
   end if;
+
+  -- the fuel this trip actually cost, at today's price, frozen onto the job
+  v_fuel := case when v_job.performed_by = 'self'
+                 then fuel_cost_for_km(v_job.travel_km) else 0 end;
 
   if p_closed_successfully then
     v_contractor_share := round((coalesce(p_final_price_agorot, 0)::numeric * v_commission_pct) / 100.0)::bigint;
@@ -413,10 +492,12 @@ begin
     'app.status_note',
     case when p_closed_successfully
       then 'העבודה נסגרה במחיר ' || coalesce(p_final_price_agorot, 0)::text || ' אג׳' ||
-           ' (קבלן ' || trim(trailing '.' from trim(to_char(v_commission_pct, 'FM990.99'))) || '%)' ||
-           case when p_commission_pct is not null
-                  and p_commission_pct is distinct from coalesce(v_job.commission_pct, -1)
-                then ' — אחוז מותאם לעבודה זו' else '' end
+           case when v_job.performed_by = 'self' then ' (בוצעה על ידי)'
+                else ' (קבלן ' || trim(trailing '.' from trim(to_char(v_commission_pct, 'FM990.99'))) || '%)' ||
+                     case when p_commission_pct is not null
+                            and p_commission_pct is distinct from coalesce(v_job.commission_pct, -1)
+                          then ' — אחוז מותאם לעבודה זו' else '' end
+           end
       else 'העבודה לא נסגרה'
     end,
     true
@@ -432,6 +513,7 @@ begin
     closed_at = p_closed_at,
     contractor_share_agorot = v_contractor_share,
     business_share_agorot = v_business_share,
+    fuel_cost_agorot = v_fuel,
     status_id = coalesce(v_status_id, status_id)
   where id = p_job_id
   returning * into v_job;
@@ -693,6 +775,139 @@ create trigger on_auth_user_created
 -- Row Level Security
 -- This is a private single-business system: any authenticated (logged in) user
 -- has full access, anonymous (public) access is completely denied.
+create or replace function profit_report(p_from timestamptz, p_to timestamptz)
+returns table (
+  self_jobs bigint,
+  self_revenue_agorot bigint,
+  self_fuel_agorot bigint,
+  self_helper_agorot bigint,
+  self_gross_agorot bigint,
+  contractor_jobs bigint,
+  contractor_revenue_agorot bigint,
+  contractor_paid_agorot bigint,
+  contractor_gross_agorot bigint,
+  ad_spend_agorot bigint,
+  ad_spend_self_agorot bigint,
+  ad_spend_contractor_agorot bigint,
+  self_net_agorot bigint,
+  contractor_net_agorot bigint,
+  net_profit_agorot bigint
+)
+language plpgsql stable as $$
+declare
+  v_ads bigint;
+  v_self_jobs bigint;
+  v_con_jobs bigint;
+  v_total_jobs bigint;
+  v_ads_self bigint;
+begin
+  select coalesce(sum(a.amount_agorot), 0) into v_ads
+  from ad_spend a
+  where a.spent_on >= p_from::date and a.spent_on <= p_to::date;
+
+  select
+    count(*) filter (where j.performed_by = 'self'),
+    count(*) filter (where j.performed_by <> 'self')
+  into v_self_jobs, v_con_jobs
+  from jobs j
+  join job_statuses st on st.id = j.status_id
+  where j.is_closed and st.is_success
+    and j.closed_at >= p_from and j.closed_at <= p_to;
+
+  v_total_jobs := v_self_jobs + v_con_jobs;
+  -- split the advertising by how many jobs each stream closed
+  v_ads_self := case when v_total_jobs = 0 then 0
+                     else round(v_ads::numeric * v_self_jobs / v_total_jobs)::bigint end;
+
+  return query
+  with closed as (
+    select j.*
+    from jobs j
+    join job_statuses st on st.id = j.status_id
+    where j.is_closed and st.is_success
+      and j.closed_at >= p_from and j.closed_at <= p_to
+  ),
+  mine as (
+    select
+      coalesce(sum(final_price_agorot), 0)::bigint as revenue,
+      coalesce(sum(fuel_cost_agorot), 0)::bigint   as fuel,
+      coalesce(sum(helper_pay_agorot), 0)::bigint  as helper
+    from closed where performed_by = 'self'
+  ),
+  theirs as (
+    select
+      coalesce(sum(final_price_agorot), 0)::bigint      as revenue,
+      coalesce(sum(contractor_share_agorot), 0)::bigint as paid,
+      coalesce(sum(business_share_agorot), 0)::bigint   as gross
+    from closed where performed_by <> 'self'
+  )
+  select
+    v_self_jobs,
+    mine.revenue,
+    mine.fuel,
+    mine.helper,
+    (mine.revenue - mine.fuel - mine.helper)::bigint,
+    v_con_jobs,
+    theirs.revenue,
+    theirs.paid,
+    theirs.gross,
+    v_ads,
+    v_ads_self,
+    (v_ads - v_ads_self)::bigint,
+    (mine.revenue - mine.fuel - mine.helper - v_ads_self)::bigint,
+    (theirs.gross - (v_ads - v_ads_self))::bigint,
+    (mine.revenue - mine.fuel - mine.helper + theirs.gross - v_ads)::bigint
+  from mine, theirs;
+end;
+$$;
+
+create or replace function ad_performance(p_from timestamptz, p_to timestamptz)
+returns table (
+  lead_source_id uuid,
+  lead_source_name text,
+  spend_agorot bigint,
+  jobs_closed bigint,
+  revenue_agorot bigint,
+  business_share_agorot bigint
+)
+language sql stable as $$
+  with spend as (
+    select a.lead_source_id, sum(a.amount_agorot)::bigint as spend
+    from ad_spend a
+    where a.spent_on >= p_from::date and a.spent_on <= p_to::date
+    group by a.lead_source_id
+  ),
+  earned as (
+    select
+      j.lead_source_id,
+      count(*)::bigint as jobs_closed,
+      coalesce(sum(j.final_price_agorot), 0)::bigint as revenue,
+      -- a job you did yourself keeps its whole price, minus what the trip cost
+      coalesce(sum(case when j.performed_by = 'self'
+                        then j.final_price_agorot
+                             - coalesce(j.fuel_cost_agorot, 0)
+                             - coalesce(j.helper_pay_agorot, 0)
+                        else j.business_share_agorot end), 0)::bigint as business_share
+    from jobs j
+    join job_statuses st on st.id = j.status_id
+    where j.is_closed and st.is_success
+      and j.closed_at >= p_from and j.closed_at <= p_to
+    group by j.lead_source_id
+  )
+  select
+    ls.id,
+    ls.name,
+    coalesce(spend.spend, 0),
+    coalesce(earned.jobs_closed, 0),
+    coalesce(earned.revenue, 0),
+    coalesce(earned.business_share, 0)
+  from lead_sources ls
+  left join spend on spend.lead_source_id = ls.id
+  left join earned on earned.lead_source_id = ls.id
+  where coalesce(spend.spend, 0) > 0 or coalesce(earned.jobs_closed, 0) > 0
+  order by coalesce(earned.business_share, 0) - coalesce(spend.spend, 0) desc;
+$$;
+
 -- ----------------------------------------------------------------------------
 
 do $$
@@ -703,7 +918,8 @@ begin
     select unnest(array[
       'professions','job_types','cities','payment_methods','lead_sources','job_statuses',
       'contractors','contractor_professions','contractor_cities','contractor_job_types',
-      'settlements','jobs','job_status_history','notifications','profiles','app_settings'
+      'settlements','jobs','job_status_history','notifications','profiles','app_settings',
+      'helpers','ad_spend','city_distances'
     ])
   loop
     execute format('alter table %I enable row level security;', t);

@@ -1,11 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { JobWithRelations, PaymentReceivedBy } from "@/lib/types";
+import type { JobWithRelations, PaymentReceivedBy, PerformedBy } from "@/lib/types";
 
 export const JOB_SELECT = `*,
   profession:professions(id,name,technician_label),
   job_type:job_types(id,name),
-  city:cities(id,name),
+  city:cities!jobs_city_id_fkey(id,name),
   contractor:contractors(id,name,phone,whatsapp),
+  helper:helpers(id,name,phone),
+  origin_city:cities!jobs_origin_city_id_fkey(id,name),
   payment_method:payment_methods!jobs_payment_method_id_fkey(id,name),
   final_payment_method:payment_methods!jobs_final_payment_method_id_fkey(id,name),
   lead_source:lead_sources(id,name),
@@ -25,8 +27,13 @@ export interface CreateJobInput {
   lng?: number | null;
   quoted_price_agorot?: number | null;
   payment_method_id?: string | null;
+  performed_by?: PerformedBy;
   contractor_id?: string | null;
   commission_pct?: number | null;
+  origin_city_id?: string | null;
+  travel_km?: number | null;
+  helper_id?: string | null;
+  helper_pay_agorot?: number | null;
   lead_source_id?: string | null;
   notes?: string | null;
   status_id: string;

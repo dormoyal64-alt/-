@@ -11,6 +11,9 @@ import {
   Settings,
   Tags,
   MapPin,
+  Megaphone,
+  PiggyBank,
+  Fuel,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,6 +31,8 @@ export const mainNav: NavItem[] = [
 ];
 
 export const reportsNav: NavItem[] = [
+  { href: "/profit", label: "רווח נקי", icon: PiggyBank },
+  { href: "/advertising", label: "הוצאות פרסום", icon: Megaphone },
   { href: "/analytics", label: "אנליטיקס", icon: BarChart3 },
   { href: "/leaderboard", label: "דירוג קבלנים", icon: Trophy },
   { href: "/daily-summary", label: "סיכום יומי", icon: CalendarRange },
@@ -37,6 +42,7 @@ export const reportsNav: NavItem[] = [
 export const settingsNav: NavItem[] = [
   { href: "/settings/professions", label: "תחומים וסוגי עבודות", icon: Tags },
   { href: "/settings/cities", label: "ערים", icon: MapPin },
+  { href: "/settings/vehicle", label: "רכב, דלק ועובדים", icon: Fuel },
   { href: "/settings", label: "הגדרות כלליות", icon: Settings },
 ];
 

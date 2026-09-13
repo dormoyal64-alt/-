@@ -17,7 +17,7 @@ import { createJob } from "@/lib/api/jobs";
 import { agorotToShekels, formatAgorot, shekelsToAgorot } from "@/lib/money";
 import { buildNewJobWhatsappMessage, buildWhatsappLink } from "@/lib/whatsapp";
 import type { AddressResult } from "@/hooks/useAddressAutocomplete";
-import type { JobWithRelations } from "@/lib/types";
+import type { JobWithRelations, PerformedBy } from "@/lib/types";
 
 function nowForInput() {
   const d = new Date();
@@ -29,13 +29,21 @@ export default function NewJobPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const toast = useToast();
-  const { professions, jobTypes, cities, paymentMethods, leadSources, jobStatuses } = useRefData();
+  const { professions, jobTypes, cities, paymentMethods, leadSources, jobStatuses, helpers, settings } = useRefData();
 
   const [professionId, setProfessionId] = useState<string | null>(null);
   const [jobTypeId, setJobTypeId] = useState<string | null>(null);
   const [cityId, setCityId] = useState<string | null>(null);
   const [contractorId, setContractorId] = useState<string | null>(null);
   const [skipContractor, setSkipContractor] = useState(false);
+
+  // who does the work, and what it costs me when it is me
+  const [performedBy, setPerformedBy] = useState<PerformedBy>("contractor");
+  const [originCityId, setOriginCityId] = useState<string | null>(null);
+  const [travelKm, setTravelKm] = useState("");
+  const [roundTrip, setRoundTrip] = useState(true);
+  const [helperId, setHelperId] = useState("");
+  const [helperPay, setHelperPay] = useState("");
 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -54,6 +62,19 @@ export default function NewJobPage() {
   const relevantJobTypes = jobTypes.filter((jt) => jt.profession_id === professionId && jt.is_active);
   const selectedJobType = relevantJobTypes.find((jt) => jt.id === jobTypeId) ?? null;
   const activeCities = cities.filter((c) => c.is_active);
+  const activeHelpers = helpers.filter((h) => h.active);
+  const originId = originCityId ?? settings?.home_city_id ?? null;
+
+  // one leg typed in, doubled when you drive back
+  const oneWayKm = parseFloat(travelKm);
+  const totalKm = Number.isFinite(oneWayKm) && oneWayKm > 0 ? (roundTrip ? oneWayKm * 2 : oneWayKm) : 0;
+  const fuelAgorot =
+    settings && totalKm > 0
+      ? Math.round((totalKm / Number(settings.km_per_liter)) * settings.fuel_price_per_liter_agorot)
+      : 0;
+  const helperPayAgorot = helperPay.trim() === "" ? 0 : shekelsToAgorot(helperPay);
+  const quotedAgorot = quotedPrice.trim() === "" ? 0 : shekelsToAgorot(quotedPrice);
+  const myTakeHome = quotedAgorot - fuelAgorot - helperPayAgorot;
 
   const matches = useContractorMatch(professionId, jobTypeId, cityId);
   const selectedContractor = matches.find((m) => m.id === contractorId);
@@ -86,6 +107,15 @@ export default function NewJobPage() {
     setContractorId(null);
   }
 
+  function selectHelper(id: string) {
+    setHelperId(id);
+    const h = activeHelpers.find((x) => x.id === id);
+    // fill in what this worker usually gets, unless a figure was already typed
+    if (h?.default_pay_agorot != null && helperPay.trim() === "") {
+      setHelperPay(String(agorotToShekels(h.default_pay_agorot)));
+    }
+  }
+
   function handleAddressSelect(r: AddressResult) {
     setAddressResult(r);
     setAddressQuery(r.displayName);
@@ -100,9 +130,13 @@ export default function NewJobPage() {
     }
     setSaving(true);
     try {
-      const initialStatus = contractorId
-        ? jobStatuses.find((s) => s.name === "נשלחה לקבלן")
-        : jobStatuses.find((s) => s.name === "חדשה");
+      // a job I take myself starts in progress; one sent out waits for the contractor
+      const initialStatus =
+        performedBy === "self"
+          ? jobStatuses.find((s) => s.name === "בטיפול") ?? jobStatuses.find((s) => s.name === "חדשה")
+          : contractorId
+            ? jobStatuses.find((s) => s.name === "נשלחה לקבלן")
+            : jobStatuses.find((s) => s.name === "חדשה");
       if (!initialStatus) throw new Error("missing status");
 
       const job = await createJob(supabase, {
@@ -119,8 +153,13 @@ export default function NewJobPage() {
         lng: addressResult?.lng ?? null,
         quoted_price_agorot: quotedPrice ? shekelsToAgorot(quotedPrice) : null,
         payment_method_id: paymentMethodId || null,
-        contractor_id: contractorId,
-        commission_pct: selectedContractor?.commissionPct ?? null,
+        performed_by: performedBy,
+        contractor_id: performedBy === "self" ? null : contractorId,
+        commission_pct: performedBy === "self" ? 0 : selectedContractor?.commissionPct ?? null,
+        origin_city_id: performedBy === "self" ? originId : null,
+        travel_km: performedBy === "self" && totalKm > 0 ? totalKm : null,
+        helper_id: performedBy === "self" && helperId ? helperId : null,
+        helper_pay_agorot: performedBy === "self" && helperPayAgorot > 0 ? helperPayAgorot : null,
         lead_source_id: leadSourceId || null,
         notes: notes || null,
         status_id: initialStatus.id,
@@ -140,6 +179,13 @@ export default function NewJobPage() {
     setJobTypeId(null);
     setCityId(null);
     setContractorId(null);
+    setSkipContractor(false);
+    setPerformedBy("contractor");
+    setOriginCityId(null);
+    setTravelKm("");
+    setRoundTrip(true);
+    setHelperId("");
+    setHelperPay("");
     setCustomerName("");
     setCustomerPhone("");
     setAddressQuery("");
@@ -177,6 +223,19 @@ export default function NewJobPage() {
             <MessageCircle className="h-5 w-5" />
             שליחה לקבלן ב-WhatsApp
           </a>
+        ) : createdJob.performed_by === "self" ? (
+          <Card>
+            <CardBody className="space-y-1.5 text-center text-sm">
+              <p className="font-bold text-ink-700">העבודה רשומה עליכם 🔧</p>
+              <p className="text-ink-500">
+                {createdJob.travel_km ? `${createdJob.travel_km} ק״מ נסיעה` : "בלי נסיעה רשומה"}
+                {createdJob.helper ? ` · עם ${createdJob.helper.name}` : ""}
+              </p>
+              <p className="text-xs text-ink-400">
+                הדלק וההוצאות ייכנסו לחישוב הרווח כשתסגרו את העבודה.
+              </p>
+            </CardBody>
+          </Card>
         ) : (
           <Card>
             <CardBody className="text-center text-sm text-ink-500">
@@ -248,7 +307,146 @@ export default function NewJobPage() {
       )}
 
       {cityId && (
-        <Section title="4. קבלן מתאים" done={!!contractorId || skipContractor}>
+        <Section title="4. מי מבצע את העבודה?" done={performedBy === "self" || !!contractorId || skipContractor}>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setPerformedBy("self")}
+              className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${
+                performedBy === "self"
+                  ? "border-brand-600 bg-brand-600 text-white shadow-sm"
+                  : "border-ink-200 text-ink-700 hover:bg-ink-50"
+              }`}
+            >
+              אני מבצע
+            </button>
+            <button
+              type="button"
+              onClick={() => setPerformedBy("contractor")}
+              className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${
+                performedBy === "contractor"
+                  ? "border-brand-600 bg-brand-600 text-white shadow-sm"
+                  : "border-ink-200 text-ink-700 hover:bg-ink-50"
+              }`}
+            >
+              קבלן מבצע
+            </button>
+          </div>
+
+          {performedBy === "self" && (
+            <div className="mt-4 space-y-4 rounded-2xl border border-ink-100 bg-ink-50/50 p-3.5">
+              <div>
+                <Label>מאיפה אתם יוצאים?</Label>
+                <select
+                  value={originId ?? ""}
+                  onChange={(e) => setOriginCityId(e.target.value || null)}
+                  className="input"
+                >
+                  <option value="">לא נבחר</option>
+                  {activeCities.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <Label>כמה ק״מ לכיוון אחד?</Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    inputMode="decimal"
+                    value={travelKm}
+                    onChange={(e) => setTravelKm(e.target.value)}
+                    placeholder="למשל 25"
+                    className="w-32"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setRoundTrip((r) => !r)}
+                    className={`rounded-xl border px-3 py-2 text-sm font-bold ${
+                      roundTrip ? "border-brand-600 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-500"
+                    }`}
+                  >
+                    {roundTrip ? "כולל חזרה ✓" : "בלי חזרה"}
+                  </button>
+                  {totalKm > 0 && (
+                    <span className="text-sm font-bold text-ink-600">
+                      {totalKm} ק״מ · דלק {formatAgorot(fuelAgorot)}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-ink-400">
+                  {settings
+                    ? `לפי ${settings.km_per_liter} ק״מ לליטר ו-${formatAgorot(settings.fuel_price_per_liter_agorot)} לליטר — אפשר לעדכן בהגדרות`
+                    : "הגדירו צריכת דלק ומחיר לליטר בהגדרות"}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>לקחתם עובד?</Label>
+                  <select value={helperId} onChange={(e) => selectHelper(e.target.value)} className="input">
+                    <option value="">לא, עבדתי לבד</option>
+                    {activeHelpers.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {helperId && (
+                  <div>
+                    <Label>כמה שילמתם לו? (₪)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      inputMode="decimal"
+                      value={helperPay}
+                      onChange={(e) => setHelperPay(e.target.value)}
+                      placeholder="150"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {quotedAgorot > 0 && (
+                <div className="rounded-xl bg-white p-3 text-sm">
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-ink-500">מחיר העבודה</span>
+                    <span className="font-bold">{formatAgorot(quotedAgorot)}</span>
+                  </div>
+                  {fuelAgorot > 0 && (
+                    <div className="flex justify-between py-0.5">
+                      <span className="text-ink-500">פחות דלק</span>
+                      <span className="font-bold text-danger-600">-{formatAgorot(fuelAgorot)}</span>
+                    </div>
+                  )}
+                  {helperPayAgorot > 0 && (
+                    <div className="flex justify-between py-0.5">
+                      <span className="text-ink-500">פחות עובד</span>
+                      <span className="font-bold text-danger-600">-{formatAgorot(helperPayAgorot)}</span>
+                    </div>
+                  )}
+                  <div className="mt-1 flex justify-between border-t border-ink-100 pt-1.5">
+                    <span className="font-bold text-ink-700">נשאר לי מהעבודה</span>
+                    <span className="font-extrabold text-success-700">{formatAgorot(myTakeHome)}</span>
+                  </div>
+                  <p className="mt-1.5 text-xs text-ink-400">
+                    חישוב לפי המחיר שנאמר בטלפון. המספר הסופי ייקבע בסגירת העבודה.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </Section>
+      )}
+
+      {cityId && performedBy === "contractor" && (
+        <Section title="5. קבלן מתאים" done={!!contractorId || skipContractor}>
           <ContractorMatchList matches={matches} selectedId={contractorId} onSelect={(id) => { setContractorId(id); setSkipContractor(false); }} />
           {matches.length > 0 && (
             <button
@@ -268,7 +466,7 @@ export default function NewJobPage() {
       )}
 
       {cityId && (
-        <Section title="5. פרטי לקוח ועבודה" done={!!(customerName && customerPhone)}>
+        <Section title="6. פרטי לקוח ועבודה" done={!!(customerName && customerPhone)}>
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>

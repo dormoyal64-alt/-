@@ -7,6 +7,7 @@ import type {
   City,
   Contractor,
   ContractorWithRelations,
+  Helper,
   JobStatus,
   JobType,
   LeadSource,
@@ -22,6 +23,7 @@ interface RefData {
   leadSources: LeadSource[];
   jobStatuses: JobStatus[];
   contractors: ContractorWithRelations[];
+  helpers: Helper[];
   settings: AppSettings | null;
   loading: boolean;
   refresh: () => Promise<void>;
@@ -38,12 +40,13 @@ export function RefDataProvider({ children }: { children: React.ReactNode }) {
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [jobStatuses, setJobStatuses] = useState<JobStatus[]>([]);
   const [contractors, setContractors] = useState<ContractorWithRelations[]>([]);
+  const [helpers, setHelpers] = useState<Helper[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const [p, jt, c, pm, ls, js, con, st] = await Promise.all([
+    const [p, jt, c, pm, ls, js, con, hp, st] = await Promise.all([
       supabase.from("professions").select("*").order("sort_order"),
       supabase.from("job_types").select("*").order("sort_order"),
       supabase.from("cities").select("*").order("name"),
@@ -56,6 +59,7 @@ export function RefDataProvider({ children }: { children: React.ReactNode }) {
           "*, contractor_professions(profession_id), contractor_cities(city_id), contractor_job_types(job_type_id, commission_pct)"
         )
         .order("name"),
+      supabase.from("helpers").select("*").order("name"),
       supabase.from("app_settings").select("*").eq("id", true).maybeSingle(),
     ]);
     setProfessions(p.data ?? []);
@@ -65,6 +69,7 @@ export function RefDataProvider({ children }: { children: React.ReactNode }) {
     setLeadSources(ls.data ?? []);
     setJobStatuses(js.data ?? []);
     setContractors((con.data as ContractorWithRelations[]) ?? []);
+    setHelpers((hp.data as Helper[]) ?? []);
     setSettings((st.data as AppSettings) ?? null);
     setLoading(false);
   }, [supabase]);
@@ -75,7 +80,7 @@ export function RefDataProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <RefDataContext.Provider
-      value={{ professions, jobTypes, cities, paymentMethods, leadSources, jobStatuses, contractors, settings, loading, refresh }}
+      value={{ professions, jobTypes, cities, paymentMethods, leadSources, jobStatuses, contractors, helpers, settings, loading, refresh }}
     >
       {children}
     </RefDataContext.Provider>

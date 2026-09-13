@@ -113,6 +113,40 @@ insert into cities (name, region, is_active) values
 on conflict (name) do update set region = excluded.region, is_active = true;
 
 -- ----------------------------------------------------------------------------
+-- Vehicle, fuel and home base
+-- ----------------------------------------------------------------------------
+-- Israeli fuel prices are set monthly, so this is a number you keep current
+-- from Settings; nothing fetches it for you.
+update app_settings set
+  fuel_price_per_liter_agorot = 740,
+  km_per_liter = 12.0,
+  fuel_price_updated_on = current_date,
+  home_city_id = (select id from cities where name = 'באר שבע')
+where id = true;
+
+-- ----------------------------------------------------------------------------
+-- A worker you sometimes take along
+-- ----------------------------------------------------------------------------
+insert into helpers (name, phone, default_pay_agorot, active, notes) values
+  ('רון עוזר', '050-9990000', 15000, true, 'עובד לדוגמה — 150 ₪ לעבודה');
+
+-- ----------------------------------------------------------------------------
+-- Demo advertising spend (last 7 days)
+-- ----------------------------------------------------------------------------
+insert into ad_spend (spent_on, lead_source_id, amount_agorot, notes)
+select current_date - d, ls.id, amt, note
+from (values
+  (0, 'Google',   9000,  'קליקים'),
+  (1, 'Google',   7500,  'קליקים'),
+  (2, 'Facebook', 6000,  'ממומן'),
+  (3, 'Google',   8000,  'קליקים'),
+  (4, 'Instagram',4000,  'ממומן'),
+  (5, 'Facebook', 5500,  'ממומן'),
+  (6, 'Google',   7000,  'קליקים')
+) as a(d, src, amt, note)
+join lead_sources ls on ls.name = a.src;
+
+-- ----------------------------------------------------------------------------
 -- Demo contractors
 -- ----------------------------------------------------------------------------
 insert into contractors (name, phone, whatsapp, default_commission_pct, active, notes) values
@@ -209,5 +243,44 @@ begin
     end if;
   end loop;
 end $$;
+
+-- ----------------------------------------------------------------------------
+-- Two of the demo jobs are ones the owner did himself, with travel and a helper
+-- ----------------------------------------------------------------------------
+update jobs set
+  performed_by = 'self',
+  contractor_id = null,
+  commission_pct = 0,
+  origin_city_id = (select home_city_id from app_settings where id = true),
+  travel_km = 38,
+  helper_id = (select id from helpers where name = 'רון עוזר'),
+  helper_pay_agorot = 15000
+where customer_phone = '050-1000006';
+
+update jobs set
+  performed_by = 'self',
+  contractor_id = null,
+  commission_pct = 0,
+  origin_city_id = (select home_city_id from app_settings where id = true),
+  travel_km = 12
+where customer_phone = '050-1000013';
+
+-- re-close the one that was already closed, so its shares and fuel are right
+do $$
+declare r record;
+begin
+  for r in select id, final_price_agorot, final_payment_method_id, payment_received_by
+           from jobs where customer_phone = '050-1000006' and is_closed
+  loop
+    perform close_job(r.id, true, r.final_price_agorot, r.final_payment_method_id,
+                      r.payment_received_by, 'נסגרה - בוצעה על ידי', now() - interval '1 hour');
+  end loop;
+end $$;
+
+-- a distance the system has already learned
+insert into city_distances (from_city_id, to_city_id, km)
+select (select home_city_id from app_settings where id = true),
+       (select id from cities where name = 'אשדוד'), 72
+on conflict do nothing;
 
 drop table tmp_demo_jobs;
