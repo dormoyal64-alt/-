@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Lightbulb, CalendarDays, Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { DailyAdSpend } from "@/components/ads/DailyAdSpend";
+import { PeriodPicker } from "@/components/ui/PeriodPicker";
 import { Input } from "@/components/ui/Input";
 import { PageSpinner } from "@/components/ui/Misc";
 import { formatAgorot, formatPercent } from "@/lib/money";
-import { startOfDay, endOfDay, formatDateHe, last7Days, todayLocalDate } from "@/lib/dates";
+import { startOfDay, endOfDay, formatDateHe, last7Days, todayLocalDate, getPeriodRange, isoRange, type PeriodKey, type DateRange } from "@/lib/dates";
 import type { CityStatsRow, ContractorStatsRow, ProfessionStatsRow } from "@/lib/types";
 
 export interface DailyMoneyRow {
@@ -37,7 +39,10 @@ export default function DailySummaryPage() {
   const supabase = useMemo(() => createClient(), []);
   const { professions, cities, contractors, jobStatuses } = useRefData();
 
+  const [period, setPeriod] = useState<PeriodKey>("today");
   const [date, setDate] = useState(todayLocalDate());
+  const [customFrom, setCustomFrom] = useState(todayLocalDate());
+  const [customTo, setCustomTo] = useState(todayLocalDate());
   const [byProfession, setByProfession] = useState<ProfessionStatsRow[]>([]);
   const [byCity, setByCity] = useState<CityStatsRow[]>([]);
   const [byContractor, setByContractor] = useState<ContractorStatsRow[]>([]);
@@ -47,11 +52,23 @@ export default function DailySummaryPage() {
   const [moneyKey, setMoneyKey] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // "today" keeps its own date box so an earlier day can be looked at; the other
+  // periods are worked out from the clock.
+  const range: DateRange = useMemo(() => {
+    if (period === "today") return { from: startOfDay(new Date(date)), to: endOfDay(new Date(date)) };
+    if (period === "custom") {
+      return { from: startOfDay(new Date(customFrom)), to: endOfDay(new Date(customTo)) };
+    }
+    return getPeriodRange(period);
+  }, [period, date, customFrom, customTo]);
+
+  const rangeIso = useMemo(() => isoRange(range), [range]);
+
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const dayFrom = startOfDay(new Date(date)).toISOString();
-      const dayTo = endOfDay(new Date(date)).toISOString();
+      const dayFrom = rangeIso.from;
+      const dayTo = rangeIso.to;
       const weekFrom = last7Days().toISOString();
       const weekTo = new Date().toISOString();
 
@@ -61,7 +78,7 @@ export default function DailySummaryPage() {
         supabase.rpc("contractor_stats", { p_from: dayFrom, p_to: dayTo }),
         supabase.rpc("contractor_stats", { p_from: weekFrom, p_to: weekTo }),
         supabase.from("jobs").select("profession_id, city_id, status_id").gte("opened_at", dayFrom).lte("opened_at", dayTo),
-        supabase.rpc("daily_money", { p_day: date }),
+        supabase.rpc("range_money", { p_from: dayFrom, p_to: dayTo }),
       ]);
 
       setMoney(((moneyRes.data as DailyMoneyRow[] | null) ?? [])[0] ?? null);
@@ -101,7 +118,21 @@ export default function DailySummaryPage() {
     }
     if (jobStatuses.length) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, jobStatuses.length, moneyKey]);
+  }, [rangeIso.from, rangeIso.to, jobStatuses.length, moneyKey]);
+
+  const periodNoun =
+    period === "today" ? "היום" :
+    period === "week" ? "השבוע" :
+    period === "month" ? "החודש" :
+    period === "year" ? "השנה" : "בטווח";
+  const periodTitle =
+    period === "today" ? `סיכום יומי · ${formatDateHe(date)}` :
+    period === "week" ? "סיכום שבועי" :
+    period === "month" ? "סיכום חודשי" :
+    period === "year" ? "סיכום שנתי" :
+    `${formatDateHe(customFrom)} — ${formatDateHe(customTo)}`;
+  const rangeSubtitle =
+    period === "today" ? formatDateHe(date) : `${formatDateHe(range.from)} — ${formatDateHe(range.to)}`;
 
   const insights = useMemo(() => {
     const list: string[] = [];
@@ -109,7 +140,7 @@ export default function DailySummaryPage() {
       if (combo.count < 3) continue;
       const rate = (combo.closed / combo.count) * 100;
       if (rate >= 70) {
-        list.push(`היום תחום ${combo.professionName} ב${combo.cityName} קיבל ${combo.count} עבודות וסגר ${combo.closed} – ${rate.toFixed(0)}% סגירה. ביצועים מצוינים!`);
+        list.push(`${periodNoun} תחום ${combo.professionName} ב${combo.cityName} קיבל ${combo.count} עבודות וסגר ${combo.closed} – ${rate.toFixed(0)}% סגירה. ביצועים מצוינים!`);
       } else if (rate <= 30) {
         list.push(`${combo.professionName} ב${combo.cityName} קיבלה ${combo.count} עבודות אבל סגרה רק ${combo.closed} – מומלץ לבדוק את איכות הלידים או הקבלנים באזור.`);
       }
@@ -119,46 +150,67 @@ export default function DailySummaryPage() {
     }
     if (money && money.ad_spend_agorot > 0 && money.jobs_opened > 0) {
       list.push(
-        `הפרסום היום עלה ${formatAgorot(money.ad_spend_agorot)} והביא ${money.jobs_opened} פניות — ` +
+        `הפרסום ${periodNoun} עלה ${formatAgorot(money.ad_spend_agorot)} והביא ${money.jobs_opened} פניות — ` +
           `${formatAgorot(money.cost_per_lead_agorot)} לפנייה.`
       );
       if (money.net_agorot < 0) {
         list.push(
-          `אחרי הפרסום היום בהפסד של ${formatAgorot(Math.abs(money.net_agorot))}. ` +
+          `אחרי הפרסום ${periodNoun} בהפסד של ${formatAgorot(Math.abs(money.net_agorot))}. ` +
             "שווה לבדוק אם הערוץ מחזיר את ההשקעה."
         );
       }
     }
     const totalJobs = byProfession.reduce((s, r) => s + r.jobs_count, 0);
     if (totalJobs === 0) {
-      list.push("לא נפתחו עבודות ביום זה.");
+      list.push(period === "today" ? "לא נפתחו עבודות ביום זה." : "לא נפתחו עבודות בתקופה זו.");
     }
     return list;
-  }, [combos, weekTopContractor, byProfession, money]);
+  }, [combos, weekTopContractor, byProfession, money, period, periodNoun]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold text-ink-900">סיכום יומי</h1>
-          <p className="text-sm text-ink-500">{formatDateHe(date)}</p>
+          <h1 className="text-2xl font-extrabold text-ink-900">{periodTitle}</h1>
+          <p className="text-sm text-ink-500">{rangeSubtitle}</p>
         </div>
-        <div className="relative">
-          <CalendarDays className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto pr-10" />
-        </div>
+        {period === "today" && (
+          <div className="relative">
+            <CalendarDays className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto pr-10" />
+          </div>
+        )}
       </div>
+
+      <PeriodPicker
+        period={period}
+        onChange={setPeriod}
+        customFrom={customFrom}
+        customTo={customTo}
+        onCustomFromChange={setCustomFrom}
+        onCustomToChange={setCustomTo}
+      />
 
       {loading ? (
         <PageSpinner />
       ) : (
         <>
-          <DailyAdSpend day={date} onSaved={() => setMoneyKey((k) => k + 1)} />
+          {period === "today" ? (
+            <DailyAdSpend day={date} onSaved={() => setMoneyKey((k) => k + 1)} />
+          ) : (
+            <p className="text-xs text-ink-400">
+              סכום הפרסום מוזן ליום בודד. לפילוח לפי ערוצים ולעריכת ימים אחרים — מסך{" "}
+              <Link href="/advertising" className="font-semibold text-brand-600 hover:underline">
+                הוצאות פרסום
+              </Link>
+              .
+            </p>
+          )}
 
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Megaphone className="h-5 w-5 text-ink-400" /> הכסף של היום
+                <Megaphone className="h-5 w-5 text-ink-400" /> הכסף של {periodNoun}
               </CardTitle>
             </CardHeader>
             <CardBody className="space-y-1.5 text-sm">
@@ -177,7 +229,7 @@ export default function DailySummaryPage() {
               <MoneyRow label="פרסום" value={`-${formatAgorot(money?.ad_spend_agorot)}`} negative />
               <div className="border-t-2 border-ink-200 pt-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-extrabold text-ink-900">הרווח האמיתי היום</span>
+                  <span className="font-extrabold text-ink-900">הרווח האמיתי {periodNoun}</span>
                   <span
                     className={`text-lg font-extrabold ${
                       (money?.net_agorot ?? 0) < 0 ? "text-danger-600" : "text-success-600"
@@ -189,7 +241,7 @@ export default function DailySummaryPage() {
               </div>
               {!!money?.jobs_opened && (
                 <p className="pt-1 text-xs text-ink-400">
-                  {money.jobs_opened} פניות נפתחו היום · {formatAgorot(money.cost_per_lead_agorot)} עלות פרסום לפנייה
+                  {money.jobs_opened} פניות נפתחו {periodNoun} · {formatAgorot(money.cost_per_lead_agorot)} עלות פרסום לפנייה
                 </p>
               )}
             </CardBody>
@@ -203,7 +255,7 @@ export default function DailySummaryPage() {
             </CardHeader>
             <CardBody>
               {insights.length === 0 ? (
-                <p className="text-sm text-ink-500">אין מספיק נתונים להפקת תובנות עבור יום זה.</p>
+                <p className="text-sm text-ink-500">אין מספיק נתונים להפקת תובנות עבור התקופה שנבחרה.</p>
               ) : (
                 <ul className="space-y-2">
                   {insights.map((text, i) => (

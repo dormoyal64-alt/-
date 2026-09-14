@@ -37,7 +37,7 @@ export const reportsNav: NavItem[] = [
   { href: "/referrals", label: "חברות מפנות", icon: Building2 },
   { href: "/analytics", label: "אנליטיקס", icon: BarChart3 },
   { href: "/leaderboard", label: "דירוג קבלנים", icon: Trophy },
-  { href: "/daily-summary", label: "סיכום יומי", icon: CalendarRange },
+  { href: "/daily-summary", label: "סיכומים", icon: CalendarRange },
   { href: "/settlements", label: "התחשבנות", icon: Wallet },
 ];
 
