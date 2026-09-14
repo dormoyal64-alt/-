@@ -381,6 +381,12 @@ export interface PeriodTotalsRow {
   jobs_closed_failed: number;
   close_rate: number | null;
   revenue_agorot: number;
+  /** my share of the jobs, before what it cost to do and to advertise them */
+  gross_profit_agorot: number;
+  fuel_agorot: number;
+  helper_agorot: number;
+  ad_spend_agorot: number;
+  /** what is actually left: gross minus fuel, helpers and advertising */
   profit_agorot: number;
   contractor_payable_agorot: number;
   contractor_receivable_agorot: number;

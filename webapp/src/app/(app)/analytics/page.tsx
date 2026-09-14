@@ -16,7 +16,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { Download, TrendingUp, Wallet, Percent, Receipt } from "lucide-react";
+import { Download, TrendingUp, Wallet, Percent, Receipt, Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -118,11 +118,17 @@ export default function AnalyticsPage() {
         <PageSpinner />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <StatCard label="סה״כ עבודות" value={formatNumber(totals?.jobs_count)} icon={Receipt} />
             <StatCard label="אחוז סגירה" value={formatPercent(totals?.close_rate ?? 0)} icon={Percent} tone="success" />
             <StatCard label="מחזור כולל" value={formatAgorot(totals?.revenue_agorot)} icon={Wallet} />
-            <StatCard label="רווח שלי" value={formatAgorot(totals?.profit_agorot)} icon={TrendingUp} tone="success" />
+            <StatCard label="פרסום" value={formatAgorot(totals?.ad_spend_agorot)} icon={Megaphone} tone="warning" />
+            <StatCard
+              label="רווח שלי (אחרי פרסום)"
+              value={formatAgorot(totals?.profit_agorot)}
+              icon={TrendingUp}
+              tone={(totals?.profit_agorot ?? 0) < 0 ? "danger" : "success"}
+            />
           </div>
 
           <Card>
