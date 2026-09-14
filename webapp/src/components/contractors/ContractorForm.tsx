@@ -152,12 +152,15 @@ export function ContractorForm({
 
       <div>
         <Label required>ערים בהן הקבלן עובד</Label>
+        {/* the whole country, with the places you already work listed first */}
         <CityPicker
-          cities={cities.filter((c) => c.is_active)}
+          cities={[...cities].sort(
+            (a, b) => Number(b.is_active) - Number(a.is_active) || a.name.localeCompare(b.name, "he")
+          )}
           selectedIds={cityIds}
           onToggle={toggleCity}
           mode="multi"
-          emptyHint="לא נמצאה עיר פעילה בשם הזה. אפשר להפעיל עוד ערים במסך ״ערים״."
+          emptyHint="לא נמצא יישוב בשם הזה."
         />
       </div>
 

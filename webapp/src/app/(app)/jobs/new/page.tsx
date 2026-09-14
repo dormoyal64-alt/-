@@ -29,7 +29,7 @@ export default function NewJobPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const toast = useToast();
-  const { professions, jobTypes, cities, paymentMethods, leadSources, jobStatuses, helpers, settings, referralCompanies } = useRefData();
+  const { professions, jobTypes, cities, paymentMethods, leadSources, jobStatuses, helpers, settings, referralCompanies, refresh } = useRefData();
 
   const [professionId, setProfessionId] = useState<string | null>(null);
   const [jobTypeId, setJobTypeId] = useState<string | null>(null);
@@ -65,7 +65,12 @@ export default function NewJobPage() {
   const activeProfessions = professions.filter((p) => p.is_active);
   const relevantJobTypes = jobTypes.filter((jt) => jt.profession_id === professionId && jt.is_active);
   const selectedJobType = relevantJobTypes.find((jt) => jt.id === jobTypeId) ?? null;
-  const activeCities = cities.filter((c) => c.is_active);
+  // Every locality in the country is offered here. The is_active flag now only
+  // orders the list — the places you already work float to the top — instead of
+  // hiding a city you have simply never opened a job in before.
+  const orderedCities = [...cities].sort(
+    (a, b) => Number(b.is_active) - Number(a.is_active) || a.name.localeCompare(b.name, "he")
+  );
   const activeHelpers = helpers.filter((h) => h.active);
   const activeCompanies = referralCompanies.filter((c) => c.active);
   const selectedCompany = activeCompanies.find((c) => c.id === referralCompanyId) ?? null;
@@ -123,6 +128,15 @@ export default function NewJobPage() {
   function selectCity(id: string) {
     setCityId(id);
     setContractorId(null);
+    // first job in a city marks it as one you work in, so it leads the list next time
+    const city = cities.find((c) => c.id === id);
+    if (city && !city.is_active) {
+      supabase
+        .from("cities")
+        .update({ is_active: true })
+        .eq("id", id)
+        .then(() => refresh());
+    }
   }
 
   function selectCompany(id: string) {
@@ -340,16 +354,12 @@ export default function NewJobPage() {
 
       {jobTypeId && (
         <Section title="3. עיר" done={!!cityId}>
-          {activeCities.length > 8 ? (
-            <CityPicker
-              cities={activeCities}
-              selectedIds={cityId ? [cityId] : []}
-              onToggle={selectCity}
-              emptyHint="לא נמצאה עיר פעילה בשם הזה. אפשר להפעיל עוד ערים במסך ״ערים״."
-            />
-          ) : (
-            <ChipGrid items={activeCities.map((c) => ({ id: c.id, label: c.name }))} selectedId={cityId} onSelect={selectCity} />
-          )}
+          <CityPicker
+            cities={orderedCities}
+            selectedIds={cityId ? [cityId] : []}
+            onToggle={selectCity}
+            emptyHint="לא נמצא יישוב בשם הזה. אפשר להוסיף יישוב חדש במסך ״הגדרות ← ערים״."
+          />
         </Section>
       )}
 
@@ -475,7 +485,7 @@ export default function NewJobPage() {
                   className="input"
                 >
                   <option value="">לא נבחר</option>
-                  {activeCities.map((c) => (
+                  {orderedCities.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>

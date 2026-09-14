@@ -49,6 +49,14 @@ export function CityPicker({
     (c) => selectedIds.includes(c.id) && !filtered.some((f) => f.id === c.id)
   );
 
+  // A region holds at most ~250 localities, so a region tab always renders in
+  // full — no southern town can fall off the end. Only the country-wide list is
+  // trimmed, and then the count below says so rather than quietly hiding names.
+  const candidates = [...selectedOutsideFilter, ...filtered];
+  const RENDER_LIMIT = 400;
+  const shown = candidates.slice(0, RENDER_LIMIT);
+  const hiddenCount = candidates.length - shown.length;
+
   const regionCounts = useMemo(() => {
     const counts: Record<string, number> = { הכל: cities.length };
     cities.forEach((c) => {
@@ -103,7 +111,7 @@ export function CityPicker({
       ) : (
         <div className="max-h-64 overflow-y-auto rounded-2xl border border-ink-100 p-2">
           <div className="flex flex-wrap gap-2">
-            {[...selectedOutsideFilter, ...filtered].slice(0, 120).map((c) => {
+            {shown.map((c) => {
               const on = selectedIds.includes(c.id);
               return (
                 <button
@@ -123,6 +131,12 @@ export function CityPicker({
             })}
           </div>
         </div>
+      )}
+
+      {hiddenCount > 0 && (
+        <p className="text-xs text-ink-500">
+          מוצגים {shown.length} מתוך {candidates.length} יישובים — הקלידו שם או בחרו אזור כדי לראות את השאר
+        </p>
       )}
 
       {mode === "multi" && selectedIds.length > 0 && (
