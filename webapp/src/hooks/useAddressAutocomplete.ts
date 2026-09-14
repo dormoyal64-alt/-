@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 
 export interface AddressResult {
   displayName: string;
-  lat: number;
-  lng: number;
+  /** null for an address the user typed that no map could confirm */
+  lat: number | null;
+  lng: number | null;
   street: string | null;
   houseNumber: string | null;
   city: string | null;

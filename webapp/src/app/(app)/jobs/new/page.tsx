@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/Toast";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
-import { AddressAutocomplete } from "@/components/jobs/AddressAutocomplete";
+import { AddressAutocomplete, formatAddressLine } from "@/components/jobs/AddressAutocomplete";
 import { ContractorMatchList } from "@/components/jobs/ContractorMatchList";
 import { CityPicker } from "@/components/ui/CityPicker";
 import { useContractorMatch } from "@/hooks/useContractorMatch";
@@ -143,7 +143,8 @@ export default function NewJobPage() {
 
   function handleAddressSelect(r: AddressResult) {
     setAddressResult(r);
-    setAddressQuery(r.displayName);
+    // keep the tidy "street number" line, not Nominatim's long display_name
+    setAddressQuery(formatAddressLine(r));
   }
 
   const canSave =
@@ -185,7 +186,9 @@ export default function NewJobPage() {
         city_id: cityId!,
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim(),
-        address_full: addressResult?.displayName ?? addressQuery ?? null,
+        address_full: addressResult
+          ? [formatAddressLine(addressResult), addressResult.city].filter(Boolean).join(", ")
+          : addressQuery.trim() || null,
         address_street: addressResult?.street ?? null,
         address_house_number: addressResult?.houseNumber ?? null,
         address_city: addressResult?.city ?? null,
@@ -627,20 +630,19 @@ export default function NewJobPage() {
       {cityId && performedBy === "contractor" && (
         <Section title="6. קבלן מתאים" done={!!contractorId || skipContractor}>
           <ContractorMatchList matches={matches} selectedId={contractorId} onSelect={(id) => { setContractorId(id); setSkipContractor(false); }} />
-          {matches.length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                setContractorId(null);
-                setSkipContractor(true);
-              }}
-              className={`mt-2 w-full rounded-xl border py-2.5 text-sm font-semibold ${
-                skipContractor ? "border-brand-600 bg-brand-50 text-brand-700" : "border-dashed border-ink-200 text-ink-400"
-              }`}
-            >
-              המשך בלי לשייך קבלן כרגע
-            </button>
-          )}
+          {/* offered even with nobody on the list — a job still has to be opened */}
+          <button
+            type="button"
+            onClick={() => {
+              setContractorId(null);
+              setSkipContractor(true);
+            }}
+            className={`mt-2 w-full rounded-xl border py-2.5 text-sm font-semibold ${
+              skipContractor ? "border-brand-600 bg-brand-50 text-brand-700" : "border-dashed border-ink-200 text-ink-400"
+            }`}
+          >
+            המשך בלי לשייך קבלן כרגע
+          </button>
         </Section>
       )}
 
