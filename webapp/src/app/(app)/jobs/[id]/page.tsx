@@ -38,6 +38,7 @@ import { buildCallLink, buildMapLink, buildNewJobWhatsappMessage, buildOnTheWayM
 import { formatAgorot, formatPercent } from "@/lib/money";
 import { formatDateTimeHe, formatDurationHe } from "@/lib/dates";
 import { useRefData } from "@/lib/refdata";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import type { JobWithRelations } from "@/lib/types";
 
 export default function JobDetailPage() {
@@ -89,6 +90,10 @@ export default function JobDetailPage() {
     }
     toast.success(next ? "טלפון הלקוח ייכלל בהודעה לקבלן" : "טלפון הלקוח לא ייכלל בהודעה לקבלן");
   }
+
+  // Pulling the job out from under an open dialog would lose whatever is
+  // half-typed in it, so wait until they are all closed.
+  useAutoRefresh(load, { enabled: !closeOpen && !statusOpen && !editOpen && !noteOpen && !deleteOpen });
 
   async function handleDelete() {
     if (!job) return;

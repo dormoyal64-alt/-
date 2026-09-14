@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { StatCard } from "@/components/ui/StatCard";
 import { DailyAdSpend } from "@/components/ads/DailyAdSpend";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { PageSpinner } from "@/components/ui/Misc";
 import { formatAgorot, formatNumber, formatPercent } from "@/lib/money";
@@ -73,6 +74,9 @@ export default function DashboardPage() {
     }
     load();
   }, [supabase, contractors, reloadKey]);
+
+  // someone else may have opened a job since this loaded
+  useAutoRefresh(() => setReloadKey((k) => k + 1));
 
   function pctChange(curr?: number | null, prev?: number | null) {
     if (curr === undefined || curr === null || prev === undefined || prev === null || prev === 0) return null;

@@ -8,6 +8,7 @@ import { useRefData } from "@/lib/refdata";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { DailyAdSpend } from "@/components/ads/DailyAdSpend";
 import { PeriodPicker } from "@/components/ui/PeriodPicker";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { Input } from "@/components/ui/Input";
 import { PageSpinner } from "@/components/ui/Misc";
 import { formatAgorot, formatPercent } from "@/lib/money";
@@ -119,6 +120,8 @@ export default function DailySummaryPage() {
     if (jobStatuses.length) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeIso.from, rangeIso.to, jobStatuses.length, moneyKey]);
+
+  useAutoRefresh(() => setMoneyKey((k) => k + 1));
 
   const periodNoun =
     period === "today" ? "היום" :

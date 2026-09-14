@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import Link from "next/link";
 import { Plus, Search, Phone, MessageCircle, ChevronLeft, Users, Download } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -24,6 +25,7 @@ export default function ContractorsPage() {
   const toast = useToast();
 
   const [stats, setStats] = useState<Record<string, ContractorStatsRow>>({});
+  const [reloadKey, setReloadKey] = useState(0);
   const [search, setSearch] = useState("");
   const [professionFilter, setProfessionFilter] = useState("");
   const [cityFilter, setCityFilter] = useState("");
@@ -39,7 +41,9 @@ export default function ContractorsPage() {
         (data as ContractorStatsRow[] | null)?.forEach((row) => (map[row.contractor_id] = row));
         setStats(map);
       });
-  }, [supabase, contractors.length]);
+  }, [supabase, contractors.length, reloadKey]);
+
+  useAutoRefresh(() => setReloadKey((k) => k + 1));
 
   const filtered = contractors.filter((c) => {
     if (!showInactive && !c.active) return false;

@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import type {
   AppSettings,
   City,
@@ -34,7 +35,8 @@ interface RefData {
    *  decides what can actually be read */
   isOwner: boolean;
   loading: boolean;
-  refresh: () => Promise<void>;
+  /** pass quiet when reloading in the background, so no spinner appears */
+  refresh: (quiet?: boolean) => Promise<void>;
 }
 
 const RefDataContext = createContext<RefData | null>(null);
@@ -54,8 +56,8 @@ export function RefDataProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
     const [p, jt, c, pm, ls, js, con, hp, rc, st] = await Promise.all([
       supabase.from("professions").select("*").order("sort_order"),
       supabase.from("job_types").select("*").order("sort_order"),
@@ -99,6 +101,11 @@ export function RefDataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // A contractor someone else added should turn up in the job form without
+  // anyone having to reload the page. Quiet, so no spinner blinks over a form
+  // that is halfway filled in.
+  useAutoRefresh(() => refresh(true), { intervalMs: 60_000 });
 
   return (
     <RefDataContext.Provider

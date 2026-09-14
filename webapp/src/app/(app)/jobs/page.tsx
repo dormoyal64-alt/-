@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { useRouter } from "next/navigation";
 import { Search, SlidersHorizontal, ChevronRight, ChevronLeft, Download, Plus, Briefcase } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -37,6 +38,7 @@ export default function JobsPage() {
   const [showFilters, setShowFilters] = useState(false);
 
   const [page, setPage] = useState(0);
+  const [reloadKey, setReloadKey] = useState(0);
   const [jobs, setJobs] = useState<JobWithRelations[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -79,7 +81,9 @@ export default function JobsPage() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, search, professionId, jobTypeId, cityId, contractorId, statusId, paymentMethodId, closedFilter, dateFrom, dateTo, page]);
+  }, [supabase, search, professionId, jobTypeId, cityId, contractorId, statusId, paymentMethodId, closedFilter, dateFrom, dateTo, page, reloadKey]);
+
+  useAutoRefresh(() => setReloadKey((k) => k + 1));
 
   async function handleExport() {
     let query = supabase.from("jobs").select(JOB_SELECT).order("created_at", { ascending: false }).limit(10000);
