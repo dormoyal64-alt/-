@@ -16,6 +16,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { StatCard } from "@/components/ui/StatCard";
+import { DailyAdSpend } from "@/components/ads/DailyAdSpend";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { PageSpinner } from "@/components/ui/Misc";
 import { formatAgorot, formatNumber, formatPercent } from "@/lib/money";
@@ -89,6 +90,10 @@ export default function DashboardPage() {
           עבודה חדשה
         </Link>
       </div>
+
+      {/* asked once a day, because a profit figure that ignores what the leads
+          cost is not a profit figure */}
+      <DailyAdSpend day={new Date().toISOString().slice(0, 10)} compact />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <StatCard label="עבודות היום" value={formatNumber(today?.jobs_count)} icon={Briefcase} changePct={pctChange(today?.jobs_count, yesterday?.jobs_count)} />

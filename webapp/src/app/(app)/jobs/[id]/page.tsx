@@ -19,6 +19,7 @@ import {
   EyeOff,
   BellOff,
   Send,
+  Megaphone,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
@@ -54,6 +55,7 @@ export default function JobDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
+  const [adShare, setAdShare] = useState<number | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -105,6 +107,9 @@ export default function JobDetailPage() {
     setLoading(true);
     const j = await fetchJob(supabase, id);
     setJob(j);
+    // what this job's lead cost in advertising, as a share of that day's spend
+    const { data: share } = await supabase.rpc("job_ad_share", { p_job_id: id });
+    setAdShare(typeof share === "number" ? share : null);
     const { data } = await supabase
       .from("job_status_history")
       .select("id, changed_at, note, status:job_statuses(name, color)")
@@ -261,6 +266,48 @@ export default function JobDetailPage() {
           </CardBody>
         </Card>
       )}
+
+      {job.is_closed && (() => {
+        // business_share already has the contractor and the referral company out
+        // of it; fuel and the helper are only ever set on a job I did myself.
+        const beforeAds =
+          (job.business_share_agorot ?? 0) - (job.fuel_cost_agorot ?? 0) - (job.helper_pay_agorot ?? 0);
+        const ads = adShare ?? 0;
+        const real = beforeAds - ads;
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Megaphone className="h-5 w-5 text-ink-400" /> הרווח האמיתי מהעבודה
+              </CardTitle>
+            </CardHeader>
+            <CardBody className="space-y-1.5 text-sm">
+              <InfoRow label="מחיר סופי" value={formatAgorot(job.final_price_agorot)} />
+              {!!job.contractor_share_agorot && (
+                <InfoRow label={`לקבלן${job.contractor ? ` (${job.contractor.name})` : ""}`} value={`-${formatAgorot(job.contractor_share_agorot)}`} />
+              )}
+              {!!job.referral_fee_agorot && (
+                <InfoRow label={`לחברה מפנה${job.referral_company ? ` (${job.referral_company.name})` : ""}`} value={`-${formatAgorot(job.referral_fee_agorot)}`} />
+              )}
+              {!!job.fuel_cost_agorot && <InfoRow label="דלק" value={`-${formatAgorot(job.fuel_cost_agorot)}`} />}
+              {!!job.helper_pay_agorot && (
+                <InfoRow label={`עובד${job.helper ? ` (${job.helper.name})` : ""}`} value={`-${formatAgorot(job.helper_pay_agorot)}`} />
+              )}
+              <InfoRow label="חלק יחסי בפרסום" value={`-${formatAgorot(ads)}`} />
+              <div className="mt-1 flex items-center justify-between border-t-2 border-ink-200 pt-2">
+                <span className="font-extrabold text-ink-900">נשאר לי</span>
+                <span className={`text-lg font-extrabold ${real < 0 ? "text-danger-600" : "text-success-600"}`}>
+                  {formatAgorot(real)}
+                </span>
+              </div>
+              <p className="pt-1 text-xs text-ink-400">
+                חלק הפרסום הוא הוצאות הפרסום של היום שבו נפתחה העבודה, מחולקות בכל הפניות שהתקבלו
+                באותו יום — כולל אלה שלא נסגרו. אם לא רשמתם פרסום לאותו יום, הוא 0.
+              </p>
+            </CardBody>
+          </Card>
+        );
+      })()}
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <ActionButton icon={Phone} label="התקשר ללקוח" href={buildCallLink(job.customer_phone)} />

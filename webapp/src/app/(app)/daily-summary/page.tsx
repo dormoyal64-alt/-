@@ -1,15 +1,30 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Lightbulb, CalendarDays } from "lucide-react";
+import { Lightbulb, CalendarDays, Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
+import { DailyAdSpend } from "@/components/ads/DailyAdSpend";
 import { Input } from "@/components/ui/Input";
 import { PageSpinner } from "@/components/ui/Misc";
 import { formatAgorot, formatPercent } from "@/lib/money";
 import { startOfDay, endOfDay, formatDateHe, last7Days } from "@/lib/dates";
 import type { CityStatsRow, ContractorStatsRow, ProfessionStatsRow } from "@/lib/types";
+
+export interface DailyMoneyRow {
+  jobs_opened: number;
+  jobs_closed: number;
+  revenue_agorot: number;
+  contractor_paid_agorot: number;
+  referral_agorot: number;
+  fuel_agorot: number;
+  helper_agorot: number;
+  gross_agorot: number;
+  ad_spend_agorot: number;
+  net_agorot: number;
+  cost_per_lead_agorot: number;
+}
 
 interface ComboRow {
   professionName: string;
@@ -28,6 +43,8 @@ export default function DailySummaryPage() {
   const [byContractor, setByContractor] = useState<ContractorStatsRow[]>([]);
   const [weekTopContractor, setWeekTopContractor] = useState<{ name: string; rate: number } | null>(null);
   const [combos, setCombos] = useState<ComboRow[]>([]);
+  const [money, setMoney] = useState<DailyMoneyRow | null>(null);
+  const [moneyKey, setMoneyKey] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,13 +55,16 @@ export default function DailySummaryPage() {
       const weekFrom = last7Days().toISOString();
       const weekTo = new Date().toISOString();
 
-      const [p, c, con, weekCon, comboJobs] = await Promise.all([
+      const [p, c, con, weekCon, comboJobs, moneyRes] = await Promise.all([
         supabase.rpc("stats_by_profession", { p_from: dayFrom, p_to: dayTo }),
         supabase.rpc("stats_by_city", { p_from: dayFrom, p_to: dayTo }),
         supabase.rpc("contractor_stats", { p_from: dayFrom, p_to: dayTo }),
         supabase.rpc("contractor_stats", { p_from: weekFrom, p_to: weekTo }),
         supabase.from("jobs").select("profession_id, city_id, status_id").gte("opened_at", dayFrom).lte("opened_at", dayTo),
+        supabase.rpc("daily_money", { p_day: date }),
       ]);
+
+      setMoney(((moneyRes.data as DailyMoneyRow[] | null) ?? [])[0] ?? null);
 
       setByProfession(((p.data as ProfessionStatsRow[]) ?? []).filter((r) => r.jobs_count > 0));
       setByCity(((c.data as CityStatsRow[]) ?? []).filter((r) => r.jobs_count > 0));
@@ -81,7 +101,7 @@ export default function DailySummaryPage() {
     }
     if (jobStatuses.length) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, jobStatuses.length]);
+  }, [date, jobStatuses.length, moneyKey]);
 
   const insights = useMemo(() => {
     const list: string[] = [];
@@ -97,12 +117,24 @@ export default function DailySummaryPage() {
     if (weekTopContractor) {
       list.push(`${weekTopContractor.name} הוא הקבלן בעל אחוז הסגירה הגבוה ביותר השבוע (${weekTopContractor.rate.toFixed(0)}%).`);
     }
+    if (money && money.ad_spend_agorot > 0 && money.jobs_opened > 0) {
+      list.push(
+        `הפרסום היום עלה ${formatAgorot(money.ad_spend_agorot)} והביא ${money.jobs_opened} פניות — ` +
+          `${formatAgorot(money.cost_per_lead_agorot)} לפנייה.`
+      );
+      if (money.net_agorot < 0) {
+        list.push(
+          `אחרי הפרסום היום בהפסד של ${formatAgorot(Math.abs(money.net_agorot))}. ` +
+            "שווה לבדוק אם הערוץ מחזיר את ההשקעה."
+        );
+      }
+    }
     const totalJobs = byProfession.reduce((s, r) => s + r.jobs_count, 0);
     if (totalJobs === 0) {
       list.push("לא נפתחו עבודות ביום זה.");
     }
     return list;
-  }, [combos, weekTopContractor, byProfession]);
+  }, [combos, weekTopContractor, byProfession, money]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
@@ -121,6 +153,48 @@ export default function DailySummaryPage() {
         <PageSpinner />
       ) : (
         <>
+          <DailyAdSpend day={date} onSaved={() => setMoneyKey((k) => k + 1)} />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Megaphone className="h-5 w-5 text-ink-400" /> הכסף של היום
+              </CardTitle>
+            </CardHeader>
+            <CardBody className="space-y-1.5 text-sm">
+              <MoneyRow label={`מחזור מ-${money?.jobs_closed ?? 0} עבודות שנסגרו`} value={formatAgorot(money?.revenue_agorot)} />
+              {!!money?.contractor_paid_agorot && (
+                <MoneyRow label="שולם לקבלנים" value={`-${formatAgorot(money.contractor_paid_agorot)}`} negative />
+              )}
+              {!!money?.referral_agorot && (
+                <MoneyRow label="עמלות לחברות מפנות" value={`-${formatAgorot(money.referral_agorot)}`} negative />
+              )}
+              {!!money?.fuel_agorot && <MoneyRow label="דלק" value={`-${formatAgorot(money.fuel_agorot)}`} negative />}
+              {!!money?.helper_agorot && <MoneyRow label="עובדים" value={`-${formatAgorot(money.helper_agorot)}`} negative />}
+              <div className="border-t border-ink-100 pt-1.5">
+                <MoneyRow label="לפני פרסום" value={formatAgorot(money?.gross_agorot)} />
+              </div>
+              <MoneyRow label="פרסום" value={`-${formatAgorot(money?.ad_spend_agorot)}`} negative />
+              <div className="border-t-2 border-ink-200 pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-ink-900">הרווח האמיתי היום</span>
+                  <span
+                    className={`text-lg font-extrabold ${
+                      (money?.net_agorot ?? 0) < 0 ? "text-danger-600" : "text-success-600"
+                    }`}
+                  >
+                    {formatAgorot(money?.net_agorot)}
+                  </span>
+                </div>
+              </div>
+              {!!money?.jobs_opened && (
+                <p className="pt-1 text-xs text-ink-400">
+                  {money.jobs_opened} פניות נפתחו היום · {formatAgorot(money.cost_per_lead_agorot)} עלות פרסום לפנייה
+                </p>
+              )}
+            </CardBody>
+          </Card>
+
           <Card className="border-2 border-brand-100 bg-brand-50/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -216,5 +290,14 @@ function SummaryTable({
         )}
       </CardBody>
     </Card>
+  );
+}
+
+function MoneyRow({ label, value, negative }: { label: string; value: string; negative?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-ink-600">{label}</span>
+      <span className={`font-bold ${negative ? "text-danger-600" : "text-ink-900"}`}>{value}</span>
+    </div>
   );
 }
