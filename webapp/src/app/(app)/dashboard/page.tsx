@@ -26,7 +26,7 @@ import type { CityStatsRow, ContractorStatsRow, PeriodTotalsRow, ProfessionStats
 
 export default function DashboardPage() {
   const supabase = useMemo(() => createClient(), []);
-  const { contractors } = useRefData();
+  const { contractors, isOwner } = useRefData();
 
   const [today, setToday] = useState<PeriodTotalsRow | null>(null);
   const [yesterday, setYesterday] = useState<PeriodTotalsRow | null>(null);
@@ -95,7 +95,7 @@ export default function DashboardPage() {
 
       {/* asked once a day, because a profit figure that ignores what the leads
           cost is not a profit figure */}
-      <DailyAdSpend day={todayLocalDate()} compact onSaved={() => setReloadKey((k) => k + 1)} />
+      {isOwner && <DailyAdSpend day={todayLocalDate()} compact onSaved={() => setReloadKey((k) => k + 1)} />}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <StatCard label="עבודות היום" value={formatNumber(today?.jobs_count)} icon={Briefcase} changePct={pctChange(today?.jobs_count, yesterday?.jobs_count)} />
@@ -103,12 +103,24 @@ export default function DashboardPage() {
         <StatCard label="נסגרו בהצלחה" value={formatNumber(today?.jobs_closed_success)} icon={CheckCircle2} tone="success" changePct={pctChange(today?.jobs_closed_success, yesterday?.jobs_closed_success)} />
         <StatCard label="לא נסגרו" value={formatNumber(today?.jobs_closed_failed)} icon={XCircle} tone="danger" />
         <StatCard label="אחוז סגירה" value={formatPercent(today?.close_rate ?? 0)} icon={Percent} tone="success" changePct={pctChange(today?.close_rate, yesterday?.close_rate)} />
-        <StatCard label="מחזור היום" value={formatAgorot(today?.revenue_agorot)} icon={Wallet} changePct={pctChange(today?.revenue_agorot, yesterday?.revenue_agorot)} />
-        <StatCard label="הרווח שלי היום (אחרי פרסום)" value={formatAgorot(today?.profit_agorot)} icon={TrendingUp} tone={(today?.profit_agorot ?? 0) < 0 ? "danger" : "success"} changePct={pctChange(today?.profit_agorot, yesterday?.profit_agorot)} />
-        <StatCard label="פרסום היום" value={formatAgorot(today?.ad_spend_agorot)} icon={Megaphone} tone="warning" />
-        <StatCard label="ממוצע לעבודה" value={formatAgorot(today?.avg_price_agorot)} icon={Wallet} />
-        <StatCard label="מגיע לקבלנים ממני" value={formatAgorot(today?.contractor_payable_agorot)} icon={Users} tone="warning" />
-        <StatCard label="קבלנים חייבים לי" value={formatAgorot(today?.contractor_receivable_agorot)} icon={Users} tone="danger" />
+        {isOwner && (
+  <StatCard label="מחזור היום" value={formatAgorot(today?.revenue_agorot)} icon={Wallet} changePct={pctChange(today?.revenue_agorot, yesterday?.revenue_agorot)} />
+        )}
+        {isOwner && (
+  <StatCard label="הרווח שלי היום (אחרי פרסום)" value={formatAgorot(today?.profit_agorot)} icon={TrendingUp} tone={(today?.profit_agorot ?? 0) < 0 ? "danger" : "success"} changePct={pctChange(today?.profit_agorot, yesterday?.profit_agorot)} />
+        )}
+        {isOwner && (
+  <StatCard label="פרסום היום" value={formatAgorot(today?.ad_spend_agorot)} icon={Megaphone} tone="warning" />
+        )}
+        {isOwner && (
+  <StatCard label="ממוצע לעבודה" value={formatAgorot(today?.avg_price_agorot)} icon={Wallet} />
+        )}
+        {isOwner && (
+  <StatCard label="מגיע לקבלנים ממני" value={formatAgorot(today?.contractor_payable_agorot)} icon={Users} tone="warning" />
+        )}
+        {isOwner && (
+  <StatCard label="קבלנים חייבים לי" value={formatAgorot(today?.contractor_receivable_agorot)} icon={Users} tone="danger" />
+        )}
       </div>
 
       {topContractor && (

@@ -4,13 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { Briefcase, LogOut } from "lucide-react";
-import { sidebarSections } from "./nav";
+import { sectionsForRole } from "./nav";
 import { createClient } from "@/lib/supabase/client";
+import { useRefData } from "@/lib/refdata";
 import { useRouter } from "next/navigation";
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { isOwner } = useRefData();
+  const sections = sectionsForRole(isOwner);
 
   async function signOut() {
     const supabase = createClient();
@@ -32,7 +35,7 @@ export function Sidebar() {
       </div>
 
       <nav className="no-scrollbar flex-1 space-y-6 overflow-y-auto px-3 pb-4">
-        {sidebarSections.map((section, i) => (
+        {sections.map((section, i) => (
           <div key={i}>
             {section.title && (
               <p className="mb-1.5 px-3 text-xs font-bold uppercase tracking-wide text-ink-400">{section.title}</p>

@@ -5,10 +5,14 @@ import { Modal } from "@/components/ui/Modal";
 import { reportsNav, settingsNav, utilityNav } from "./nav";
 import { LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useRefData } from "@/lib/refdata";
 import { useRouter } from "next/navigation";
 
 export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
+  const { isOwner } = useRefData();
+  const reports = reportsNav.filter((i) => isOwner || !i.ownerOnly);
+  const rest = [...settingsNav, ...utilityNav].filter((i) => isOwner || !i.ownerOnly);
 
   async function signOut() {
     const supabase = createClient();
@@ -19,10 +23,11 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
   return (
     <Modal open={open} onClose={onClose} title="עוד">
       <div className="space-y-5">
+        {reports.length > 0 && (
         <div>
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">דוחות וניהול כספי</p>
           <div className="grid grid-cols-2 gap-2">
-            {reportsNav.map((item) => (
+            {reports.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -35,10 +40,11 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
             ))}
           </div>
         </div>
+        )}
         <div>
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">הגדרות</p>
           <div className="grid grid-cols-2 gap-2">
-            {[...settingsNav, ...utilityNav].map((item) => (
+            {rest.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}

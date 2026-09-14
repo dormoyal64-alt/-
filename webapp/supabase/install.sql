@@ -338,7 +338,8 @@ create table profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
   full_name text,
-  role text not null default 'admin',
+  -- 'owner' sees the money; 'clerk' runs the work without it
+  role text not null default 'owner' check (role in ('owner', 'clerk')),
   created_at timestamptz not null default now()
 );
 
@@ -532,6 +533,10 @@ declare
   v_status_id uuid;
   v_status_name text;
 begin
+  -- closing a job is where the split is worked out, and the row handed back
+  -- carries it, so this one is refused outright rather than left to RLS
+  perform require_owner();
+
   select * into v_job from jobs where id = p_job_id;
   if not found then
     raise exception 'עבודה לא נמצאה';
@@ -884,8 +889,13 @@ $$;
 create or replace function handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.profiles (id, email, full_name)
-  values (new.id, new.email, new.raw_user_meta_data->>'full_name')
+  insert into public.profiles (id, email, full_name, role)
+  values (
+    new.id,
+    new.email,
+    new.raw_user_meta_data->>'full_name',
+    case when exists (select 1 from public.profiles) then 'clerk' else 'owner' end
+  )
   on conflict (id) do nothing;
   return new;
 end;
@@ -1097,25 +1107,128 @@ $$;
 
 -- ----------------------------------------------------------------------------
 
-do $$
-declare
-  t text;
+-- ---------------------------------------------------------------------------
+-- Who is asking
+--
+-- security definer so it can read profiles regardless of the caller's own
+-- access to that table, which is what keeps the policies below from recursing.
+-- ---------------------------------------------------------------------------
+create or replace function is_owner()
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select case
+    -- No signed-in user means this is direct database access: the SQL editor, a
+    -- backup script, the service key. All of those are already unrestricted, so
+    -- refusing here would only break the owner's own tools. It cannot be a way
+    -- in for the public either — every policy below is granted to
+    -- `authenticated` only, and anonymous access is revoked outright.
+    --
+    -- current_user is deliberately not used: inside a security definer function
+    -- it reads as the function's owner, not the caller, which would make
+    -- everyone an owner.
+    when auth.uid() is null then true
+    else coalesce((select p.role = 'owner' from profiles p where p.id = auth.uid()), false)
+  end;
+$$;
+
+grant execute on function is_owner() to authenticated;
+
+create or replace function require_owner() returns void
+language plpgsql stable as $$
 begin
-  for t in
-    select unnest(array[
-      'professions','job_types','cities','payment_methods','lead_sources','job_statuses',
-      'contractors','contractor_professions','contractor_cities','contractor_job_types',
-      'settlements','jobs','job_status_history','notifications','profiles','app_settings',
-      'helpers','ad_spend','city_distances','referral_companies'
-    ])
+  if not is_owner() then
+    raise exception 'הנתונים הכספיים זמינים לבעל העסק בלבד'
+      using errcode = '42501';
+  end if;
+end;
+$$;
+
+grant execute on function require_owner() to authenticated;
+
+alter table professions enable row level security;
+alter table job_types enable row level security;
+alter table cities enable row level security;
+alter table payment_methods enable row level security;
+alter table lead_sources enable row level security;
+alter table job_statuses enable row level security;
+alter table contractors enable row level security;
+alter table contractor_professions enable row level security;
+alter table contractor_cities enable row level security;
+alter table contractor_job_types enable row level security;
+alter table settlements enable row level security;
+alter table jobs enable row level security;
+alter table job_status_history enable row level security;
+alter table notifications enable row level security;
+alter table profiles enable row level security;
+alter table app_settings enable row level security;
+alter table helpers enable row level security;
+alter table ad_spend enable row level security;
+alter table city_distances enable row level security;
+alter table referral_companies enable row level security;
+
+-- ---------------------------------------------------------------------------
+-- Row level security, per role
+-- ---------------------------------------------------------------------------
+
+-- Reference data everyone needs to do the job at all.
+do $$
+declare t text;
+begin
+  for t in select unnest(array[
+    'professions','job_types','cities','payment_methods','lead_sources','job_statuses',
+    'contractor_professions','contractor_cities','contractor_job_types',
+    'job_status_history','notifications','city_distances'
+  ])
   loop
-    execute format('alter table %I enable row level security;', t);
     execute format('drop policy if exists authenticated_all on %I;', t);
-    execute format(
-      'create policy authenticated_all on %I for all to authenticated using (true) with check (true);', t
-    );
+    execute format('drop policy if exists owner_only on %I;', t);
+    execute format('create policy authenticated_all on %I for all to authenticated using (true) with check (true);', t);
   end loop;
 end $$;
+
+-- Contractors: a clerk has to be able to add one and assign work to them.
+drop policy if exists authenticated_all on contractors;
+drop policy if exists owner_only on contractors;
+create policy authenticated_all on contractors for all to authenticated using (true) with check (true);
+
+-- Money with nothing else in it. A clerk cannot see these rows exist, which is
+-- also what empties out every total built on top of them.
+do $$
+declare t text;
+begin
+  for t in select unnest(array['settlements','ad_spend','referral_companies','helpers'])
+  loop
+    execute format('drop policy if exists authenticated_all on %I;', t);
+    execute format('drop policy if exists owner_only on %I;', t);
+    execute format('create policy owner_only on %I for all to authenticated using (is_owner()) with check (is_owner());', t);
+  end loop;
+end $$;
+
+-- Jobs: the money columns are only written when a job closes, so a clerk sees
+-- open jobs and every one of those columns is null. This is what makes the
+-- revenue and profit reports return zero for them rather than real figures.
+drop policy if exists authenticated_all on jobs;
+drop policy if exists owner_only on jobs;
+drop policy if exists jobs_by_role on jobs;
+create policy jobs_by_role on jobs for all to authenticated
+  using (is_owner() or not is_closed)
+  with check (is_owner() or not is_closed);
+
+-- Settings: a clerk reads them (the customer message template lives here) but
+-- only the owner changes them.
+drop policy if exists authenticated_all on app_settings;
+drop policy if exists owner_only on app_settings;
+drop policy if exists settings_read on app_settings;
+drop policy if exists settings_write on app_settings;
+create policy settings_read  on app_settings for select to authenticated using (true);
+create policy settings_write on app_settings for update to authenticated using (is_owner()) with check (is_owner());
+
+-- Profiles: everyone sees their own, the owner sees and manages all of them.
+drop policy if exists authenticated_all on profiles;
+drop policy if exists profiles_read on profiles;
+drop policy if exists profiles_write on profiles;
+create policy profiles_read  on profiles for select to authenticated using (id = auth.uid() or is_owner());
+create policy profiles_write on profiles for update to authenticated using (is_owner()) with check (is_owner());
 
 -- RLS policies only take effect on top of ordinary Postgres GRANTs. Supabase
 -- projects grant these to `authenticated`/`anon` on the public schema by

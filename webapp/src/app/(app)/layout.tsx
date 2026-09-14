@@ -5,6 +5,7 @@ import { NotificationsProvider } from "@/lib/notifications";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Topbar } from "@/components/layout/Topbar";
+import { OwnerOnlyGuard } from "@/components/layout/OwnerOnlyGuard";
 
 // All routes under this layout read the logged-in user's data client-side and
 // are gated by middleware auth, so there is nothing useful to prerender at
@@ -19,7 +20,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Sidebar />
           <div className="flex min-h-screen flex-1 flex-col">
             <Topbar />
-            <main className="flex-1 px-4 pb-24 pt-4 lg:px-8 lg:pb-8 lg:pt-6">{children}</main>
+            <main className="flex-1 px-4 pb-24 pt-4 lg:px-8 lg:pb-8 lg:pt-6">
+              <OwnerOnlyGuard>{children}</OwnerOnlyGuard>
+            </main>
           </div>
           <BottomNav />
         </div>
