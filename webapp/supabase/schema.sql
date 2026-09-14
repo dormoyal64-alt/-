@@ -140,6 +140,21 @@ create table settlements (
 
 create sequence if not exists job_number_seq start 1;
 
+-- A company that sends you work and takes a cut of it
+create table referral_companies (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  contact_name text,
+  phone text,
+  -- the cut this company usually takes, overridable per job
+  default_commission_pct numeric(5,2) not null default 20
+    check (default_commission_pct >= 0 and default_commission_pct <= 100),
+  active boolean not null default true,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 -- A worker you take along on a job you do yourself
 create table helpers (
   id uuid primary key default gen_random_uuid(),
@@ -198,6 +213,15 @@ create table jobs (
 
   quoted_price_agorot bigint,
   payment_method_id uuid references payment_methods(id),
+
+  -- the company that sent this job over, and the cut they take of it.
+  -- Both this and the contractor's percentage come off the FULL price, and the
+  -- two together may not exceed 100%.
+  referral_company_id uuid references referral_companies(id),
+  referral_pct numeric(5,2) check (referral_pct is null or (referral_pct >= 0 and referral_pct <= 100)),
+  referral_fee_agorot bigint check (referral_fee_agorot is null or referral_fee_agorot >= 0),
+  -- stamped when you have actually paid that company for this job
+  referral_settled_at timestamptz,
 
   -- who actually does the work: a contractor, or you
   performed_by text not null default 'contractor' check (performed_by in ('contractor', 'self')),
@@ -392,6 +416,25 @@ create trigger trg_jobs_commission
   before insert or update of contractor_id, commission_pct, job_type_id on jobs
   for each row execute function set_job_commission_pct();
 
+create or replace function set_job_referral_pct() returns trigger
+language plpgsql as $$
+begin
+  if new.referral_company_id is not null and new.referral_pct is null then
+    select rc.default_commission_pct into new.referral_pct
+      from referral_companies rc
+     where rc.id = new.referral_company_id;
+  end if;
+  if new.referral_company_id is null then
+    new.referral_pct := null;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger trg_jobs_referral
+  before insert or update of referral_company_id, referral_pct on jobs
+  for each row execute function set_job_referral_pct();
+
 create trigger trg_jobs_status_history_insert after insert on jobs
   for each row execute function log_job_status_insert();
 
@@ -445,15 +488,20 @@ create or replace function close_job(
   p_payment_received_by text,
   p_closing_notes text default null,
   p_closed_at timestamptz default now(),
-  p_commission_pct numeric default null
+  -- per-job overrides, each winning over what the job already carries
+  p_commission_pct numeric default null,
+  p_referral_pct numeric default null
 ) returns jobs
 language plpgsql as $$
 declare
   v_job jobs;
   v_commission_pct numeric(5,2);
+  v_referral_pct numeric(5,2);
   v_contractor_share bigint := 0;
+  v_referral_fee bigint := 0;
   v_business_share bigint := 0;
   v_fuel bigint := 0;
+  v_price bigint;
   v_status_id uuid;
   v_status_name text;
 begin
@@ -461,6 +509,8 @@ begin
   if not found then
     raise exception 'עבודה לא נמצאה';
   end if;
+
+  v_price := coalesce(p_final_price_agorot, 0);
 
   -- a job you did yourself has no contractor to pay
   if v_job.performed_by = 'self' then
@@ -474,13 +524,31 @@ begin
     v_commission_pct := coalesce(v_job.commission_pct, 0);
   end if;
 
-  -- the fuel this trip actually cost, at today's price, frozen onto the job
+  -- the referring company's cut
+  if v_job.referral_company_id is null then
+    v_referral_pct := 0;
+  elsif p_referral_pct is not null then
+    if p_referral_pct < 0 or p_referral_pct > 100 then
+      raise exception 'אחוז החברה חייב להיות בין 0 ל-100';
+    end if;
+    v_referral_pct := p_referral_pct;
+  else
+    v_referral_pct := coalesce(v_job.referral_pct, 0);
+  end if;
+
+  if v_commission_pct + v_referral_pct > 100 then
+    raise exception 'אחוז הקבלן (%) ואחוז החברה (%) יחד עולים על 100%%',
+      v_commission_pct, v_referral_pct;
+  end if;
+
   v_fuel := case when v_job.performed_by = 'self'
                  then fuel_cost_for_km(v_job.travel_km) else 0 end;
 
   if p_closed_successfully then
-    v_contractor_share := round((coalesce(p_final_price_agorot, 0)::numeric * v_commission_pct) / 100.0)::bigint;
-    v_business_share := coalesce(p_final_price_agorot, 0) - v_contractor_share;
+    v_referral_fee := round((v_price::numeric * v_referral_pct) / 100.0)::bigint;
+    v_contractor_share := round((v_price::numeric * v_commission_pct) / 100.0)::bigint;
+    -- what is left for the business, after both other parties
+    v_business_share := v_price - v_contractor_share - v_referral_fee;
     v_status_name := 'נסגרה בהצלחה';
   else
     v_status_name := 'לא נסגרה';
@@ -491,13 +559,13 @@ begin
   perform set_config(
     'app.status_note',
     case when p_closed_successfully
-      then 'העבודה נסגרה במחיר ' || coalesce(p_final_price_agorot, 0)::text || ' אג׳' ||
+      then 'העבודה נסגרה במחיר ' || v_price::text || ' אג׳' ||
            case when v_job.performed_by = 'self' then ' (בוצעה על ידי)'
-                else ' (קבלן ' || trim(trailing '.' from trim(to_char(v_commission_pct, 'FM990.99'))) || '%)' ||
-                     case when p_commission_pct is not null
-                            and p_commission_pct is distinct from coalesce(v_job.commission_pct, -1)
-                          then ' — אחוז מותאם לעבודה זו' else '' end
-           end
+                else ' (קבלן ' || trim(trailing '.' from trim(to_char(v_commission_pct, 'FM990.99'))) || '%)'
+           end ||
+           case when v_referral_pct > 0
+                then ' (חברה ' || trim(trailing '.' from trim(to_char(v_referral_pct, 'FM990.99'))) || '%)'
+                else '' end
       else 'העבודה לא נסגרה'
     end,
     true
@@ -506,12 +574,14 @@ begin
   update jobs set
     is_closed = true,
     commission_pct = v_commission_pct,
+    referral_pct = case when v_job.referral_company_id is null then null else v_referral_pct end,
     final_price_agorot = p_final_price_agorot,
     final_payment_method_id = p_final_payment_method_id,
     payment_received_by = p_payment_received_by,
     closing_notes = p_closing_notes,
     closed_at = p_closed_at,
     contractor_share_agorot = v_contractor_share,
+    referral_fee_agorot = v_referral_fee,
     business_share_agorot = v_business_share,
     fuel_cost_agorot = v_fuel,
     status_id = coalesce(v_status_id, status_id)
@@ -779,13 +849,16 @@ create or replace function profit_report(p_from timestamptz, p_to timestamptz)
 returns table (
   self_jobs bigint,
   self_revenue_agorot bigint,
+  self_referral_agorot bigint,
   self_fuel_agorot bigint,
   self_helper_agorot bigint,
   self_gross_agorot bigint,
   contractor_jobs bigint,
   contractor_revenue_agorot bigint,
+  contractor_referral_agorot bigint,
   contractor_paid_agorot bigint,
   contractor_gross_agorot bigint,
+  referral_agorot bigint,
   ad_spend_agorot bigint,
   ad_spend_self_agorot bigint,
   ad_spend_contractor_agorot bigint,
@@ -815,7 +888,6 @@ begin
     and j.closed_at >= p_from and j.closed_at <= p_to;
 
   v_total_jobs := v_self_jobs + v_con_jobs;
-  -- split the advertising by how many jobs each stream closed
   v_ads_self := case when v_total_jobs = 0 then 0
                      else round(v_ads::numeric * v_self_jobs / v_total_jobs)::bigint end;
 
@@ -829,34 +901,39 @@ begin
   ),
   mine as (
     select
-      coalesce(sum(final_price_agorot), 0)::bigint as revenue,
-      coalesce(sum(fuel_cost_agorot), 0)::bigint   as fuel,
-      coalesce(sum(helper_pay_agorot), 0)::bigint  as helper
+      coalesce(sum(final_price_agorot), 0)::bigint   as revenue,
+      coalesce(sum(referral_fee_agorot), 0)::bigint  as referral,
+      coalesce(sum(fuel_cost_agorot), 0)::bigint     as fuel,
+      coalesce(sum(helper_pay_agorot), 0)::bigint    as helper
     from closed where performed_by = 'self'
   ),
   theirs as (
     select
       coalesce(sum(final_price_agorot), 0)::bigint      as revenue,
-      coalesce(sum(contractor_share_agorot), 0)::bigint as paid,
-      coalesce(sum(business_share_agorot), 0)::bigint   as gross
+      coalesce(sum(referral_fee_agorot), 0)::bigint     as referral,
+      coalesce(sum(contractor_share_agorot), 0)::bigint as paid
     from closed where performed_by <> 'self'
   )
   select
     v_self_jobs,
     mine.revenue,
+    mine.referral,
     mine.fuel,
     mine.helper,
-    (mine.revenue - mine.fuel - mine.helper)::bigint,
+    (mine.revenue - mine.referral - mine.fuel - mine.helper)::bigint,
     v_con_jobs,
     theirs.revenue,
+    theirs.referral,
     theirs.paid,
-    theirs.gross,
+    (theirs.revenue - theirs.referral - theirs.paid)::bigint,
+    (mine.referral + theirs.referral)::bigint,
     v_ads,
     v_ads_self,
     (v_ads - v_ads_self)::bigint,
-    (mine.revenue - mine.fuel - mine.helper - v_ads_self)::bigint,
-    (theirs.gross - (v_ads - v_ads_self))::bigint,
-    (mine.revenue - mine.fuel - mine.helper + theirs.gross - v_ads)::bigint
+    (mine.revenue - mine.referral - mine.fuel - mine.helper - v_ads_self)::bigint,
+    (theirs.revenue - theirs.referral - theirs.paid - (v_ads - v_ads_self))::bigint,
+    (mine.revenue - mine.referral - mine.fuel - mine.helper
+     + theirs.revenue - theirs.referral - theirs.paid - v_ads)::bigint
   from mine, theirs;
 end;
 $$;
@@ -908,6 +985,62 @@ language sql stable as $$
   order by coalesce(earned.business_share, 0) - coalesce(spend.spend, 0) desc;
 $$;
 
+create or replace function referral_balances(p_from timestamptz, p_to timestamptz)
+returns table (
+  company_id uuid,
+  company_name text,
+  jobs_count bigint,
+  revenue_agorot bigint,
+  fee_agorot bigint,
+  unpaid_fee_agorot bigint,
+  my_share_agorot bigint
+)
+language sql stable as $$
+  select
+    rc.id,
+    rc.name,
+    count(j.*)::bigint,
+    coalesce(sum(j.final_price_agorot), 0)::bigint,
+    coalesce(sum(j.referral_fee_agorot), 0)::bigint,
+    coalesce(sum(j.referral_fee_agorot) filter (where j.referral_settled_at is null), 0)::bigint,
+    -- what is left for you after the company and, where there was one, the contractor
+    coalesce(sum(
+      case when j.performed_by = 'self'
+           then j.final_price_agorot - coalesce(j.referral_fee_agorot, 0)
+                - coalesce(j.fuel_cost_agorot, 0) - coalesce(j.helper_pay_agorot, 0)
+           else coalesce(j.business_share_agorot, 0) end
+    ), 0)::bigint
+  from referral_companies rc
+  left join jobs j
+    on j.referral_company_id = rc.id
+   and j.is_closed
+   and j.closed_at >= p_from and j.closed_at <= p_to
+   and exists (select 1 from job_statuses st where st.id = j.status_id and st.is_success)
+  group by rc.id, rc.name
+  having count(j.*) > 0
+  order by coalesce(sum(j.referral_fee_agorot) filter (where j.referral_settled_at is null), 0) desc;
+$$;
+
+create or replace function settle_referral(
+  p_company_id uuid,
+  p_from timestamptz,
+  p_to timestamptz
+) returns bigint
+language plpgsql as $$
+declare
+  v_count bigint;
+begin
+  update jobs j set referral_settled_at = now()
+  where j.referral_company_id = p_company_id
+    and j.is_closed
+    and j.referral_settled_at is null
+    and j.closed_at >= p_from and j.closed_at <= p_to
+    and exists (select 1 from job_statuses st where st.id = j.status_id and st.is_success);
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
 -- ----------------------------------------------------------------------------
 
 do $$
@@ -919,7 +1052,7 @@ begin
       'professions','job_types','cities','payment_methods','lead_sources','job_statuses',
       'contractors','contractor_professions','contractor_cities','contractor_job_types',
       'settlements','jobs','job_status_history','notifications','profiles','app_settings',
-      'helpers','ad_spend','city_distances'
+      'helpers','ad_spend','city_distances','referral_companies'
     ])
   loop
     execute format('alter table %I enable row level security;', t);

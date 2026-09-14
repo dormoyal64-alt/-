@@ -27,6 +27,7 @@ export function CloseJobModal({
     closingNotes: string | null;
     closedAt: string;
     commissionPct: number;
+    referralPct: number | null;
   }) => Promise<void>;
   loading?: boolean;
 }) {
@@ -43,12 +44,27 @@ export function CloseJobModal({
   const defaultPct = job.commission_pct ?? 0;
   const [commissionPct, setCommissionPct] = useState<string>(String(defaultPct));
 
+  // the referring company's cut, if this job came from one
+  const hasCompany = !!job.referral_company_id;
+  const defaultReferralPct = job.referral_pct ?? 0;
+  const [referralPct, setReferralPct] = useState<string>(String(defaultReferralPct));
+  const parsedReferral = parseFloat(referralPct);
+  const referralValid = !hasCompany || (!isNaN(parsedReferral) && parsedReferral >= 0 && parsedReferral <= 100);
+  const effectiveReferralPct = hasCompany && referralValid ? parsedReferral : 0;
+  const referralChanged =
+    hasCompany && referralValid && Math.abs(effectiveReferralPct - defaultReferralPct) > 0.001;
+
   const parsedPct = parseFloat(commissionPct);
   const pctValid = !isNaN(parsedPct) && parsedPct >= 0 && parsedPct <= 100;
   const effectivePct = pctValid ? parsedPct : 0;
   const pctChanged = pctValid && Math.abs(effectivePct - defaultPct) > 0.001;
 
   const finalPriceAgorot = finalPrice ? shekelsToAgorot(finalPrice) : 0;
+  const referralFeeAgorot = Math.round((finalPriceAgorot * effectiveReferralPct) / 100);
+  const contractorFeeAgorot = Math.round((finalPriceAgorot * effectivePct) / 100);
+  // both percentages come off the full price, so together they cannot pass 100%
+  const splitTooBig = effectivePct + effectiveReferralPct > 100;
+  const myShare = finalPriceAgorot - referralFeeAgorot - contractorFeeAgorot;
   const preview = useMemo(
     () => previewCommission(finalPriceAgorot, effectivePct, paymentReceivedBy),
     [finalPriceAgorot, effectivePct, paymentReceivedBy]
@@ -63,6 +79,7 @@ export function CloseJobModal({
       closingNotes: closingNotes || null,
       closedAt: new Date().toISOString(),
       commissionPct: effectivePct,
+      referralPct: hasCompany ? effectiveReferralPct : null,
     });
   }
 
@@ -201,6 +218,88 @@ export function CloseJobModal({
               </div>
             </div>
 
+            {hasCompany && (
+              <div>
+                <Label required>העבודה הגיעה מ{job.referral_company?.name ?? "חברה"}</Label>
+                <div className="rounded-2xl border border-ink-200 p-3.5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-ink-400">כמה החברה לוקחת מהעבודה הזו</p>
+                      <p className="mt-1 text-lg font-extrabold text-brand-700">
+                        {formatAgorot(referralFeeAgorot)}
+                      </p>
+                    </div>
+                    <div className="w-24 shrink-0">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={referralPct}
+                        onChange={(e) => setReferralPct(e.target.value)}
+                        className="py-2 text-center text-lg font-extrabold"
+                        aria-label="אחוז החברה"
+                      />
+                    </div>
+                  </div>
+
+                  {!referralValid && (
+                    <p className="mt-2 text-xs font-bold text-danger-600">יש להזין אחוז בין 0 ל-100</p>
+                  )}
+
+                  {referralChanged && (
+                    <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 pt-2.5">
+                      <span className="text-xs font-semibold text-warning-600">
+                        אחוז מותאם לעבודה זו (הרגיל: {defaultReferralPct}%)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setReferralPct(String(defaultReferralPct))}
+                        className="btn-secondary px-2.5 py-1 text-xs"
+                      >
+                        חזרה ל-{defaultReferralPct}%
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {finalPriceAgorot > 0 && (
+              <div className="rounded-2xl bg-ink-50 p-3.5 text-sm">
+                <p className="mb-1.5 text-xs font-bold text-ink-400">איך מתחלק הכסף</p>
+                <div className="flex justify-between py-0.5">
+                  <span className="text-ink-500">מחיר העבודה</span>
+                  <span className="font-bold">{formatAgorot(finalPriceAgorot)}</span>
+                </div>
+                {hasCompany && (
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-ink-500">
+                      {job.referral_company?.name} ({effectiveReferralPct}%)
+                    </span>
+                    <span className="font-bold text-danger-600">-{formatAgorot(referralFeeAgorot)}</span>
+                  </div>
+                )}
+                {job.performed_by !== "self" && (
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-ink-500">
+                      {job.contractor?.name ?? "הקבלן"} ({effectivePct}%)
+                    </span>
+                    <span className="font-bold text-danger-600">-{formatAgorot(contractorFeeAgorot)}</span>
+                  </div>
+                )}
+                <div className="mt-1 flex justify-between border-t border-ink-200 pt-1.5">
+                  <span className="font-bold text-ink-700">נשאר לי</span>
+                  <span className="font-extrabold text-success-700">{formatAgorot(myShare)}</span>
+                </div>
+                {splitTooBig && (
+                  <p className="mt-2 text-xs font-bold text-danger-600">
+                    האחוזים יחד ({effectiveReferralPct}% + {effectivePct}%) עולים על 100% — לא ניתן לסגור
+                  </p>
+                )}
+              </div>
+            )}
+
             <div>
               <Label required>מי קיבל את התשלום?</Label>
               <div className="grid grid-cols-2 gap-2">
@@ -250,7 +349,9 @@ export function CloseJobModal({
           size="lg"
           onClick={handleSubmit}
           loading={loading}
-          disabled={closedSuccessfully && (finalPriceAgorot <= 0 || !pctValid)}
+          disabled={
+            closedSuccessfully && (finalPriceAgorot <= 0 || !pctValid || !referralValid || splitTooBig)
+          }
         >
           אישור סגירת עבודה
         </Button>

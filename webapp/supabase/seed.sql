@@ -125,6 +125,12 @@ update app_settings set
 where id = true;
 
 -- ----------------------------------------------------------------------------
+-- A company that sends work your way and takes a cut
+-- ----------------------------------------------------------------------------
+insert into referral_companies (name, contact_name, phone, default_commission_pct, notes) values
+  ('שירות ארצי בע״מ', 'רונית', '03-5556677', 20, 'חברה לדוגמה — לוקחת 20% מכל עבודה');
+
+-- ----------------------------------------------------------------------------
 -- A worker you sometimes take along
 -- ----------------------------------------------------------------------------
 insert into helpers (name, phone, default_pay_agorot, active, notes) values
@@ -274,6 +280,23 @@ begin
   loop
     perform close_job(r.id, true, r.final_price_agorot, r.final_payment_method_id,
                       r.payment_received_by, 'נסגרה - בוצעה על ידי', now() - interval '1 hour');
+  end loop;
+end $$;
+
+-- two of the demo jobs arrived from that company
+update jobs set referral_company_id = (select id from referral_companies where name = 'שירות ארצי בע״מ')
+where customer_phone in ('050-1000002', '050-1000011');
+
+-- re-close them so the company's cut is actually worked out
+do $$
+declare r record;
+begin
+  for r in select id, final_price_agorot, final_payment_method_id, payment_received_by
+           from jobs
+           where customer_phone in ('050-1000002', '050-1000011') and is_closed
+  loop
+    perform close_job(r.id, true, r.final_price_agorot, r.final_payment_method_id,
+                      r.payment_received_by, 'נסגרה - הגיעה מחברה', now() - interval '1 hour');
   end loop;
 end $$;
 

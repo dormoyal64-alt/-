@@ -7,6 +7,7 @@ export const JOB_SELECT = `*,
   city:cities!jobs_city_id_fkey(id,name),
   contractor:contractors(id,name,phone,whatsapp),
   helper:helpers(id,name,phone),
+  referral_company:referral_companies(id,name,phone),
   origin_city:cities!jobs_origin_city_id_fkey(id,name),
   payment_method:payment_methods!jobs_payment_method_id_fkey(id,name),
   final_payment_method:payment_methods!jobs_final_payment_method_id_fkey(id,name),
@@ -27,6 +28,8 @@ export interface CreateJobInput {
   lng?: number | null;
   quoted_price_agorot?: number | null;
   payment_method_id?: string | null;
+  referral_company_id?: string | null;
+  referral_pct?: number | null;
   performed_by?: PerformedBy;
   contractor_id?: string | null;
   commission_pct?: number | null;
@@ -66,6 +69,7 @@ export interface CloseJobInput {
   closedAt: string;
   /** split for this job only; omit to use the percentage stored on the job */
   commissionPct?: number | null;
+  referralPct?: number | null;
 }
 
 export async function closeJob(supabase: SupabaseClient, jobId: string, input: CloseJobInput) {
@@ -78,6 +82,7 @@ export async function closeJob(supabase: SupabaseClient, jobId: string, input: C
     p_closing_notes: input.closingNotes,
     p_closed_at: input.closedAt,
     p_commission_pct: input.commissionPct ?? null,
+    p_referral_pct: input.referralPct ?? null,
   });
   if (error) throw error;
 }

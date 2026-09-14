@@ -29,13 +29,17 @@ export default function NewJobPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const toast = useToast();
-  const { professions, jobTypes, cities, paymentMethods, leadSources, jobStatuses, helpers, settings } = useRefData();
+  const { professions, jobTypes, cities, paymentMethods, leadSources, jobStatuses, helpers, settings, referralCompanies } = useRefData();
 
   const [professionId, setProfessionId] = useState<string | null>(null);
   const [jobTypeId, setJobTypeId] = useState<string | null>(null);
   const [cityId, setCityId] = useState<string | null>(null);
   const [contractorId, setContractorId] = useState<string | null>(null);
   const [skipContractor, setSkipContractor] = useState(false);
+
+  // where the job came from: a customer of mine, or a company that refers work
+  const [referralCompanyId, setReferralCompanyId] = useState("");
+  const [referralPct, setReferralPct] = useState("");
 
   // who does the work, and what it costs me when it is me
   const [performedBy, setPerformedBy] = useState<PerformedBy>("contractor");
@@ -63,6 +67,14 @@ export default function NewJobPage() {
   const selectedJobType = relevantJobTypes.find((jt) => jt.id === jobTypeId) ?? null;
   const activeCities = cities.filter((c) => c.is_active);
   const activeHelpers = helpers.filter((h) => h.active);
+  const activeCompanies = referralCompanies.filter((c) => c.active);
+  const selectedCompany = activeCompanies.find((c) => c.id === referralCompanyId) ?? null;
+  const parsedReferralPct = referralPct.trim() === "" ? null : parseFloat(referralPct);
+  const referralPctValid =
+    parsedReferralPct === null || (Number.isFinite(parsedReferralPct) && parsedReferralPct >= 0 && parsedReferralPct <= 100);
+  const effectiveReferralPct = selectedCompany
+    ? parsedReferralPct ?? selectedCompany.default_commission_pct
+    : 0;
   const originId = originCityId ?? settings?.home_city_id ?? null;
 
   // one leg typed in, doubled when you drive back
@@ -74,10 +86,16 @@ export default function NewJobPage() {
       : 0;
   const helperPayAgorot = helperPay.trim() === "" ? 0 : shekelsToAgorot(helperPay);
   const quotedAgorot = quotedPrice.trim() === "" ? 0 : shekelsToAgorot(quotedPrice);
-  const myTakeHome = quotedAgorot - fuelAgorot - helperPayAgorot;
 
   const matches = useContractorMatch(professionId, jobTypeId, cityId);
   const selectedContractor = matches.find((m) => m.id === contractorId);
+  const contractorPct = performedBy === "self" ? 0 : selectedContractor?.commissionPct ?? 0;
+  // both cuts come off the full price, so together they cannot pass 100%
+  const splitTooBig = effectiveReferralPct + contractorPct > 100;
+  const referralFeeAgorot = Math.round((quotedAgorot * effectiveReferralPct) / 100);
+  const contractorFeeAgorot = Math.round((quotedAgorot * contractorPct) / 100);
+  // a job I do myself: the price, less the company, the fuel and the helper
+  const myTakeHome = quotedAgorot - referralFeeAgorot - fuelAgorot - helperPayAgorot;
 
   function selectProfession(id: string) {
     setProfessionId(id);
@@ -107,6 +125,13 @@ export default function NewJobPage() {
     setContractorId(null);
   }
 
+  function selectCompany(id: string) {
+    setReferralCompanyId(id);
+    // start from this company's usual cut; it stays editable for this job
+    const c = activeCompanies.find((x) => x.id === id);
+    setReferralPct(c ? String(c.default_commission_pct) : "");
+  }
+
   function selectHelper(id: string) {
     setHelperId(id);
     const h = activeHelpers.find((x) => x.id === id);
@@ -121,9 +146,24 @@ export default function NewJobPage() {
     setAddressQuery(r.displayName);
   }
 
-  const canSave = professionId && jobTypeId && cityId && customerName.trim() && customerPhone.trim();
+  const canSave =
+    professionId &&
+    jobTypeId &&
+    cityId &&
+    customerName.trim() &&
+    customerPhone.trim() &&
+    referralPctValid &&
+    !splitTooBig;
 
   async function handleSave() {
+    if (!referralPctValid) {
+      toast.error("אחוז החברה חייב להיות בין 0 ל-100");
+      return;
+    }
+    if (splitTooBig) {
+      toast.error("אחוז החברה ואחוז הקבלן יחד עולים על 100%");
+      return;
+    }
     if (!canSave) {
       toast.error("נא למלא תחום, סוג עבודה, עיר, שם לקוח וטלפון");
       return;
@@ -153,6 +193,8 @@ export default function NewJobPage() {
         lng: addressResult?.lng ?? null,
         quoted_price_agorot: quotedPrice ? shekelsToAgorot(quotedPrice) : null,
         payment_method_id: paymentMethodId || null,
+        referral_company_id: referralCompanyId || null,
+        referral_pct: referralCompanyId ? effectiveReferralPct : null,
         performed_by: performedBy,
         contractor_id: performedBy === "self" ? null : contractorId,
         commission_pct: performedBy === "self" ? 0 : selectedContractor?.commissionPct ?? null,
@@ -180,6 +222,8 @@ export default function NewJobPage() {
     setCityId(null);
     setContractorId(null);
     setSkipContractor(false);
+    setReferralCompanyId("");
+    setReferralPct("");
     setPerformedBy("contractor");
     setOriginCityId(null);
     setTravelKm("");
@@ -307,7 +351,92 @@ export default function NewJobPage() {
       )}
 
       {cityId && (
-        <Section title="4. מי מבצע את העבודה?" done={performedBy === "self" || !!contractorId || skipContractor}>
+        <Section title="4. מאיפה הגיעה העבודה?" done={true}>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setReferralCompanyId("");
+                setReferralPct("");
+              }}
+              className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${
+                !referralCompanyId
+                  ? "border-brand-600 bg-brand-600 text-white shadow-sm"
+                  : "border-ink-200 text-ink-700 hover:bg-ink-50"
+              }`}
+            >
+              לקוח שלי
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (activeCompanies[0]) selectCompany(activeCompanies[0].id);
+              }}
+              disabled={activeCompanies.length === 0}
+              className={`rounded-xl border px-4 py-3 text-sm font-bold transition disabled:opacity-50 ${
+                referralCompanyId
+                  ? "border-brand-600 bg-brand-600 text-white shadow-sm"
+                  : "border-ink-200 text-ink-700 hover:bg-ink-50"
+              }`}
+            >
+              הגיעה מחברה
+            </button>
+          </div>
+
+          {activeCompanies.length === 0 && (
+            <p className="mt-2 text-xs text-ink-400">
+              עדיין לא הוספתם חברות. אפשר להוסיף במסך ״חברות מפנות״.
+            </p>
+          )}
+
+          {referralCompanyId && (
+            <div className="mt-4 space-y-3 rounded-2xl border border-ink-100 bg-ink-50/50 p-3.5">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label required>איזו חברה</Label>
+                  <select
+                    value={referralCompanyId}
+                    onChange={(e) => selectCompany(e.target.value)}
+                    className="input"
+                  >
+                    {activeCompanies.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label required>כמה אחוז היא לוקחת</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    inputMode="decimal"
+                    value={referralPct}
+                    onChange={(e) => setReferralPct(e.target.value)}
+                    placeholder={String(selectedCompany?.default_commission_pct ?? 20)}
+                  />
+                  {selectedCompany &&
+                    parsedReferralPct !== null &&
+                    parsedReferralPct !== selectedCompany.default_commission_pct && (
+                      <p className="mt-1 text-xs font-semibold text-warning-600">
+                        אחוז מותאם לעבודה הזו (הרגיל: {selectedCompany.default_commission_pct}%)
+                      </p>
+                    )}
+                </div>
+              </div>
+              {!referralPctValid && (
+                <p className="text-xs font-bold text-danger-600">אחוז חייב להיות בין 0 ל-100</p>
+              )}
+            </div>
+          )}
+        </Section>
+      )}
+
+      {cityId && (
+        <Section title="5. מי מבצע את העבודה?" done={performedBy === "self" || !!contractorId || skipContractor}>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -419,6 +548,14 @@ export default function NewJobPage() {
                     <span className="text-ink-500">מחיר העבודה</span>
                     <span className="font-bold">{formatAgorot(quotedAgorot)}</span>
                   </div>
+                  {referralFeeAgorot > 0 && (
+                    <div className="flex justify-between py-0.5">
+                      <span className="text-ink-500">
+                        פחות {selectedCompany?.name} ({effectiveReferralPct}%)
+                      </span>
+                      <span className="font-bold text-danger-600">-{formatAgorot(referralFeeAgorot)}</span>
+                    </div>
+                  )}
                   {fuelAgorot > 0 && (
                     <div className="flex justify-between py-0.5">
                       <span className="text-ink-500">פחות דלק</span>
@@ -445,8 +582,50 @@ export default function NewJobPage() {
         </Section>
       )}
 
+      {cityId && performedBy === "contractor" && quotedAgorot > 0 && (contractorId || referralCompanyId) && (
+        <Card className="border-ink-100">
+          <CardBody className="text-sm">
+            <p className="mb-2 text-xs font-bold text-ink-400">איך מתחלק הכסף בעבודה הזו</p>
+            <div className="flex justify-between py-0.5">
+              <span className="text-ink-500">מחיר העבודה</span>
+              <span className="font-bold">{formatAgorot(quotedAgorot)}</span>
+            </div>
+            {referralFeeAgorot > 0 && (
+              <div className="flex justify-between py-0.5">
+                <span className="text-ink-500">
+                  {selectedCompany?.name} ({effectiveReferralPct}%)
+                </span>
+                <span className="font-bold text-danger-600">-{formatAgorot(referralFeeAgorot)}</span>
+              </div>
+            )}
+            {contractorFeeAgorot > 0 && (
+              <div className="flex justify-between py-0.5">
+                <span className="text-ink-500">
+                  {selectedContractor?.name} ({contractorPct}%)
+                </span>
+                <span className="font-bold text-danger-600">-{formatAgorot(contractorFeeAgorot)}</span>
+              </div>
+            )}
+            <div className="mt-1 flex justify-between border-t border-ink-100 pt-1.5">
+              <span className="font-bold text-ink-700">נשאר לי</span>
+              <span className="font-extrabold text-success-700">
+                {formatAgorot(quotedAgorot - referralFeeAgorot - contractorFeeAgorot)}
+              </span>
+            </div>
+            {splitTooBig && (
+              <p className="mt-2 text-xs font-bold text-danger-600">
+                האחוזים יחד ({effectiveReferralPct}% + {contractorPct}%) עולים על 100% — לא ניתן לשמור
+              </p>
+            )}
+            <p className="mt-1.5 text-xs text-ink-400">
+              שני האחוזים מחושבים מהמחיר המלא. הסכום הסופי ייקבע בסגירת העבודה.
+            </p>
+          </CardBody>
+        </Card>
+      )}
+
       {cityId && performedBy === "contractor" && (
-        <Section title="5. קבלן מתאים" done={!!contractorId || skipContractor}>
+        <Section title="6. קבלן מתאים" done={!!contractorId || skipContractor}>
           <ContractorMatchList matches={matches} selectedId={contractorId} onSelect={(id) => { setContractorId(id); setSkipContractor(false); }} />
           {matches.length > 0 && (
             <button
@@ -466,7 +645,7 @@ export default function NewJobPage() {
       )}
 
       {cityId && (
-        <Section title="6. פרטי לקוח ועבודה" done={!!(customerName && customerPhone)}>
+        <Section title="7. פרטי לקוח ועבודה" done={!!(customerName && customerPhone)}>
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>

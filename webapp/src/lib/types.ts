@@ -127,6 +127,11 @@ export interface Job {
   lng: number | null;
   quoted_price_agorot: number | null;
   payment_method_id: string | null;
+  /** the company that sent this job over, and the cut it takes */
+  referral_company_id: string | null;
+  referral_pct: number | null;
+  referral_fee_agorot: number | null;
+  referral_settled_at: string | null;
   /** who actually does the work */
   performed_by: PerformedBy;
   contractor_id: string | null;
@@ -176,6 +181,29 @@ export interface AppNotification {
 
 export type PerformedBy = "contractor" | "self";
 
+export interface ReferralCompany {
+  id: string;
+  name: string;
+  contact_name: string | null;
+  phone: string | null;
+  /** the cut this company usually takes, overridable per job */
+  default_commission_pct: number;
+  active: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReferralBalanceRow {
+  company_id: string;
+  company_name: string;
+  jobs_count: number;
+  revenue_agorot: number;
+  fee_agorot: number;
+  unpaid_fee_agorot: number;
+  my_share_agorot: number;
+}
+
 export interface Helper {
   id: string;
   name: string;
@@ -209,13 +237,16 @@ export interface CityDistance {
 export interface ProfitReport {
   self_jobs: number;
   self_revenue_agorot: number;
+  self_referral_agorot: number;
   self_fuel_agorot: number;
   self_helper_agorot: number;
   self_gross_agorot: number;
   contractor_jobs: number;
   contractor_revenue_agorot: number;
+  contractor_referral_agorot: number;
   contractor_paid_agorot: number;
   contractor_gross_agorot: number;
+  referral_agorot: number;
   ad_spend_agorot: number;
   ad_spend_self_agorot: number;
   ad_spend_contractor_agorot: number;
@@ -260,6 +291,7 @@ export interface JobWithRelations extends Job {
   job_type: Pick<JobType, "id" | "name"> | null;
   city: Pick<City, "id" | "name"> | null;
   contractor: Pick<Contractor, "id" | "name" | "phone" | "whatsapp"> | null;
+  referral_company: Pick<ReferralCompany, "id" | "name" | "phone"> | null;
   helper: Pick<Helper, "id" | "name" | "phone"> | null;
   origin_city: Pick<City, "id" | "name"> | null;
   payment_method: Pick<PaymentMethod, "id" | "name"> | null;

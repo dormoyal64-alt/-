@@ -14,6 +14,7 @@ import {
   Megaphone,
   PiggyBank,
   Fuel,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -33,6 +34,7 @@ export const mainNav: NavItem[] = [
 export const reportsNav: NavItem[] = [
   { href: "/profit", label: "רווח נקי", icon: PiggyBank },
   { href: "/advertising", label: "הוצאות פרסום", icon: Megaphone },
+  { href: "/referrals", label: "חברות מפנות", icon: Building2 },
   { href: "/analytics", label: "אנליטיקס", icon: BarChart3 },
   { href: "/leaderboard", label: "דירוג קבלנים", icon: Trophy },
   { href: "/daily-summary", label: "סיכום יומי", icon: CalendarRange },

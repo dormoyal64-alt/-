@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Briefcase, Fuel, Megaphone, Users, Wrench } from "lucide-react";
+import { Briefcase, Building2, Fuel, Megaphone, Users, Wrench } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { PeriodPicker } from "@/components/ui/PeriodPicker";
@@ -124,6 +124,9 @@ export default function ProfitPage() {
               </CardHeader>
               <CardBody>
                 <Line label={`הכנסות מ-${r.self_jobs} עבודות`} agorot={r.self_revenue_agorot} />
+                {r.self_referral_agorot > 0 && (
+                  <Line label="לחברות שהפנו" agorot={r.self_referral_agorot} kind="cost" />
+                )}
                 <Line label="דלק" agorot={r.self_fuel_agorot} kind="cost" />
                 <Line label="עובדים ששילמתי להם" agorot={r.self_helper_agorot} kind="cost" />
                 <Line
@@ -146,6 +149,9 @@ export default function ProfitPage() {
               </CardHeader>
               <CardBody>
                 <Line label={`מחזור מ-${r.contractor_jobs} עבודות`} agorot={r.contractor_revenue_agorot} />
+                {r.contractor_referral_agorot > 0 && (
+                  <Line label="לחברות שהפנו" agorot={r.contractor_referral_agorot} kind="cost" />
+                )}
                 <Line label="שולם לקבלנים" agorot={r.contractor_paid_agorot} kind="cost" />
                 <Line
                   label="פרסום (חלק יחסי)"
@@ -176,6 +182,11 @@ export default function ProfitPage() {
                 <span className="flex items-center gap-1.5">
                   <Megaphone className="h-3.5 w-3.5" /> פרסום {formatAgorot(r.ad_spend_agorot)}
                 </span>
+                {r.referral_agorot > 0 && (
+                  <span className="flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5" /> לחברות {formatAgorot(r.referral_agorot)}
+                  </span>
+                )}
               </div>
             </CardBody>
           </Card>
