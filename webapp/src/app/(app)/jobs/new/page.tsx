@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, MessageCircle, ArrowLeft, Briefcase, Eye, EyeOff } from "lucide-react";
+import { CheckCircle2, MessageCircle, ArrowLeft, Briefcase, Eye, EyeOff, Send, BellOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useToast } from "@/components/ui/Toast";
@@ -59,6 +59,7 @@ export default function NewJobPage() {
   const [notes, setNotes] = useState("");
   const [openedAt, setOpenedAt] = useState(nowForInput());
 
+  const [notifyContractor, setNotifyContractor] = useState(true);
   // null until touched, so the job follows the standing policy unless overridden
   const [sendPhone, setSendPhone] = useState<boolean | null>(null);
   const effectiveSendPhone = sendPhone ?? settings?.send_customer_phone_to_contractor ?? true;
@@ -189,11 +190,14 @@ export default function NewJobPage() {
     }
     setSaving(true);
     try {
-      // a job I take myself starts in progress; one sent out waits for the contractor
+      // A job I take myself starts in progress; one actually sent out waits for
+      // the contractor. A job assigned but deliberately not sent stays "חדשה" —
+      // calling it "נשלחה לקבלן" when nothing was sent would make the reminder
+      // and the timeline lie about what happened.
       const initialStatus =
         performedBy === "self"
           ? jobStatuses.find((s) => s.name === "בטיפול") ?? jobStatuses.find((s) => s.name === "חדשה")
-          : contractorId
+          : contractorId && notifyContractor
             ? jobStatuses.find((s) => s.name === "נשלחה לקבלן")
             : jobStatuses.find((s) => s.name === "חדשה");
       if (!initialStatus) throw new Error("missing status");
@@ -205,6 +209,7 @@ export default function NewJobPage() {
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim(),
         send_customer_phone: sendPhone,
+        notify_contractor: performedBy === "self" ? true : notifyContractor,
         address_full: addressResult
           ? [formatAddressLine(addressResult), addressResult.city].filter(Boolean).join(", ")
           : addressQuery.trim() || null,
@@ -255,6 +260,7 @@ export default function NewJobPage() {
     setCustomerName("");
     setCustomerPhone("");
     setSendPhone(null);
+    setNotifyContractor(true);
     setAddressQuery("");
     setAddressResult(null);
     setQuotedPrice("");
@@ -266,7 +272,7 @@ export default function NewJobPage() {
   }
 
   if (createdJob) {
-    const waLink = createdJob.contractor
+    const waLink = createdJob.contractor && createdJob.notify_contractor
       ? buildWhatsappLink(
           createdJob.contractor.whatsapp || createdJob.contractor.phone,
           buildNewJobWhatsappMessage(createdJob, {
@@ -305,6 +311,20 @@ export default function NewJobPage() {
               </p>
               <p className="text-xs text-ink-400">
                 הדלק וההוצאות ייכנסו לחישוב הרווח כשתסגרו את העבודה.
+              </p>
+            </CardBody>
+          </Card>
+        ) : createdJob.contractor && !createdJob.notify_contractor ? (
+          <Card>
+            <CardBody className="space-y-1.5 text-center text-sm">
+              <p className="font-bold text-ink-700">
+                העבודה שויכה ל{createdJob.contractor.name} בלי לשלוח הודעה 🤫
+              </p>
+              <p className="text-ink-500">
+                הסטטוס נשאר ״חדשה״ ולא ״נשלחה לקבלן״, כי עדיין לא נשלח כלום.
+              </p>
+              <p className="text-xs text-ink-400">
+                אפשר לשלוח את פרטי העבודה בכל רגע מתוך דף העבודה.
               </p>
             </CardBody>
           </Card>
@@ -664,6 +684,33 @@ export default function NewJobPage() {
           >
             המשך בלי לשייך קבלן כרגע
           </button>
+
+          {contractorId && (
+            /* assigning the job and telling the contractor are two separate decisions */
+            <button
+              type="button"
+              onClick={() => setNotifyContractor((v) => !v)}
+              className={`mt-3 flex w-full items-start gap-2.5 rounded-xl border px-3.5 py-3 text-right transition ${
+                notifyContractor ? "border-ink-100 bg-white hover:bg-ink-50" : "border-warning-100 bg-warning-50"
+              }`}
+            >
+              {notifyContractor ? (
+                <Send className="mt-0.5 h-[18px] w-[18px] shrink-0 text-ink-400" />
+              ) : (
+                <BellOff className="mt-0.5 h-[18px] w-[18px] shrink-0 text-warning-600" />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-ink-900">
+                  {notifyContractor ? "לשלוח לקבלן את פרטי העבודה" : "לא לשלוח לקבלן הודעה"}
+                </span>
+                <span className="block text-xs text-ink-500">
+                  {notifyContractor
+                    ? "אחרי השמירה יוצע לכם לשלוח את הפרטים ב-WhatsApp, והסטטוס יהיה ״נשלחה לקבלן״."
+                    : "העבודה תישמר על שם הקבלן, בלי הודעה. הסטטוס יישאר ״חדשה״ ואפשר לשלוח מאוחר יותר."}
+                </span>
+              </span>
+            </button>
+          )}
         </Section>
       )}
 

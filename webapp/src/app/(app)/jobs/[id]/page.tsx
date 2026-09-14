@@ -17,6 +17,8 @@ import {
   AlertTriangle,
   Eye,
   EyeOff,
+  BellOff,
+  Send,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
@@ -55,6 +57,22 @@ export default function JobDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [busy, setBusy] = useState(false);
+
+  async function markContractorNotified() {
+    if (!job) return;
+    setJob({ ...job, notify_contractor: true });
+    const { error } = await supabase.from("jobs").update({ notify_contractor: true }).eq("id", job.id);
+    if (error) {
+      setJob(job);
+      toast.error("לא הצלחנו לשמור את השינוי. נסו שוב.");
+      return;
+    }
+    const sent = jobStatuses.find((st) => st.name === "נשלחה לקבלן");
+    if (sent && job.status_id !== sent.id && !job.is_closed) {
+      await changeJobStatus(supabase, job.id, sent.id, "פרטי העבודה נשלחו לקבלן");
+    }
+    await load();
+  }
 
   async function toggleSendPhone() {
     if (!job) return;
@@ -254,6 +272,27 @@ export default function JobDetailPage() {
         <ActionButton icon={Copy} label="שכפול עבודה" onClick={handleDuplicate} />
         <ActionButton icon={StickyNote} label="הוסף הערה" onClick={() => setNoteOpen(true)} />
       </div>
+
+      {job.contractor && !job.notify_contractor && !job.is_closed && waContractorLink && (
+        /* assigned but never told — offer to tell them, and record that we did */
+        <div className="flex flex-col gap-2.5 rounded-xl border border-warning-100 bg-warning-50 px-3.5 py-3 sm:flex-row sm:items-center">
+          <BellOff className="h-[18px] w-[18px] shrink-0 text-warning-600" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-ink-900">{job.contractor.name} עדיין לא קיבל הודעה</p>
+            <p className="text-xs text-ink-500">העבודה שויכה אליו בלי לשלוח את הפרטים.</p>
+          </div>
+          <a
+            href={waContractorLink}
+            target="_blank"
+            rel="noreferrer"
+            onClick={markContractorNotified}
+            className="btn-success flex shrink-0 items-center justify-center gap-2 px-4 py-2.5 text-sm"
+          >
+            <Send className="h-4 w-4" />
+            שליחת הפרטים עכשיו
+          </a>
+        </div>
+      )}
 
       {/* what the contractor's message will carry — the number itself never leaves the job */}
       <button

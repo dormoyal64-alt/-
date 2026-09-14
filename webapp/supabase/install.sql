@@ -222,6 +222,9 @@ create table jobs (
   -- whether the number above travels to the contractor in the WhatsApp message;
   -- null follows app_settings.send_customer_phone_to_contractor
   send_customer_phone boolean,
+  -- false when the job was opened without messaging the contractor at all
+  -- (told by phone already, or not to be told yet)
+  notify_contractor boolean not null default true,
 
   address_full text,
   address_street text,

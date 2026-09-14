@@ -121,6 +121,8 @@ export interface Job {
   customer_phone: string;
   /** null follows app_settings.send_customer_phone_to_contractor */
   send_customer_phone: boolean | null;
+  /** false when the job was opened without messaging the contractor at all */
+  notify_contractor: boolean;
   address_full: string | null;
   address_street: string | null;
   address_house_number: string | null;
