@@ -116,3 +116,31 @@ export async function duplicateJob(supabase: SupabaseClient, job: JobWithRelatio
   };
   return createJob(supabase, input);
 }
+
+/**
+ * Why a job can't be deleted, or null when it can. Deleting a job that has
+ * already been reckoned up with someone would leave that settlement's totals
+ * describing jobs that no longer exist, so those two cases are refused
+ * outright — everything else is fair game, including closed jobs.
+ */
+export function deleteJobBlockedReason(job: JobWithRelations): string | null {
+  if (job.settlement_id) {
+    return "העבודה כבר נכללה בהתחשבנות עם הקבלן. כדי למחוק אותה, בטלו קודם את ההתחשבנות.";
+  }
+  if (job.referral_settled_at) {
+    return "העבודה כבר נכללה בהתחשבנות עם החברה המפנה, ולכן לא ניתן למחוק אותה.";
+  }
+  return null;
+}
+
+/**
+ * Removes the job for good. job_status_history and notifications are wiped
+ * along with it by their `on delete cascade`, so nothing is orphaned.
+ */
+export async function deleteJob(supabase: SupabaseClient, job: JobWithRelations) {
+  const blocked = deleteJobBlockedReason(job);
+  if (blocked) throw new Error(blocked);
+
+  const { error } = await supabase.from("jobs").delete().eq("id", job.id);
+  if (error) throw error;
+}

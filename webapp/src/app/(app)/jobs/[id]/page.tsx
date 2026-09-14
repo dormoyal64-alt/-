@@ -13,6 +13,8 @@ import {
   Copy,
   StickyNote,
   Undo2,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
@@ -20,13 +22,13 @@ import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { PageSpinner } from "@/components/ui/Misc";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
-import { Textarea } from "@/components/ui/Input";
+import { Input, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { CloseJobModal } from "@/components/jobs/CloseJobModal";
 import { StatusMenu } from "@/components/jobs/StatusMenu";
 import { EditJobModal, type EditJobValues } from "@/components/jobs/EditJobModal";
 import { Timeline, type TimelineEntry } from "@/components/jobs/Timeline";
-import { fetchJob, changeJobStatus, closeJob, reopenJob, duplicateJob } from "@/lib/api/jobs";
+import { fetchJob, changeJobStatus, closeJob, reopenJob, duplicateJob, deleteJob, deleteJobBlockedReason } from "@/lib/api/jobs";
 import { buildCallLink, buildMapLink, buildNewJobWhatsappMessage, buildOnTheWayMessage, buildWhatsappLink } from "@/lib/whatsapp";
 import { formatAgorot, formatPercent } from "@/lib/money";
 import { formatDateTimeHe, formatDurationHe } from "@/lib/dates";
@@ -48,7 +50,22 @@ export default function JobDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [busy, setBusy] = useState(false);
+
+  async function handleDelete() {
+    if (!job) return;
+    setBusy(true);
+    try {
+      await deleteJob(supabase, job);
+      toast.success(`העבודה ${job.job_number} נמחקה`);
+      router.push("/jobs");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "שגיאה במחיקת העבודה. נסו שוב.");
+      setBusy(false);
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -281,9 +298,89 @@ export default function JobDetailPage() {
         </CardBody>
       </Card>
 
+      {/* kept away from the everyday actions, and phrased so the cost is plain */}
+      <button
+        type="button"
+        onClick={() => {
+          setDeleteConfirmText("");
+          setDeleteOpen(true);
+        }}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-danger-100 py-3 text-sm font-semibold text-danger-600 transition hover:bg-danger-50"
+      >
+        <Trash2 className="h-4 w-4" />
+        מחיקת העבודה מהמערכת
+      </button>
+
       <CloseJobModal open={closeOpen} onClose={() => setCloseOpen(false)} job={job} onSubmit={handleClose} loading={busy} />
       <StatusMenu open={statusOpen} onClose={() => setStatusOpen(false)} currentStatusId={job.status_id} onSelect={handleStatusSelect} />
       <EditJobModal open={editOpen} onClose={() => setEditOpen(false)} job={job} onSubmit={handleEditSubmit} loading={busy} />
+
+      <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="מחיקת עבודה">
+        {(() => {
+          const blocked = deleteJobBlockedReason(job);
+          if (blocked) {
+            return (
+              <div className="space-y-3">
+                <div className="flex items-start gap-2.5 rounded-xl border border-warning-100 bg-warning-50 px-3.5 py-3">
+                  <AlertTriangle className="mt-0.5 h-[18px] w-[18px] shrink-0 text-warning-600" />
+                  <p className="text-sm font-semibold text-ink-800">{blocked}</p>
+                </div>
+                <Button fullWidth variant="secondary" onClick={() => setDeleteOpen(false)}>
+                  סגירה
+                </Button>
+              </div>
+            );
+          }
+
+          // A closed job is already counted in the money reports, so deleting it
+          // changes numbers you may have acted on. Typing the number is the brake.
+          const needsTyping = job.is_closed;
+          const canDelete = !needsTyping || deleteConfirmText.trim() === job.job_number;
+
+          return (
+            <div className="space-y-3">
+              <p className="text-sm text-ink-700">
+                העבודה <span className="font-extrabold">{job.job_number}</span> של{" "}
+                <span className="font-extrabold">{job.customer_name}</span> תימחק לצמיתות, יחד עם ציר הזמן
+                וההתראות שלה. <span className="font-bold">אי אפשר לבטל את הפעולה.</span>
+              </p>
+
+              {needsTyping && (
+                <>
+                  <div className="flex items-start gap-2.5 rounded-xl border border-danger-100 bg-danger-50 px-3.5 py-3">
+                    <AlertTriangle className="mt-0.5 h-[18px] w-[18px] shrink-0 text-danger-600" />
+                    <p className="text-sm font-semibold text-ink-800">
+                      זו עבודה סגורה על {formatAgorot(job.final_price_agorot)}. מחיקתה תשנה את הרווח הנקי,
+                      את האנליטיקס ואת דירוג הקבלנים.
+                    </p>
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-sm font-semibold text-ink-700">
+                      הקלידו {job.job_number} כדי לאשר
+                    </p>
+                    <Input
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      placeholder={job.job_number}
+                      dir="ltr"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-2">
+                <Button fullWidth variant="secondary" onClick={() => setDeleteOpen(false)}>
+                  ביטול
+                </Button>
+                <Button fullWidth variant="danger" onClick={handleDelete} loading={busy} disabled={!canDelete}>
+                  <Trash2 className="h-4 w-4" />
+                  מחיקה לצמיתות
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
 
       <Modal open={noteOpen} onClose={() => setNoteOpen(false)} title="הוספת הערה">
         <div className="space-y-3">
