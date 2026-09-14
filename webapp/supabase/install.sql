@@ -219,6 +219,9 @@ create table jobs (
 
   customer_name text not null,
   customer_phone text not null,
+  -- whether the number above travels to the contractor in the WhatsApp message;
+  -- null follows app_settings.send_customer_phone_to_contractor
+  send_customer_phone boolean,
 
   address_full text,
   address_street text,
@@ -317,6 +320,11 @@ create table app_settings (
   fuel_price_updated_on date,
   -- where you normally set out from, offered as the default origin of a trip
   home_city_id uuid references cities(id),
+
+  -- whether the customer's phone number is included in the WhatsApp message to
+  -- the contractor. The number is stored on the job either way; this only
+  -- decides what leaves the system.
+  send_customer_phone_to_contractor boolean not null default true,
 
   updated_at timestamptz not null default now()
 );
@@ -1093,9 +1101,6 @@ alter default privileges in schema public grant execute on functions to authenti
 revoke all on all tables in schema public from anon;
 revoke all on all functions in schema public from anon;
 
-
--- ############ נתוני בסיס שהמערכת חייבת ############
-
 -- ============================================================================
 -- JobCRM - Seed / demo data
 -- Run AFTER schema.sql. Safe to run once. You can delete all demo data later
@@ -1222,8 +1227,7 @@ update app_settings set
   home_city_id = (select id from cities where name = 'באר שבע')
 where id = true;
 
-
--- ############ כל יישובי ישראל ############
+-- ----------------------------------------------------------------------------
 
 -- Generated: 670 Israeli localities - every city (עירייה), every local
 -- council (מועצה מקומית), and the larger towns and villages, tagged צפון / מרכז / דרום.

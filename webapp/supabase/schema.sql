@@ -203,6 +203,9 @@ create table jobs (
 
   customer_name text not null,
   customer_phone text not null,
+  -- whether the number above travels to the contractor in the WhatsApp message;
+  -- null follows app_settings.send_customer_phone_to_contractor
+  send_customer_phone boolean,
 
   address_full text,
   address_street text,
@@ -301,6 +304,11 @@ create table app_settings (
   fuel_price_updated_on date,
   -- where you normally set out from, offered as the default origin of a trip
   home_city_id uuid references cities(id),
+
+  -- whether the customer's phone number is included in the WhatsApp message to
+  -- the contractor. The number is stored on the job either way; this only
+  -- decides what leaves the system.
+  send_customer_phone_to_contractor boolean not null default true,
 
   updated_at timestamptz not null default now()
 );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bell, BellOff, Trash2, Info } from "lucide-react";
+import { Bell, BellOff, Trash2, Info, Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useNotifications } from "@/lib/notifications";
@@ -23,6 +23,7 @@ export default function SettingsPage() {
   const [resetting, setResetting] = useState(false);
   const [newStatusName, setNewStatusName] = useState("");
   const [savingReminder, setSavingReminder] = useState(false);
+  const [savingPhonePolicy, setSavingPhonePolicy] = useState(false);
 
   async function saveReminderMinutes(minutes: number) {
     if (!minutes || minutes < 5) return;
@@ -32,6 +33,18 @@ export default function SettingsPage() {
     if (error) return toast.error("שגיאה בשמירת זמן התזכורת");
     await refresh();
     toast.success("מעכשיו תישלח תזכורת אחרי " + (minutes < 60 ? minutes + " דקות" : minutes / 60 + " שעות"));
+  }
+
+  async function saveSendPhonePolicy(next: boolean) {
+    setSavingPhonePolicy(true);
+    const { error } = await supabase
+      .from("app_settings")
+      .update({ send_customer_phone_to_contractor: next })
+      .eq("id", true);
+    setSavingPhonePolicy(false);
+    if (error) return toast.error("שגיאה בשמירת ההגדרה");
+    await refresh();
+    toast.success(next ? "טלפון הלקוח ייכלל בהודעות לקבלנים" : "טלפון הלקוח לא ייכלל בהודעות לקבלנים");
   }
 
   async function addPaymentMethod(name: string) {
@@ -79,6 +92,7 @@ export default function SettingsPage() {
   }
 
   const reminderMinutes = settings?.reminder_minutes ?? 120;
+  const sendPhonePolicy = settings?.send_customer_phone_to_contractor ?? true;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -126,6 +140,40 @@ export default function SettingsPage() {
               />
             </div>
           </div>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>טלפון הלקוח בהודעה לקבלן</CardTitle>
+        </CardHeader>
+        <CardBody className="space-y-3">
+          <p className="text-sm text-ink-500">
+            ברירת המחדל לעבודות חדשות. המספר תמיד נשמר במערכת — ההגדרה קובעת רק אם הוא נכלל
+            בהודעת הוואטסאפ שנשלחת לקבלן. אפשר לשנות לכל עבודה בנפרד.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {[true, false].map((v) => (
+              <button
+                key={String(v)}
+                onClick={() => saveSendPhonePolicy(v)}
+                disabled={savingPhonePolicy}
+                className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
+                  sendPhonePolicy === v
+                    ? "border-brand-600 bg-brand-600 text-white"
+                    : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                }`}
+              >
+                {v ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                {v ? "לשלוח את המספר" : "לא לשלוח את המספר"}
+              </button>
+            ))}
+          </div>
+          {!sendPhonePolicy && (
+            <p className="text-xs text-ink-400">
+              בהודעה לקבלן ייכתב במקום המספר: ״לתיאום מול הלקוח — דברו איתי״.
+            </p>
+          )}
         </CardBody>
       </Card>
 

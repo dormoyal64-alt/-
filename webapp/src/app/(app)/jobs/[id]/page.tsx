@@ -15,6 +15,8 @@ import {
   Undo2,
   Trash2,
   AlertTriangle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
@@ -29,7 +31,7 @@ import { StatusMenu } from "@/components/jobs/StatusMenu";
 import { EditJobModal, type EditJobValues } from "@/components/jobs/EditJobModal";
 import { Timeline, type TimelineEntry } from "@/components/jobs/Timeline";
 import { fetchJob, changeJobStatus, closeJob, reopenJob, duplicateJob, deleteJob, deleteJobBlockedReason } from "@/lib/api/jobs";
-import { buildCallLink, buildMapLink, buildNewJobWhatsappMessage, buildOnTheWayMessage, buildWhatsappLink } from "@/lib/whatsapp";
+import { buildCallLink, buildMapLink, buildNewJobWhatsappMessage, buildOnTheWayMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
 import { formatAgorot, formatPercent } from "@/lib/money";
 import { formatDateTimeHe, formatDurationHe } from "@/lib/dates";
 import { useRefData } from "@/lib/refdata";
@@ -53,6 +55,20 @@ export default function JobDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [busy, setBusy] = useState(false);
+
+  async function toggleSendPhone() {
+    if (!job) return;
+    const next = !sendsCustomerPhone(job, settings?.send_customer_phone_to_contractor);
+    // optimistic: the WhatsApp link above has to change before the next tap
+    setJob({ ...job, send_customer_phone: next });
+    const { error } = await supabase.from("jobs").update({ send_customer_phone: next }).eq("id", job.id);
+    if (error) {
+      setJob(job);
+      toast.error("לא הצלחנו לשמור את השינוי. נסו שוב.");
+      return;
+    }
+    toast.success(next ? "טלפון הלקוח ייכלל בהודעה לקבלן" : "טלפון הלקוח לא ייכלל בהודעה לקבלן");
+  }
 
   async function handleDelete() {
     if (!job) return;
@@ -188,8 +204,12 @@ export default function JobDetailPage() {
     job.customer_phone,
     buildOnTheWayMessage(job, settings?.on_the_way_template)
   );
+  const sendPhone = sendsCustomerPhone(job, settings?.send_customer_phone_to_contractor);
   const waContractorLink = job.contractor
-    ? buildWhatsappLink(job.contractor.whatsapp || job.contractor.phone, buildNewJobWhatsappMessage(job))
+    ? buildWhatsappLink(
+        job.contractor.whatsapp || job.contractor.phone,
+        buildNewJobWhatsappMessage(job, { includeCustomerPhone: sendPhone })
+      )
     : null;
 
   return (
@@ -234,6 +254,31 @@ export default function JobDetailPage() {
         <ActionButton icon={Copy} label="שכפול עבודה" onClick={handleDuplicate} />
         <ActionButton icon={StickyNote} label="הוסף הערה" onClick={() => setNoteOpen(true)} />
       </div>
+
+      {/* what the contractor's message will carry — the number itself never leaves the job */}
+      <button
+        type="button"
+        onClick={toggleSendPhone}
+        className={`flex w-full items-start gap-2.5 rounded-xl border px-3.5 py-3 text-right transition ${
+          sendPhone ? "border-ink-100 bg-white hover:bg-ink-50" : "border-warning-100 bg-warning-50"
+        }`}
+      >
+        {sendPhone ? (
+          <Eye className="mt-0.5 h-[18px] w-[18px] shrink-0 text-ink-400" />
+        ) : (
+          <EyeOff className="mt-0.5 h-[18px] w-[18px] shrink-0 text-warning-600" />
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold text-ink-900">
+            {sendPhone ? "הקבלן מקבל את טלפון הלקוח" : "הקבלן לא מקבל את טלפון הלקוח"}
+          </span>
+          <span className="block text-xs text-ink-500">
+            {sendPhone
+              ? "המספר ייכלל בהודעת הוואטסאפ לקבלן. לחצו כדי להסתיר אותו."
+              : "במקום המספר ייכתב ״לתיאום מול הלקוח — דברו איתי״."}
+          </span>
+        </span>
+      </button>
 
       {!job.is_closed && onTheWayLink && (
         <a

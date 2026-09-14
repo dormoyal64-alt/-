@@ -18,7 +18,25 @@ export function buildWhatsappLink(numberRaw: string | null | undefined, message 
   return `https://wa.me/${number}${params}`;
 }
 
-export function buildNewJobWhatsappMessage(job: JobWithRelations): string {
+/**
+ * Whether this job's contractor message carries the customer's phone number.
+ * The job's own choice wins; null falls back to the standing setting, so
+ * changing the policy moves every job that never decided for itself.
+ */
+export function sendsCustomerPhone(
+  job: Pick<JobWithRelations, "send_customer_phone">,
+  settingDefault: boolean | null | undefined
+): boolean {
+  if (job.send_customer_phone != null) return job.send_customer_phone;
+  return settingDefault ?? true;
+}
+
+export function buildNewJobWhatsappMessage(
+  job: JobWithRelations,
+  options?: { includeCustomerPhone?: boolean }
+): string {
+  // Default true keeps every existing caller behaving as it did.
+  const withPhone = options?.includeCustomerPhone ?? true;
   const lines = [
     "🛠️ *עבודה חדשה*",
     "",
@@ -26,7 +44,9 @@ export function buildNewJobWhatsappMessage(job: JobWithRelations): string {
     job.profession?.name ? `תחום: ${job.profession.name}` : null,
     job.job_type?.name ? `סוג עבודה: ${job.job_type.name}` : null,
     `שם לקוח: ${job.customer_name}`,
-    `טלפון לקוח: ${job.customer_phone}`,
+    // Withholding the number without saying so just leaves the contractor
+    // hunting for it, so the message says where to get the customer instead.
+    withPhone ? `טלפון לקוח: ${job.customer_phone}` : "טלפון לקוח: לתיאום מול הלקוח — דברו איתי",
     job.city?.name ? `עיר: ${job.city.name}` : null,
     job.address_full ? `כתובת: ${job.address_full}` : null,
     job.quoted_price_agorot ? `מחיר שנאמר בטלפון: ${formatAgorot(job.quoted_price_agorot)}` : null,

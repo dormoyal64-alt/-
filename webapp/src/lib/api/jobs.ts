@@ -20,6 +20,8 @@ export interface CreateJobInput {
   city_id: string;
   customer_name: string;
   customer_phone: string;
+  /** null follows the standing setting */
+  send_customer_phone?: boolean | null;
   address_full?: string | null;
   address_street?: string | null;
   address_house_number?: string | null;
@@ -99,6 +101,7 @@ export async function duplicateJob(supabase: SupabaseClient, job: JobWithRelatio
     city_id: job.city_id!,
     customer_name: job.customer_name,
     customer_phone: job.customer_phone,
+    send_customer_phone: job.send_customer_phone,
     address_full: job.address_full,
     address_street: job.address_street,
     address_house_number: job.address_house_number,

@@ -119,6 +119,8 @@ export interface Job {
   city_id: string | null;
   customer_name: string;
   customer_phone: string;
+  /** null follows app_settings.send_customer_phone_to_contractor */
+  send_customer_phone: boolean | null;
   address_full: string | null;
   address_street: string | null;
   address_house_number: string | null;
@@ -273,6 +275,8 @@ export interface AppSettings {
   km_per_liter: number;
   fuel_price_updated_on: string | null;
   home_city_id: string | null;
+  /** default for whether the contractor's message carries the customer's phone */
+  send_customer_phone_to_contractor: boolean;
   updated_at: string;
 }
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, MessageCircle, ArrowLeft, Briefcase } from "lucide-react";
+import { CheckCircle2, MessageCircle, ArrowLeft, Briefcase, Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useToast } from "@/components/ui/Toast";
@@ -15,7 +15,7 @@ import { CityPicker } from "@/components/ui/CityPicker";
 import { useContractorMatch } from "@/hooks/useContractorMatch";
 import { createJob } from "@/lib/api/jobs";
 import { agorotToShekels, formatAgorot, shekelsToAgorot } from "@/lib/money";
-import { buildNewJobWhatsappMessage, buildWhatsappLink } from "@/lib/whatsapp";
+import { buildNewJobWhatsappMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
 import type { AddressResult } from "@/hooks/useAddressAutocomplete";
 import type { JobWithRelations, PerformedBy } from "@/lib/types";
 
@@ -58,6 +58,10 @@ export default function NewJobPage() {
   const [leadSourceId, setLeadSourceId] = useState("");
   const [notes, setNotes] = useState("");
   const [openedAt, setOpenedAt] = useState(nowForInput());
+
+  // null until touched, so the job follows the standing policy unless overridden
+  const [sendPhone, setSendPhone] = useState<boolean | null>(null);
+  const effectiveSendPhone = sendPhone ?? settings?.send_customer_phone_to_contractor ?? true;
 
   const [saving, setSaving] = useState(false);
   const [createdJob, setCreatedJob] = useState<JobWithRelations | null>(null);
@@ -200,6 +204,7 @@ export default function NewJobPage() {
         city_id: cityId!,
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim(),
+        send_customer_phone: sendPhone,
         address_full: addressResult
           ? [formatAddressLine(addressResult), addressResult.city].filter(Boolean).join(", ")
           : addressQuery.trim() || null,
@@ -249,6 +254,7 @@ export default function NewJobPage() {
     setHelperPay("");
     setCustomerName("");
     setCustomerPhone("");
+    setSendPhone(null);
     setAddressQuery("");
     setAddressResult(null);
     setQuotedPrice("");
@@ -261,7 +267,12 @@ export default function NewJobPage() {
 
   if (createdJob) {
     const waLink = createdJob.contractor
-      ? buildWhatsappLink(createdJob.contractor.whatsapp || createdJob.contractor.phone, buildNewJobWhatsappMessage(createdJob))
+      ? buildWhatsappLink(
+          createdJob.contractor.whatsapp || createdJob.contractor.phone,
+          buildNewJobWhatsappMessage(createdJob, {
+            includeCustomerPhone: sendsCustomerPhone(createdJob, settings?.send_customer_phone_to_contractor),
+          })
+        )
       : null;
     return (
       <div className="mx-auto max-w-lg space-y-5">
@@ -669,6 +680,34 @@ export default function NewJobPage() {
                 <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="050-1234567" dir="ltr" />
               </div>
             </div>
+
+            {/* the number is stored either way — this only decides what leaves the system */}
+            <button
+              type="button"
+              onClick={() => setSendPhone(!effectiveSendPhone)}
+              className={`flex w-full items-start gap-2.5 rounded-xl border px-3.5 py-3 text-right transition ${
+                effectiveSendPhone ? "border-ink-100 bg-white hover:bg-ink-50" : "border-warning-100 bg-warning-50"
+              }`}
+            >
+              {effectiveSendPhone ? (
+                <Eye className="mt-0.5 h-[18px] w-[18px] shrink-0 text-ink-400" />
+              ) : (
+                <EyeOff className="mt-0.5 h-[18px] w-[18px] shrink-0 text-warning-600" />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-ink-900">
+                  {effectiveSendPhone ? "הקבלן יקבל את טלפון הלקוח" : "הקבלן לא יקבל את טלפון הלקוח"}
+                </span>
+                <span className="block text-xs text-ink-500">
+                  {effectiveSendPhone
+                    ? "המספר ייכלל בהודעת הוואטסאפ לקבלן. לחצו כדי להסתיר אותו."
+                    : "במקום המספר ייכתב ״לתיאום מול הלקוח — דברו איתי״. המספר נשמר במערכת כרגיל."}
+                </span>
+                {sendPhone == null && (
+                  <span className="mt-1 block text-[11px] text-ink-400">לפי ברירת המחדל שבהגדרות</span>
+                )}
+              </span>
+            </button>
             <div>
               <Label>כתובת</Label>
               <AddressAutocomplete
