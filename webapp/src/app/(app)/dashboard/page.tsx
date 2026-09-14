@@ -21,7 +21,7 @@ import { DailyAdSpend } from "@/components/ads/DailyAdSpend";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { PageSpinner } from "@/components/ui/Misc";
 import { formatAgorot, formatNumber, formatPercent } from "@/lib/money";
-import { getPeriodRange, getPreviousPeriodRange, isoRange } from "@/lib/dates";
+import { getPeriodRange, getPreviousPeriodRange, isoRange, todayLocalDate } from "@/lib/dates";
 import type { CityStatsRow, ContractorStatsRow, PeriodTotalsRow, ProfessionStatsRow } from "@/lib/types";
 
 export default function DashboardPage() {
@@ -95,7 +95,7 @@ export default function DashboardPage() {
 
       {/* asked once a day, because a profit figure that ignores what the leads
           cost is not a profit figure */}
-      <DailyAdSpend day={new Date().toISOString().slice(0, 10)} compact onSaved={() => setReloadKey((k) => k + 1)} />
+      <DailyAdSpend day={todayLocalDate()} compact onSaved={() => setReloadKey((k) => k + 1)} />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <StatCard label="עבודות היום" value={formatNumber(today?.jobs_count)} icon={Briefcase} changePct={pctChange(today?.jobs_count, yesterday?.jobs_count)} />

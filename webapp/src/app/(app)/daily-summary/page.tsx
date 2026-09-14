@@ -9,7 +9,7 @@ import { DailyAdSpend } from "@/components/ads/DailyAdSpend";
 import { Input } from "@/components/ui/Input";
 import { PageSpinner } from "@/components/ui/Misc";
 import { formatAgorot, formatPercent } from "@/lib/money";
-import { startOfDay, endOfDay, formatDateHe, last7Days } from "@/lib/dates";
+import { startOfDay, endOfDay, formatDateHe, last7Days, todayLocalDate } from "@/lib/dates";
 import type { CityStatsRow, ContractorStatsRow, ProfessionStatsRow } from "@/lib/types";
 
 export interface DailyMoneyRow {
@@ -37,7 +37,7 @@ export default function DailySummaryPage() {
   const supabase = useMemo(() => createClient(), []);
   const { professions, cities, contractors, jobStatuses } = useRefData();
 
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayLocalDate());
   const [byProfession, setByProfession] = useState<ProfessionStatsRow[]>([]);
   const [byCity, setByCity] = useState<CityStatsRow[]>([]);
   const [byContractor, setByContractor] = useState<ContractorStatsRow[]>([]);

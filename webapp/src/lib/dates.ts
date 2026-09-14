@@ -114,3 +114,17 @@ export function customDateRange(fromStr: string, toStr: string): DateRange {
 }
 
 export { startOfDay, endOfDay };
+
+/**
+ * Today as yyyy-mm-dd in the viewer's own timezone.
+ *
+ * `toISOString().slice(0, 10)` gives the UTC date, which in Israel is still
+ * yesterday between midnight and 02:00 or 03:00 — so spend entered late at
+ * night would be filed against the wrong day and never show up in today's
+ * profit. The reports read these dates as Israeli dates, so they must be
+ * written as Israeli dates.
+ */
+export function todayLocalDate(d: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
