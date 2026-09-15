@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bell, BellOff, Trash2, Info, Eye, EyeOff } from "lucide-react";
+import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useNotifications } from "@/lib/notifications";
@@ -24,6 +24,7 @@ export default function SettingsPage() {
   const [newStatusName, setNewStatusName] = useState("");
   const [savingReminder, setSavingReminder] = useState(false);
   const [savingPhonePolicy, setSavingPhonePolicy] = useState(false);
+  const [savingBusiness, setSavingBusiness] = useState(false);
 
   async function saveReminderMinutes(minutes: number) {
     if (!minutes || minutes < 5) return;
@@ -33,6 +34,18 @@ export default function SettingsPage() {
     if (error) return toast.error("שגיאה בשמירת זמן התזכורת");
     await refresh();
     toast.success("מעכשיו תישלח תזכורת אחרי " + (minutes < 60 ? minutes + " דקות" : minutes / 60 + " שעות"));
+  }
+
+  async function saveBusinessField(field: string, value: string | boolean) {
+    setSavingBusiness(true);
+    const { error } = await supabase
+      .from("app_settings")
+      .update({ [field]: typeof value === "string" ? value.trim() || null : value })
+      .eq("id", true);
+    setSavingBusiness(false);
+    if (error) return toast.error("שגיאה בשמירה");
+    await refresh();
+    toast.success("נשמר");
   }
 
   async function saveSendPhonePolicy(next: boolean) {
@@ -138,6 +151,47 @@ export default function SettingsPage() {
                   if (v >= 5 && v !== reminderMinutes) saveReminderMinutes(v);
                 }}
               />
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ReceiptIcon className="h-5 w-5 text-ink-400" /> פרטי העסק לקבלות
+          </CardTitle>
+        </CardHeader>
+        <CardBody className="space-y-3">
+          <p className="text-sm text-ink-500">
+            מה שימולא כאן יופיע בראש כל קבלה שתפיקו ללקוחות. שינוי כאן משפיע על קבלות
+            <b> חדשות בלבד</b> — קבלות שכבר הופקו נשארות כפי שהיו.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <BusinessField label="שם העסק" field="business_name" value={settings?.business_name} onSave={saveBusinessField} disabled={savingBusiness} placeholder="ביוביות בדרום" />
+            <BusinessField label="ח.פ. / מספר עוסק" field="business_number" value={settings?.business_number} onSave={saveBusinessField} disabled={savingBusiness} placeholder="123456789" dir="ltr" />
+            <BusinessField label="כתובת" field="business_address" value={settings?.business_address} onSave={saveBusinessField} disabled={savingBusiness} placeholder="שדרות הנשיא 22, באר שבע" />
+            <BusinessField label="טלפון" field="business_phone" value={settings?.business_phone} onSave={saveBusinessField} disabled={savingBusiness} placeholder="050-1234567" dir="ltr" />
+            <BusinessField label="אימייל" field="business_email" value={settings?.business_email} onSave={saveBusinessField} disabled={savingBusiness} placeholder="info@example.com" dir="ltr" />
+            <BusinessField label="שורת סיום בקבלה" field="receipt_footer" value={settings?.receipt_footer} onSave={saveBusinessField} disabled={savingBusiness} placeholder="תודה שבחרתם בנו!" />
+          </div>
+          <div className="border-t border-ink-100 pt-3">
+            <p className="mb-2 text-sm font-semibold text-ink-700">בסגירת עבודה, המתג ״הפקת קבלה״ יתחיל:</p>
+            <div className="flex flex-wrap gap-2">
+              {[true, false].map((v) => (
+                <button
+                  key={String(v)}
+                  onClick={() => saveBusinessField("auto_receipt", v)}
+                  disabled={savingBusiness}
+                  className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
+                    (settings?.auto_receipt ?? false) === v
+                      ? "border-brand-600 bg-brand-600 text-white"
+                      : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                  }`}
+                >
+                  {v ? "דלוק" : "כבוי"}
+                </button>
+              ))}
             </div>
           </div>
         </CardBody>
@@ -287,6 +341,36 @@ export default function SettingsPage() {
         description="פעולה זו תמחק לצמיתות את כל העבודות, ההתחשבנויות והקבלנים במערכת. תחומים, סוגי עבודה, ערים וסטטוסים יישארו. לא ניתן לבטל פעולה זו."
         confirmLabel="כן, מחיקה לצמיתות"
         loading={resetting}
+      />
+    </div>
+  );
+}
+
+/** One business detail, saved when the field loses focus. */
+function BusinessField({
+  label, field, value, onSave, disabled, placeholder, dir,
+}: {
+  label: string;
+  field: string;
+  value: string | null | undefined;
+  onSave: (field: string, value: string) => Promise<void>;
+  disabled?: boolean;
+  placeholder?: string;
+  dir?: "ltr" | "rtl";
+}) {
+  return (
+    <div>
+      <Label>{label}</Label>
+      <Input
+        defaultValue={value ?? ""}
+        placeholder={placeholder}
+        dir={dir}
+        disabled={disabled}
+        // keyed on the stored value so an external change re-seeds the box
+        key={value ?? ""}
+        onBlur={(e) => {
+          if (e.target.value.trim() !== (value ?? "").trim()) onSave(field, e.target.value);
+        }}
       />
     </div>
   );

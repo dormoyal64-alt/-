@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { JobWithRelations, PaymentReceivedBy, PerformedBy } from "@/lib/types";
+import type { JobWithRelations, PaymentReceivedBy, PerformedBy, Receipt } from "@/lib/types";
 
 export const JOB_SELECT = `*,
   profession:professions(id,name,technician_label),
@@ -149,4 +149,27 @@ export async function deleteJob(supabase: SupabaseClient, job: JobWithRelations)
 
   const { error } = await supabase.from("jobs").delete().eq("id", job.id);
   if (error) throw error;
+}
+
+/**
+ * Issues the receipt for a job, or returns the one it already has.
+ * Numbering and the snapshot of business details are done in the database, so
+ * two people closing jobs at once cannot land on the same number.
+ */
+export async function issueReceipt(supabase: SupabaseClient, jobId: string) {
+  const { data, error } = await supabase.rpc("issue_receipt", { p_job_id: jobId });
+  if (error) throw error;
+  // the function returns a single row; PostgREST may hand it back either way
+  return (Array.isArray(data) ? data[0] : data) as Receipt;
+}
+
+export async function fetchReceipt(supabase: SupabaseClient, jobId: string) {
+  const { data } = await supabase
+    .from("receipts")
+    .select("*")
+    .eq("job_id", jobId)
+    .order("issued_at")
+    .limit(1)
+    .maybeSingle();
+  return (data as Receipt) ?? null;
 }

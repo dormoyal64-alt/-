@@ -279,6 +279,16 @@ export interface AppSettings {
   home_city_id: string | null;
   /** default for whether the contractor's message carries the customer's phone */
   send_customer_phone_to_contractor: boolean;
+  /** business details printed on every receipt */
+  business_name: string | null;
+  /** ח.פ. / מספר עוסק */
+  business_number: string | null;
+  business_address: string | null;
+  business_phone: string | null;
+  business_email: string | null;
+  receipt_footer: string | null;
+  /** whether the receipt switch on the close-job dialog starts on */
+  auto_receipt: boolean;
   updated_at: string;
 }
 
@@ -397,3 +407,28 @@ export interface PeriodTotalsRow {
 // (We rely on hand-written row types above for real app code instead of
 // generating a fully strict Supabase Database type.)
 export type Database = any;
+
+/**
+ * A receipt already given to a customer. Every field is a snapshot taken when
+ * it was issued — editing the job or the business details afterwards must not
+ * change a document someone already holds.
+ */
+export interface Receipt {
+  id: string;
+  job_id: string;
+  receipt_number: string;
+  issued_at: string;
+  amount_agorot: number;
+  payment_method_name: string | null;
+  customer_name: string;
+  customer_phone: string | null;
+  customer_address: string | null;
+  description: string | null;
+  business_name: string | null;
+  business_number: string | null;
+  business_address: string | null;
+  business_phone: string | null;
+  business_email: string | null;
+  footer: string | null;
+  created_at: string;
+}

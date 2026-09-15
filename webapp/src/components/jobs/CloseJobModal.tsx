@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Receipt as ReceiptIcon } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
@@ -28,10 +29,11 @@ export function CloseJobModal({
     closedAt: string;
     commissionPct: number;
     referralPct: number | null;
+    issueReceipt: boolean;
   }) => Promise<void>;
   loading?: boolean;
 }) {
-  const { paymentMethods } = useRefData();
+  const { paymentMethods, settings } = useRefData();
   const [closedSuccessfully, setClosedSuccessfully] = useState(true);
   const [finalPrice, setFinalPrice] = useState(
     job.quoted_price_agorot ? String(job.quoted_price_agorot / 100) : ""
@@ -39,6 +41,8 @@ export function CloseJobModal({
   const [finalPaymentMethodId, setFinalPaymentMethodId] = useState(job.payment_method_id ?? "");
   const [paymentReceivedBy, setPaymentReceivedBy] = useState<"contractor" | "business">("contractor");
   const [closingNotes, setClosingNotes] = useState("");
+  // starts from the standing preference in settings, changeable per closing
+  const [issueReceipt, setIssueReceipt] = useState(settings?.auto_receipt ?? false);
 
   // the job's usual split, and the one being applied to this closing
   const defaultPct = job.commission_pct ?? 0;
@@ -80,6 +84,7 @@ export function CloseJobModal({
       closedAt: new Date().toISOString(),
       commissionPct: effectivePct,
       referralPct: hasCompany ? effectiveReferralPct : null,
+      issueReceipt: closedSuccessfully && issueReceipt,
     });
   }
 
@@ -343,6 +348,33 @@ export function CloseJobModal({
           <Label>הערות לסגירה</Label>
           <Textarea value={closingNotes} onChange={(e) => setClosingNotes(e.target.value)} placeholder="פרטים נוספים..." />
         </div>
+
+        {closedSuccessfully && (
+          <button
+            type="button"
+            onClick={() => setIssueReceipt((v) => !v)}
+            className={`flex w-full items-start gap-2.5 rounded-xl border px-3.5 py-3 text-right transition ${
+              issueReceipt ? "border-success-100 bg-success-50" : "border-ink-100 bg-white hover:bg-ink-50"
+            }`}
+          >
+            <ReceiptIcon className={`mt-0.5 h-[18px] w-[18px] shrink-0 ${issueReceipt ? "text-success-600" : "text-ink-400"}`} />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-ink-900">
+                {issueReceipt ? "להפיק קבלה ללקוח" : "בלי קבלה"}
+              </span>
+              <span className="block text-xs text-ink-500">
+                {issueReceipt
+                  ? "מיד אחרי הסגירה תיפתח הקבלה כ-PDF לשליחה ללקוח."
+                  : "אפשר להפיק קבלה מאוחר יותר מתוך דף העבודה."}
+              </span>
+              {issueReceipt && !settings?.business_name && (
+                <span className="mt-1 block text-[11px] font-semibold text-warning-600">
+                  עדיין לא מילאתם את פרטי העסק — הקבלה תצא בלי שם וללא ח.פ. (הגדרות ← פרטי העסק לקבלות)
+                </span>
+              )}
+            </span>
+          </button>
+        )}
 
         <Button
           fullWidth

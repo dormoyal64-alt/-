@@ -20,6 +20,7 @@ import {
   BellOff,
   Send,
   Megaphone,
+  Receipt as ReceiptIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
@@ -33,7 +34,9 @@ import { CloseJobModal } from "@/components/jobs/CloseJobModal";
 import { StatusMenu } from "@/components/jobs/StatusMenu";
 import { EditJobModal, type EditJobValues } from "@/components/jobs/EditJobModal";
 import { Timeline, type TimelineEntry } from "@/components/jobs/Timeline";
-import { fetchJob, changeJobStatus, closeJob, reopenJob, duplicateJob, deleteJob, deleteJobBlockedReason } from "@/lib/api/jobs";
+import { fetchJob, changeJobStatus, closeJob, reopenJob, duplicateJob, deleteJob, deleteJobBlockedReason, issueReceipt, fetchReceipt } from "@/lib/api/jobs";
+import { ReceiptCard } from "@/components/jobs/ReceiptCard";
+import type { Receipt } from "@/lib/types";
 import { buildCallLink, buildMapLink, buildNewJobWhatsappMessage, buildOnTheWayMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
 import { formatAgorot, formatPercent } from "@/lib/money";
 import { formatDateTimeHe, formatDurationHe } from "@/lib/dates";
@@ -57,6 +60,7 @@ export default function JobDetailPage() {
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [adShare, setAdShare] = useState<number | null>(null);
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -115,6 +119,7 @@ export default function JobDetailPage() {
     // what this job's lead cost in advertising, as a share of that day's spend
     const { data: share } = await supabase.rpc("job_ad_share", { p_job_id: id });
     setAdShare(typeof share === "number" ? share : null);
+    setReceipt(await fetchReceipt(supabase, id));
     const { data } = await supabase
       .from("job_status_history")
       .select("id, changed_at, note, status:job_statuses(name, color)")
@@ -153,15 +158,39 @@ export default function JobDetailPage() {
     }
   }
 
-  async function handleClose(input: Parameters<typeof closeJob>[2]) {
+  async function handleClose(input: Parameters<typeof closeJob>[2] & { issueReceipt?: boolean }) {
     setBusy(true);
     try {
       await closeJob(supabase, job!.id, input);
-      toast.success("העבודה נסגרה ועודכנה ההתחשבנות");
       setCloseOpen(false);
+
+      // The job is closed either way; a receipt that fails to issue must not
+      // read as the closing having failed.
+      if (input.issueReceipt) {
+        try {
+          await issueReceipt(supabase, job!.id);
+          toast.success("העבודה נסגרה והקבלה הופקה");
+        } catch {
+          toast.error("העבודה נסגרה, אבל הפקת הקבלה נכשלה. אפשר להפיק אותה מדף העבודה.");
+        }
+      } else {
+        toast.success("העבודה נסגרה ועודכנה ההתחשבנות");
+      }
       await load();
     } catch {
       toast.error("שגיאה בסגירת העבודה");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleIssueReceipt() {
+    setBusy(true);
+    try {
+      setReceipt(await issueReceipt(supabase, job!.id));
+      toast.success("הקבלה הופקה");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "שגיאה בהפקת הקבלה");
     } finally {
       setBusy(false);
     }
@@ -270,6 +299,22 @@ export default function JobDetailPage() {
             <SummaryStat label="מי קיבל תשלום" value={job.payment_received_by === "business" ? "העסק" : "הקבלן"} />
           </CardBody>
         </Card>
+      )}
+
+      {job.is_closed && !!job.final_price_agorot && (
+        receipt ? (
+          <ReceiptCard receipt={receipt} />
+        ) : (
+          <button
+            type="button"
+            onClick={handleIssueReceipt}
+            disabled={busy}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-ink-200 py-3 text-sm font-semibold text-ink-500 transition hover:bg-ink-50 disabled:opacity-60"
+          >
+            <ReceiptIcon className="h-4 w-4" />
+            הפקת קבלה ללקוח
+          </button>
+        )
       )}
 
       {job.is_closed && (() => {
