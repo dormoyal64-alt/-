@@ -11,6 +11,9 @@ export interface ContractorFormInput {
   cityIds: string[];
   // job_type_id -> commission override (null = use default)
   jobTypeCommissions: Record<string, number | null>;
+  available_247: boolean;
+  /** the weekly rota; an empty list means "we never asked", not "never works" */
+  hours: { weekday: number; starts_at: string; ends_at: string }[];
 }
 
 async function saveAssignments(supabase: SupabaseClient, contractorId: string, input: ContractorFormInput) {
@@ -18,6 +21,7 @@ async function saveAssignments(supabase: SupabaseClient, contractorId: string, i
     supabase.from("contractor_professions").delete().eq("contractor_id", contractorId),
     supabase.from("contractor_cities").delete().eq("contractor_id", contractorId),
     supabase.from("contractor_job_types").delete().eq("contractor_id", contractorId),
+    supabase.from("contractor_hours").delete().eq("contractor_id", contractorId),
   ]);
 
   const jobTypeIds = Object.keys(input.jobTypeCommissions);
@@ -40,6 +44,11 @@ async function saveAssignments(supabase: SupabaseClient, contractorId: string, i
           }))
         )
       : Promise.resolve(),
+    input.hours.length
+      ? supabase
+          .from("contractor_hours")
+          .insert(input.hours.map((h) => ({ contractor_id: contractorId, ...h })))
+      : Promise.resolve(),
   ]);
 }
 
@@ -52,6 +61,7 @@ export async function createContractor(supabase: SupabaseClient, input: Contract
       whatsapp: input.whatsapp || null,
       default_commission_pct: input.default_commission_pct,
       active: input.active,
+      available_247: input.available_247,
       notes: input.notes || null,
     })
     .select()
@@ -71,6 +81,7 @@ export async function updateContractor(supabase: SupabaseClient, id: string, inp
       whatsapp: input.whatsapp || null,
       default_commission_pct: input.default_commission_pct,
       active: input.active,
+      available_247: input.available_247,
       notes: input.notes || null,
     })
     .eq("id", id);

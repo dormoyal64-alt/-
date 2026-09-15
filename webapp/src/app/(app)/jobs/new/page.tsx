@@ -97,7 +97,13 @@ export default function NewJobPage() {
   const helperPayAgorot = helperPay.trim() === "" ? 0 : shekelsToAgorot(helperPay);
   const quotedAgorot = quotedPrice.trim() === "" ? 0 : shekelsToAgorot(quotedPrice);
 
-  const matches = useContractorMatch(professionId, jobTypeId, cityId);
+  // availability is judged against when the work is actually needed, which is
+  // the opening time on the form — not necessarily right now
+  const jobMoment = useMemo(() => {
+    const d = new Date(openedAt);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }, [openedAt]);
+  const matches = useContractorMatch(professionId, jobTypeId, cityId, jobMoment);
   const selectedContractor = matches.find((m) => m.id === contractorId);
   const contractorPct = performedBy === "self" ? 0 : selectedContractor?.commissionPct ?? 0;
   // both cuts come off the full price, so together they cannot pass 100%

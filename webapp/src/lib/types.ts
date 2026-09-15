@@ -65,6 +65,17 @@ export interface JobStatus {
   created_at: string;
 }
 
+/** One stretch of one weekday that a contractor works. */
+export interface ContractorHours {
+  id: string;
+  contractor_id: string;
+  /** 0 = Sunday … 6 = Saturday */
+  weekday: number;
+  /** "HH:MM:SS" */
+  starts_at: string;
+  ends_at: string;
+}
+
 export interface Contractor {
   id: string;
   name: string;
@@ -72,6 +83,8 @@ export interface Contractor {
   whatsapp: string | null;
   default_commission_pct: number;
   active: boolean;
+  /** works around the clock — the weekly hours are ignored */
+  available_247: boolean;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -320,6 +333,7 @@ export interface ContractorWithRelations extends Contractor {
   contractor_professions: { profession_id: string }[];
   contractor_cities: { city_id: string }[];
   contractor_job_types: { job_type_id: string; commission_pct: number | null }[];
+  contractor_hours: { weekday: number; starts_at: string; ends_at: string }[];
 }
 
 // ---- RPC result row shapes ----

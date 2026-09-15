@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { HoursEditor, DEFAULT_WEEK, rowsToWeek, weekToRows, type DayHours } from "./HoursEditor";
 import { useRefData } from "@/lib/refdata";
 import type { ContractorWithRelations } from "@/lib/types";
 import type { ContractorFormInput } from "@/lib/api/contractors";
@@ -27,6 +28,10 @@ export function ContractorForm({
   const [defaultPct, setDefaultPct] = useState(initial?.default_commission_pct ?? 60);
   const [active, setActive] = useState(initial?.active ?? true);
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [always, setAlways] = useState(initial?.available_247 ?? false);
+  const [week, setWeek] = useState<DayHours[]>(
+    initial?.contractor_hours ? rowsToWeek(initial.contractor_hours) : DEFAULT_WEEK.map((d) => ({ ...d }))
+  );
   const [professionIds, setProfessionIds] = useState<string[]>(
     initial?.contractor_professions?.map((p) => p.profession_id) ?? []
   );
@@ -84,6 +89,8 @@ export function ContractorForm({
       professionIds,
       cityIds,
       jobTypeCommissions,
+      available_247: always,
+      hours: always ? [] : weekToRows(week),
     });
   }
 
@@ -148,6 +155,15 @@ export function ContractorForm({
               </button>
             ))}
         </div>
+      </div>
+
+      <div>
+        <Label>שעות פעילות</Label>
+        <p className="mb-2 text-xs text-ink-500">
+          המערכת תציע קודם קבלנים שזמינים בזמן שהעבודה נפתחת. מי שמחוץ לשעות עדיין יופיע ברשימה,
+          מסומן, כדי שתוכלו לבחור בו בכל זאת.
+        </p>
+        <HoursEditor week={week} onChange={setWeek} always={always} onAlwaysChange={setAlways} />
       </div>
 
       <div>

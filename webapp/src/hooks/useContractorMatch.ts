@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import type { City, ContractorStatsRow, ContractorWithRelations } from "@/lib/types";
+import { availabilityAt, describeHours, nextOpening, type Availability } from "@/lib/availability";
 
 /**
  * How well a contractor fits the job being opened. A perfect fit is rare —
@@ -27,6 +28,7 @@ export const MATCH_TIER_HINT: Record<MatchTier, string> = {
 };
 
 const TIER_RANK: Record<MatchTier, number> = { exact: 3, city: 2, region: 1, profession: 0 };
+const AVAIL_RANK: Record<Availability, number> = { open: 2, unknown: 1, closed: 0 };
 
 export interface MatchedContractor {
   id: string;
@@ -42,9 +44,21 @@ export interface MatchedContractor {
   tier: MatchTier;
   /** the cities this contractor covers in the job's region, for the "why" line */
   nearbyCities: string[];
+  /** working right now, off, or never told us */
+  availability: Availability;
+  /** "ראשון–חמישי 08:00–17:00" */
+  hoursLabel: string;
+  /** when they open next, for a contractor who is off */
+  opensAt: string | null;
 }
 
-export function useContractorMatch(professionId: string | null, jobTypeId: string | null, cityId: string | null) {
+export function useContractorMatch(
+  professionId: string | null,
+  jobTypeId: string | null,
+  cityId: string | null,
+  /** when the work is needed; defaults to now */
+  when?: Date
+) {
   const { contractors, cities } = useRefData();
   const supabase = useMemo(() => createClient(), []);
   const [stats, setStats] = useState<Record<string, ContractorStatsRow>>({});
@@ -71,8 +85,8 @@ export function useContractorMatch(professionId: string | null, jobTypeId: strin
   }, [supabase]);
 
   const matches = useMemo(
-    () => rankMatches({ contractors, cities, professionId, jobTypeId, cityId, stats, openCounts }),
-    [contractors, cities, professionId, jobTypeId, cityId, stats, openCounts]
+    () => rankMatches({ contractors, cities, professionId, jobTypeId, cityId, stats, openCounts, when }),
+    [contractors, cities, professionId, jobTypeId, cityId, stats, openCounts, when]
   );
 
   return matches;
@@ -87,6 +101,7 @@ export function rankMatches({
   cityId,
   stats,
   openCounts,
+  when,
 }: {
   contractors: ContractorWithRelations[];
   cities: Pick<City, "id" | "name" | "region">[];
@@ -95,11 +110,13 @@ export function rankMatches({
   cityId: string | null;
   stats: Record<string, Pick<ContractorStatsRow, "close_rate" | "jobs_sent" | "jobs_closed_success">>;
   openCounts: Record<string, number>;
+  when?: Date;
 }): MatchedContractor[] {
   // The profession is the one hard filter: a plumber is no help on an electrical
   // job. Everything narrower than that only affects the ordering, so the whole
   // trade stays on screen and the choice stays with the user.
   if (!professionId || !cityId) return [];
+  const moment = when ?? new Date();
 
   const cityById = new Map(cities.map((c) => [c.id, c]));
   const region = cityById.get(cityId)?.region ?? null;
@@ -141,10 +158,19 @@ export function rankMatches({
           .map((id) => cityById.get(id)?.name)
           .filter((n): n is string => !!n)
           .slice(0, 3),
+        availability: availabilityAt(c, moment),
+        hoursLabel: describeHours(c),
+        opensAt: nextOpening(c, moment),
       };
     })
     .sort((a, b) => {
       if (a.active !== b.active) return a.active ? -1 : 1;
+      // Someone who is working beats a better fit who is asleep — but a
+      // contractor whose hours were never filled in sits between the two
+      // rather than being punished for a blank field.
+      if (AVAIL_RANK[a.availability] !== AVAIL_RANK[b.availability]) {
+        return AVAIL_RANK[b.availability] - AVAIL_RANK[a.availability];
+      }
       if (TIER_RANK[a.tier] !== TIER_RANK[b.tier]) return TIER_RANK[b.tier] - TIER_RANK[a.tier];
       if (b.closeRate !== a.closeRate) return b.closeRate - a.closeRate;
       return a.openJobsCount - b.openJobsCount;

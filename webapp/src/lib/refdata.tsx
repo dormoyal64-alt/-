@@ -68,7 +68,7 @@ export function RefDataProvider({ children }: { children: React.ReactNode }) {
       supabase
         .from("contractors")
         .select(
-          "*, contractor_professions(profession_id), contractor_cities(city_id), contractor_job_types(job_type_id, commission_pct)"
+          "*, contractor_professions(profession_id), contractor_cities(city_id), contractor_job_types(job_type_id, commission_pct), contractor_hours(weekday, starts_at, ends_at)"
         )
         .order("name"),
       supabase.from("helpers").select("*").order("name"),
