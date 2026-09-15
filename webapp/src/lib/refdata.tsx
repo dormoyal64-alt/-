@@ -113,7 +113,14 @@ export function RefDataProvider({ children }: { children: React.ReactNode }) {
         professions, jobTypes, cities, paymentMethods, leadSources, jobStatuses,
         contractors, helpers, referralCompanies, settings,
         profile,
-        isOwner: profile?.role === "owner",
+        // Only 'clerk' means office staff. Anything else — 'owner', the older
+        // 'admin', or a value from a database that has not been migrated yet —
+        // is the owner. Testing for 'owner' instead locked the real owner out
+        // of their own reports on any database where the update had not been
+        // run, because the menu shipped ahead of the migration. Failing this
+        // way round is safe: the menu is presentation, and the database refuses
+        // a clerk the figures regardless of what it shows.
+        isOwner: profile ? profile.role !== "clerk" : false,
         loading,
         refresh,
       }}
