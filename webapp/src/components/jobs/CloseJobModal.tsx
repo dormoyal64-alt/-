@@ -30,6 +30,7 @@ export function CloseJobModal({
     commissionPct: number;
     referralPct: number | null;
     issueReceipt: boolean;
+    withReceipt: boolean;
   }) => Promise<void>;
   loading?: boolean;
 }) {
@@ -43,6 +44,9 @@ export function CloseJobModal({
   const [closingNotes, setClosingNotes] = useState("");
   // starts from the standing preference in settings, changeable per closing
   const [issueReceipt, setIssueReceipt] = useState(settings?.auto_receipt ?? false);
+  // whether this job was declared. Issuing a receipt implies it, but a job can
+  // be declared without the system printing anything.
+  const [withReceipt, setWithReceipt] = useState(settings?.auto_receipt ?? false);
 
   // the job's usual split, and the one being applied to this closing
   const defaultPct = job.commission_pct ?? 0;
@@ -68,7 +72,14 @@ export function CloseJobModal({
   const contractorFeeAgorot = Math.round((finalPriceAgorot * effectivePct) / 100);
   // both percentages come off the full price, so together they cannot pass 100%
   const splitTooBig = effectivePct + effectiveReferralPct > 100;
-  const myShare = finalPriceAgorot - referralFeeAgorot - contractorFeeAgorot;
+  const taxRate = settings?.tax_rate_pct ?? 18;
+  const includesTax = settings?.prices_include_tax ?? true;
+  const taxAgorot = withReceipt && finalPriceAgorot > 0
+    ? Math.round(includesTax
+        ? (finalPriceAgorot * taxRate) / (100 + taxRate)
+        : (finalPriceAgorot * taxRate) / 100)
+    : 0;
+  const myShare = finalPriceAgorot - referralFeeAgorot - contractorFeeAgorot - taxAgorot;
   const preview = useMemo(
     () => previewCommission(finalPriceAgorot, effectivePct, paymentReceivedBy),
     [finalPriceAgorot, effectivePct, paymentReceivedBy]
@@ -85,6 +96,7 @@ export function CloseJobModal({
       commissionPct: effectivePct,
       referralPct: hasCompany ? effectiveReferralPct : null,
       issueReceipt: closedSuccessfully && issueReceipt,
+      withReceipt: closedSuccessfully && withReceipt,
     });
   }
 
@@ -293,6 +305,12 @@ export function CloseJobModal({
                     <span className="font-bold text-danger-600">-{formatAgorot(contractorFeeAgorot)}</span>
                   </div>
                 )}
+                {taxAgorot > 0 && (
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-ink-500">מס ({taxRate}%)</span>
+                    <span className="font-bold text-danger-600">-{formatAgorot(taxAgorot)}</span>
+                  </div>
+                )}
                 <div className="mt-1 flex justify-between border-t border-ink-200 pt-1.5">
                   <span className="font-bold text-ink-700">נשאר לי</span>
                   <span className="font-extrabold text-success-700">{formatAgorot(myShare)}</span>
@@ -350,6 +368,33 @@ export function CloseJobModal({
         </div>
 
         {closedSuccessfully && (
+          <button
+            type="button"
+            onClick={() => {
+              const next = !withReceipt;
+              setWithReceipt(next);
+              // turning the declaration off makes printing one meaningless
+              if (!next) setIssueReceipt(false);
+            }}
+            className={`flex w-full items-start gap-2.5 rounded-xl border px-3.5 py-3 text-right transition ${
+              withReceipt ? "border-brand-100 bg-brand-50/60" : "border-ink-100 bg-white hover:bg-ink-50"
+            }`}
+          >
+            <ReceiptIcon className={`mt-0.5 h-[18px] w-[18px] shrink-0 ${withReceipt ? "text-brand-600" : "text-ink-400"}`} />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-ink-900">
+                {withReceipt ? "העבודה נסגרה עם קבלה" : "העבודה נסגרה בלי קבלה"}
+              </span>
+              <span className="block text-xs text-ink-500">
+                {withReceipt
+                  ? `יירשם מס של ${formatAgorot(taxAgorot)} (${taxRate}%${includesTax ? ", כלול במחיר" : ", מעל המחיר"}) והוא ירד מהרווח`
+                  : "לא יירשם מס על העבודה הזו"}
+              </span>
+            </span>
+          </button>
+        )}
+
+        {closedSuccessfully && withReceipt && (
           <button
             type="button"
             onClick={() => setIssueReceipt((v) => !v)}

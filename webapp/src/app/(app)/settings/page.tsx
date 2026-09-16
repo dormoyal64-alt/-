@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon } from "lucide-react";
+import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon, Percent } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useNotifications } from "@/lib/notifications";
@@ -106,6 +106,8 @@ export default function SettingsPage() {
 
   const reminderMinutes = settings?.reminder_minutes ?? 120;
   const sendPhonePolicy = settings?.send_customer_phone_to_contractor ?? true;
+  const taxRate = settings?.tax_rate_pct ?? 18;
+  const includesTax = settings?.prices_include_tax ?? true;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -153,6 +155,66 @@ export default function SettingsPage() {
               />
             </div>
           </div>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Percent className="h-5 w-5 text-ink-400" /> מס על עבודות שנסגרו עם קבלה
+          </CardTitle>
+        </CardHeader>
+        <CardBody className="space-y-3">
+          <p className="text-sm text-ink-500">
+            רק עבודה שנסגרה <b>עם קבלה</b> נושאת מס. המס מחושב ברגע הסגירה ונשמר על העבודה,
+            כך ששינוי האחוז כאן <b>לא משנה עבודות שכבר נסגרו</b>.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <Label>אחוז המס</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step="any"
+                dir="ltr"
+                key={String(taxRate)}
+                defaultValue={taxRate}
+                onBlur={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (!Number.isNaN(v) && v >= 0 && v <= 100 && v !== taxRate) saveBusinessField("tax_rate_pct", String(v));
+                }}
+              />
+              <p className="mt-1 text-xs text-ink-400">מע״מ בישראל — עדכנו אם האחוז משתנה</p>
+            </div>
+            <div>
+              <Label>המחירים שאתם גובים</Label>
+              <div className="flex flex-wrap gap-2">
+                {[true, false].map((v) => (
+                  <button
+                    key={String(v)}
+                    onClick={() => saveBusinessField("prices_include_tax", v)}
+                    disabled={savingBusiness}
+                    className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
+                      includesTax === v
+                        ? "border-brand-600 bg-brand-600 text-white"
+                        : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                    }`}
+                  >
+                    {v ? "כוללים מס" : "לפני מס"}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-ink-400">
+                {includesTax
+                  ? `מ-₪1,000 המס הוא ${(1000 * taxRate / (100 + taxRate)).toFixed(2)} ₪`
+                  : `על ₪1,000 יתווסף מס של ${(1000 * taxRate / 100).toFixed(2)} ₪`}
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-ink-400">
+            זה חישוב לניהול פנימי שלכם, לא דיווח רשמי. התייעצו עם רואה החשבון לגבי החבות בפועל.
+          </p>
         </CardBody>
       </Card>
 

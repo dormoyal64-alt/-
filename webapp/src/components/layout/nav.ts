@@ -16,6 +16,7 @@ import {
   Fuel,
   Building2,
   UserCog,
+  Scale,
   type LucideIcon,
 } from "lucide-react";
 
@@ -35,7 +36,9 @@ export const mainNav: NavItem[] = [
 ];
 
 export const reportsNav: NavItem[] = [
+  { href: "/balance", label: "מאזן — נכנס ויצא", icon: Scale, ownerOnly: true },
   { href: "/profit", label: "רווח נקי", icon: PiggyBank, ownerOnly: true },
+  { href: "/expenses", label: "הוצאות קבועות", icon: Wallet, ownerOnly: true },
   { href: "/advertising", label: "הוצאות פרסום", icon: Megaphone, ownerOnly: true },
   { href: "/referrals", label: "חברות מפנות", icon: Building2, ownerOnly: true },
   { href: "/analytics", label: "אנליטיקס", icon: BarChart3, ownerOnly: true },

@@ -74,6 +74,8 @@ export interface CloseJobInput {
   /** split for this job only; omit to use the percentage stored on the job */
   commissionPct?: number | null;
   referralPct?: number | null;
+  /** a receipt was given, so the job is declared and carries tax */
+  withReceipt?: boolean;
 }
 
 export async function closeJob(supabase: SupabaseClient, jobId: string, input: CloseJobInput) {
@@ -87,6 +89,7 @@ export async function closeJob(supabase: SupabaseClient, jobId: string, input: C
     p_closed_at: input.closedAt,
     p_commission_pct: input.commissionPct ?? null,
     p_referral_pct: input.referralPct ?? null,
+    p_with_receipt: input.withReceipt ?? false,
   });
   if (error) throw error;
 }

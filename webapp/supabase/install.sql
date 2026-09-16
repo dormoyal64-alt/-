@@ -145,6 +145,7 @@ create table if not exists contractor_hours (
 
 create index if not exists idx_contractor_hours_contractor on contractor_hours(contractor_id);
 
+
 alter table contractor_hours enable row level security;
 drop policy if exists authenticated_all on contractor_hours;
 drop policy if exists owner_only on contractor_hours;
@@ -294,6 +295,10 @@ create table jobs (
   -- false when the job was opened without messaging the contractor at all
   -- (told by phone already, or not to be told yet)
   notify_contractor boolean not null default true,
+  -- a receipt was given, so the job is declared and carries tax
+  closed_with_receipt boolean not null default false,
+  -- tax frozen at closing time, from the rate in force then
+  tax_agorot bigint not null default 0,
 
   address_full text,
   address_street text,
@@ -407,6 +412,12 @@ create table app_settings (
   receipt_footer text,
   -- whether the receipt switch on the close-job dialog starts on
   auto_receipt boolean not null default false,
+
+  -- Israeli VAT at the time of writing; kept here because it changes by
+  -- legislation, and figures already recorded must not move when it does
+  tax_rate_pct numeric(5,2) not null default 18 check (tax_rate_pct >= 0 and tax_rate_pct <= 100),
+  -- prices quoted to a customer in Israel normally already contain the tax
+  prices_include_tax boolean not null default true,
 
   updated_at timestamptz not null default now()
 );
@@ -595,9 +606,9 @@ create or replace function close_job(
   p_payment_received_by text,
   p_closing_notes text default null,
   p_closed_at timestamptz default now(),
-  -- per-job overrides, each winning over what the job already carries
   p_commission_pct numeric default null,
-  p_referral_pct numeric default null
+  p_referral_pct numeric default null,
+  p_with_receipt boolean default false
 ) returns jobs
 language plpgsql as $$
 declare
@@ -608,12 +619,11 @@ declare
   v_referral_fee bigint := 0;
   v_business_share bigint := 0;
   v_fuel bigint := 0;
+  v_tax bigint := 0;
   v_price bigint;
   v_status_id uuid;
   v_status_name text;
 begin
-  -- closing a job is where the split is worked out, and the row handed back
-  -- carries it, so this one is refused outright rather than left to RLS
   perform require_owner();
 
   select * into v_job from jobs where id = p_job_id;
@@ -623,7 +633,6 @@ begin
 
   v_price := coalesce(p_final_price_agorot, 0);
 
-  -- a job you did yourself has no contractor to pay
   if v_job.performed_by = 'self' then
     v_commission_pct := 0;
   elsif p_commission_pct is not null then
@@ -635,7 +644,6 @@ begin
     v_commission_pct := coalesce(v_job.commission_pct, 0);
   end if;
 
-  -- the referring company's cut
   if v_job.referral_company_id is null then
     v_referral_pct := 0;
   elsif p_referral_pct is not null then
@@ -658,8 +666,9 @@ begin
   if p_closed_successfully then
     v_referral_fee := round((v_price::numeric * v_referral_pct) / 100.0)::bigint;
     v_contractor_share := round((v_price::numeric * v_commission_pct) / 100.0)::bigint;
-    -- what is left for the business, after both other parties
     v_business_share := v_price - v_contractor_share - v_referral_fee;
+    -- only a declared job carries tax
+    v_tax := case when p_with_receipt then tax_on(v_price) else 0 end;
     v_status_name := 'נסגרה בהצלחה';
   else
     v_status_name := 'לא נסגרה';
@@ -676,7 +685,8 @@ begin
            end ||
            case when v_referral_pct > 0
                 then ' (חברה ' || trim(trailing '.' from trim(to_char(v_referral_pct, 'FM990.99'))) || '%)'
-                else '' end
+                else '' end ||
+           case when p_with_receipt then ' (עם קבלה)' else ' (ללא קבלה)' end
       else 'העבודה לא נסגרה'
     end,
     true
@@ -695,6 +705,8 @@ begin
     referral_fee_agorot = v_referral_fee,
     business_share_agorot = v_business_share,
     fuel_cost_agorot = v_fuel,
+    closed_with_receipt = coalesce(p_with_receipt, false),
+    tax_agorot = v_tax,
     status_id = coalesce(v_status_id, status_id)
   where id = p_job_id
   returning * into v_job;
@@ -702,6 +714,8 @@ begin
   return v_job;
 end;
 $$;
+
+grant execute on function close_job(uuid, boolean, bigint, uuid, text, text, timestamptz, numeric, numeric, boolean) to authenticated;
 
 -- Reopen a previously closed job (undo)
 create or replace function reopen_job(p_job_id uuid, p_status_id uuid)
@@ -907,6 +921,76 @@ language sql stable as $$
   order by 1;
 $$;
 
+-- ----------------------------------------------------------------------------
+-- Running costs and tax
+-- ----------------------------------------------------------------------------
+
+create table if not exists expense_categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  is_active boolean not null default true,
+  sort_order int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+insert into expense_categories (name, sort_order) values
+  ('רואה חשבון', 1), ('ביטוח', 2), ('שכירות', 3), ('ציוד וכלים', 4),
+  ('רכב ואחזקה', 5), ('טלפון ותקשורת', 6), ('אגרות ורישיונות', 7), ('אחר', 99)
+on conflict (name) do nothing;
+
+create table if not exists business_expenses (
+  id uuid primary key default gen_random_uuid(),
+  category_id uuid references expense_categories(id),
+  -- same shape as ad_spend: one payment covering a stretch of days
+  spent_on date not null default current_date,
+  covers_to date check (covers_to is null or covers_to >= spent_on),
+  amount_agorot bigint not null check (amount_agorot >= 0),
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_business_expenses_range on business_expenses(spent_on, covers_to);
+
+
+-- ---------------------------------------------------------------------------
+-- What running costs came to between two dates, prorated the same way as ads
+-- ---------------------------------------------------------------------------
+create or replace function expenses_between(p_from date, p_to date)
+returns bigint
+language sql stable as $$
+  select coalesce(sum(
+    round(
+      e.amount_agorot::numeric
+        / greatest((coalesce(e.covers_to, e.spent_on) - e.spent_on) + 1, 1)
+        * greatest((least(coalesce(e.covers_to, e.spent_on), p_to) - greatest(e.spent_on, p_from)) + 1, 0)
+    )
+  ), 0)::bigint
+  from business_expenses e
+  where e.spent_on <= p_to
+    and coalesce(e.covers_to, e.spent_on) >= p_from;
+$$;
+
+grant execute on function expenses_between(date, date) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Tax on one amount, at the rate in force now
+-- ---------------------------------------------------------------------------
+create or replace function tax_on(p_amount_agorot bigint)
+returns bigint
+language sql stable as $$
+  select case
+    when coalesce(p_amount_agorot, 0) <= 0 then 0
+    when s.prices_include_tax
+      -- carved out of a price that already contains it
+      then round(p_amount_agorot::numeric * s.tax_rate_pct / (100 + s.tax_rate_pct))::bigint
+      else round(p_amount_agorot::numeric * s.tax_rate_pct / 100)::bigint
+  end
+  from app_settings s where s.id = true;
+$$;
+
+grant execute on function tax_on(bigint) to authenticated;
+
 create or replace function ad_spend_between(p_from date, p_to date)
 returns bigint
 language sql stable as $$
@@ -935,6 +1019,8 @@ returns table (
   fuel_agorot bigint,
   helper_agorot bigint,
   ad_spend_agorot bigint,
+  expenses_agorot bigint,
+  tax_agorot bigint,
   profit_agorot bigint,
   contractor_payable_agorot bigint,
   contractor_receivable_agorot bigint,
@@ -951,17 +1037,21 @@ language sql stable as $$
       coalesce(sum(j.business_share_agorot) filter (where coalesce(js.is_success, false) and j.closed_at between p_from and p_to), 0)::bigint as gross,
       coalesce(sum(j.fuel_cost_agorot) filter (where coalesce(js.is_success, false) and j.closed_at between p_from and p_to), 0)::bigint as fuel,
       coalesce(sum(j.helper_pay_agorot) filter (where coalesce(js.is_success, false) and j.closed_at between p_from and p_to), 0)::bigint as helper,
+      coalesce(sum(j.tax_agorot) filter (where coalesce(js.is_success, false) and j.closed_at between p_from and p_to), 0)::bigint as tax,
       coalesce(sum(j.contractor_share_agorot) filter (where coalesce(js.is_success, false) and j.payment_received_by = 'business' and j.closed_at between p_from and p_to), 0)::bigint as payable,
       coalesce(sum(j.business_share_agorot) filter (where coalesce(js.is_success, false) and j.payment_received_by = 'contractor' and j.closed_at between p_from and p_to), 0)::bigint as receivable,
       round(avg(j.final_price_agorot) filter (where coalesce(js.is_success, false) and j.closed_at between p_from and p_to), 0) as avg_price
     from jobs j
     left join job_statuses js on js.id = j.status_id
   ),
-  ads as (
-    select ad_spend_between(
-      (p_from at time zone 'Asia/Jerusalem')::date,
-      (p_to   at time zone 'Asia/Jerusalem')::date
-    ) as spend
+  d as (
+    select (p_from at time zone 'Asia/Jerusalem')::date as from_d,
+           (p_to   at time zone 'Asia/Jerusalem')::date as to_d
+  ),
+  outgoings as (
+    select ad_spend_between(d.from_d, d.to_d) as ads,
+           expenses_between(d.from_d, d.to_d) as expenses
+    from d
   )
   select
     base.jobs_count,
@@ -972,12 +1062,14 @@ language sql stable as $$
     base.gross,
     base.fuel,
     base.helper,
-    ads.spend,
-    (base.gross - base.fuel - base.helper - ads.spend)::bigint,
+    outgoings.ads,
+    outgoings.expenses,
+    base.tax,
+    (base.gross - base.fuel - base.helper - outgoings.ads - outgoings.expenses - base.tax)::bigint,
     base.payable,
     base.receivable,
     base.avg_price
-  from base, ads;
+  from base, outgoings;
 $$;
 
 -- Auto-create a profile row whenever a new Supabase Auth user is created
@@ -1110,6 +1202,7 @@ end;
 $$;
 
 grant execute on function issue_receipt(uuid) to authenticated;
+
 
 -- ----------------------------------------------------------------------------
 -- Row Level Security
@@ -1351,6 +1444,18 @@ $$;
 
 grant execute on function require_owner() to authenticated;
 
+alter table expense_categories enable row level security;
+alter table business_expenses enable row level security;
+drop policy if exists authenticated_all on expense_categories;
+drop policy if exists owner_only on expense_categories;
+create policy authenticated_all on expense_categories for all to authenticated using (true) with check (true);
+-- what the business spends is the owner's business
+drop policy if exists authenticated_all on business_expenses;
+drop policy if exists owner_only on business_expenses;
+create policy owner_only on business_expenses for all to authenticated using (is_owner()) with check (is_owner());
+
+grant select, insert, update, delete on expense_categories, business_expenses to authenticated;
+
 alter table professions enable row level security;
 alter table job_types enable row level security;
 alter table cities enable row level security;
@@ -1493,20 +1598,18 @@ returns table (
   gross_agorot bigint,
   ad_spend_agorot bigint,
   net_agorot bigint,
-  cost_per_lead_agorot bigint
+  cost_per_lead_agorot bigint,
+  expenses_agorot bigint,
+  tax_agorot bigint
 )
 language sql stable as $$
   with opened as (
-    select count(*)::bigint as n
-    from jobs j
-    where j.opened_at between p_from and p_to
+    select count(*)::bigint as n from jobs j where j.opened_at between p_from and p_to
   ),
   closed as (
-    select j.*
-    from jobs j
+    select j.* from jobs j
     join job_statuses st on st.id = j.status_id
-    where j.is_closed and st.is_success
-      and j.closed_at between p_from and p_to
+    where j.is_closed and st.is_success and j.closed_at between p_from and p_to
   ),
   sums as (
     select
@@ -1516,14 +1619,18 @@ language sql stable as $$
       coalesce(sum(referral_fee_agorot), 0)::bigint      as referral,
       coalesce(sum(fuel_cost_agorot), 0)::bigint         as fuel,
       coalesce(sum(helper_pay_agorot), 0)::bigint        as helper,
-      coalesce(sum(business_share_agorot), 0)::bigint    as business
+      coalesce(sum(business_share_agorot), 0)::bigint    as business,
+      coalesce(sum(tax_agorot), 0)::bigint               as tax
     from closed
   ),
-  ads as (
-    select ad_spend_between(
-      (p_from at time zone 'Asia/Jerusalem')::date,
-      (p_to   at time zone 'Asia/Jerusalem')::date
-    ) as spend
+  d as (
+    select (p_from at time zone 'Asia/Jerusalem')::date as from_d,
+           (p_to   at time zone 'Asia/Jerusalem')::date as to_d
+  ),
+  outgoings as (
+    select ad_spend_between(d.from_d, d.to_d) as ads,
+           expenses_between(d.from_d, d.to_d) as expenses
+    from d
   )
   select
     opened.n,
@@ -1534,14 +1641,82 @@ language sql stable as $$
     sums.fuel,
     sums.helper,
     (sums.business - sums.fuel - sums.helper)::bigint,
-    ads.spend,
-    (sums.business - sums.fuel - sums.helper - ads.spend)::bigint,
+    outgoings.ads,
+    (sums.business - sums.fuel - sums.helper - outgoings.ads - outgoings.expenses - sums.tax)::bigint,
     case when opened.n = 0 then 0
-         else round(ads.spend::numeric / opened.n)::bigint end
-  from opened, sums, ads;
+         else round(outgoings.ads::numeric / opened.n)::bigint end,
+    outgoings.expenses,
+    sums.tax
+  from opened, sums, outgoings;
 $$;
 
 grant execute on function range_money(timestamptz, timestamptz) to authenticated;
+
+create or replace function money_report(p_from timestamptz, p_to timestamptz)
+returns table (
+  jobs_closed bigint,
+  jobs_with_receipt bigint,
+  revenue_agorot bigint,
+  revenue_with_receipt_agorot bigint,
+  contractor_paid_agorot bigint,
+  referral_agorot bigint,
+  fuel_agorot bigint,
+  helper_agorot bigint,
+  ad_spend_agorot bigint,
+  business_expenses_agorot bigint,
+  tax_agorot bigint,
+  total_costs_agorot bigint,
+  net_agorot bigint
+)
+language sql stable as $$
+  with closed as (
+    select j.*
+    from jobs j
+    join job_statuses st on st.id = j.status_id
+    where j.is_closed and st.is_success
+      and j.closed_at between p_from and p_to
+  ),
+  s as (
+    select
+      count(*)::bigint                                                  as jobs_closed,
+      count(*) filter (where closed_with_receipt)::bigint               as with_receipt,
+      coalesce(sum(final_price_agorot), 0)::bigint                      as revenue,
+      coalesce(sum(final_price_agorot) filter (where closed_with_receipt), 0)::bigint as revenue_receipt,
+      coalesce(sum(contractor_share_agorot), 0)::bigint                 as contractor_paid,
+      coalesce(sum(referral_fee_agorot), 0)::bigint                     as referral,
+      coalesce(sum(fuel_cost_agorot), 0)::bigint                        as fuel,
+      coalesce(sum(helper_pay_agorot), 0)::bigint                       as helper,
+      coalesce(sum(tax_agorot), 0)::bigint                              as tax
+    from closed
+  ),
+  d as (
+    select
+      (p_from at time zone 'Asia/Jerusalem')::date as from_d,
+      (p_to   at time zone 'Asia/Jerusalem')::date as to_d
+  ),
+  outgoings as (
+    select ad_spend_between(d.from_d, d.to_d) as ads,
+           expenses_between(d.from_d, d.to_d) as expenses
+    from d
+  )
+  select
+    s.jobs_closed,
+    s.with_receipt,
+    s.revenue,
+    s.revenue_receipt,
+    s.contractor_paid,
+    s.referral,
+    s.fuel,
+    s.helper,
+    outgoings.ads,
+    outgoings.expenses,
+    s.tax,
+    (s.contractor_paid + s.referral + s.fuel + s.helper + outgoings.ads + outgoings.expenses + s.tax)::bigint,
+    (s.revenue - s.contractor_paid - s.referral - s.fuel - s.helper - outgoings.ads - outgoings.expenses - s.tax)::bigint
+  from s, outgoings;
+$$;
+
+grant execute on function money_report(timestamptz, timestamptz) to authenticated;
 
 -- One day, expressed as the range it is.
 create or replace function daily_money(p_day date)
@@ -1549,7 +1724,8 @@ returns table (
   jobs_opened bigint, jobs_closed bigint, revenue_agorot bigint,
   contractor_paid_agorot bigint, referral_agorot bigint, fuel_agorot bigint,
   helper_agorot bigint, gross_agorot bigint, ad_spend_agorot bigint,
-  net_agorot bigint, cost_per_lead_agorot bigint
+  net_agorot bigint, cost_per_lead_agorot bigint,
+  expenses_agorot bigint, tax_agorot bigint
 )
 language sql stable as $$
   select * from range_money(

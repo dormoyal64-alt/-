@@ -321,7 +321,8 @@ export default function JobDetailPage() {
         // business_share already has the contractor and the referral company out
         // of it; fuel and the helper are only ever set on a job I did myself.
         const beforeAds =
-          (job.business_share_agorot ?? 0) - (job.fuel_cost_agorot ?? 0) - (job.helper_pay_agorot ?? 0);
+          (job.business_share_agorot ?? 0) - (job.fuel_cost_agorot ?? 0) - (job.helper_pay_agorot ?? 0)
+          - (job.tax_agorot ?? 0);
         const ads = adShare ?? 0;
         const real = beforeAds - ads;
         return (
@@ -343,6 +344,7 @@ export default function JobDetailPage() {
               {!!job.helper_pay_agorot && (
                 <InfoRow label={`עובד${job.helper ? ` (${job.helper.name})` : ""}`} value={`-${formatAgorot(job.helper_pay_agorot)}`} />
               )}
+              {!!job.tax_agorot && <InfoRow label="מס (נסגרה עם קבלה)" value={`-${formatAgorot(job.tax_agorot)}`} />}
               <InfoRow label="חלק יחסי בפרסום" value={`-${formatAgorot(ads)}`} />
               <div className="mt-1 flex items-center justify-between border-t-2 border-ink-200 pt-2">
                 <span className="font-extrabold text-ink-900">נשאר לי</span>

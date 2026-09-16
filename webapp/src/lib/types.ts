@@ -136,6 +136,10 @@ export interface Job {
   send_customer_phone: boolean | null;
   /** false when the job was opened without messaging the contractor at all */
   notify_contractor: boolean;
+  /** a receipt was given, so the job is declared and carries tax */
+  closed_with_receipt: boolean;
+  /** tax frozen at closing time, from the rate in force then */
+  tax_agorot: number;
   address_full: string | null;
   address_street: string | null;
   address_house_number: string | null;
@@ -305,6 +309,10 @@ export interface AppSettings {
   receipt_footer: string | null;
   /** whether the receipt switch on the close-job dialog starts on */
   auto_receipt: boolean;
+  /** VAT rate; kept here because it changes by legislation */
+  tax_rate_pct: number;
+  /** true when quoted prices already contain the tax, as they normally do in Israel */
+  prices_include_tax: boolean;
   updated_at: string;
 }
 
@@ -448,4 +456,39 @@ export interface Receipt {
   business_email: string | null;
   footer: string | null;
   created_at: string;
+}
+
+export interface ExpenseCategory {
+  id: string;
+  name: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+/** A running cost of the business, paid for a stretch of time. */
+export interface BusinessExpense {
+  id: string;
+  category_id: string | null;
+  spent_on: string;
+  covers_to: string | null;
+  amount_agorot: number;
+  notes: string | null;
+  created_at: string;
+}
+
+/** Money in, money out and what is left, over a period. */
+export interface MoneyReport {
+  jobs_closed: number;
+  jobs_with_receipt: number;
+  revenue_agorot: number;
+  revenue_with_receipt_agorot: number;
+  contractor_paid_agorot: number;
+  referral_agorot: number;
+  fuel_agorot: number;
+  helper_agorot: number;
+  ad_spend_agorot: number;
+  business_expenses_agorot: number;
+  tax_agorot: number;
+  total_costs_agorot: number;
+  net_agorot: number;
 }
