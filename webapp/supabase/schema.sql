@@ -236,7 +236,12 @@ create table helpers (
 -- can be set against what that channel actually brought in.
 create table ad_spend (
   id uuid primary key default gen_random_uuid(),
+  -- first day the spend covers
   spent_on date not null default current_date,
+  -- last day it covers; equal to spent_on for a single day. The amount is spread
+  -- evenly across the days between, so a month's budget costs each day a
+  -- thirtieth of itself instead of making one day look ruinous.
+  covers_to date check (covers_to is null or covers_to >= spent_on),
   lead_source_id uuid references lead_sources(id),
   amount_agorot bigint not null check (amount_agorot >= 0),
   notes text,
@@ -245,6 +250,7 @@ create table ad_spend (
 );
 
 create index idx_ad_spend_date on ad_spend(spent_on);
+create index idx_ad_spend_range on ad_spend(spent_on, covers_to);
 
 -- A distance already driven once, so the next job on the same route fills
 -- itself in. Real road distance needs a routing service; this learns from you.
@@ -885,6 +891,23 @@ language sql stable as $$
   order by 1;
 $$;
 
+create or replace function ad_spend_between(p_from date, p_to date)
+returns bigint
+language sql stable as $$
+  select coalesce(sum(
+    round(
+      a.amount_agorot::numeric
+        / greatest((coalesce(a.covers_to, a.spent_on) - a.spent_on) + 1, 1)
+        * greatest((least(coalesce(a.covers_to, a.spent_on), p_to) - greatest(a.spent_on, p_from)) + 1, 0)
+    )
+  ), 0)::bigint
+  from ad_spend a
+  where a.spent_on <= p_to
+    and coalesce(a.covers_to, a.spent_on) >= p_from;
+$$;
+
+grant execute on function ad_spend_between(date, date) to authenticated;
+
 create or replace function period_totals(p_from timestamptz, p_to timestamptz)
 returns table (
   jobs_count bigint,
@@ -919,11 +942,10 @@ language sql stable as $$
     left join job_statuses js on js.id = j.status_id
   ),
   ads as (
-    -- the spend sits on a date, so match the range by date at both ends
-    select coalesce(sum(a.amount_agorot), 0)::bigint as spend
-    from ad_spend a
-    where a.spent_on >= (p_from at time zone 'Asia/Jerusalem')::date
-      and a.spent_on <= (p_to   at time zone 'Asia/Jerusalem')::date
+    select ad_spend_between(
+      (p_from at time zone 'Asia/Jerusalem')::date,
+      (p_to   at time zone 'Asia/Jerusalem')::date
+    ) as spend
   )
   select
     base.jobs_count,
@@ -1424,9 +1446,7 @@ language sql stable as $$
     from jobs where id = p_job_id
   ),
   spend as (
-    select coalesce(sum(a.amount_agorot), 0)::bigint as total
-    from ad_spend a, j
-    where a.spent_on = j.day
+    select ad_spend_between(j.day, j.day) as total from j
   ),
   leads as (
     select count(*)::bigint as n
@@ -1480,16 +1500,14 @@ language sql stable as $$
       coalesce(sum(referral_fee_agorot), 0)::bigint      as referral,
       coalesce(sum(fuel_cost_agorot), 0)::bigint         as fuel,
       coalesce(sum(helper_pay_agorot), 0)::bigint        as helper,
-      -- business_share already has the contractor and the referral company out
       coalesce(sum(business_share_agorot), 0)::bigint    as business
     from closed
   ),
   ads as (
-    -- spend is stored on a date, so compare dates at both ends of the range
-    select coalesce(sum(a.amount_agorot), 0)::bigint as spend
-    from ad_spend a
-    where a.spent_on >= (p_from at time zone 'Asia/Jerusalem')::date
-      and a.spent_on <= (p_to   at time zone 'Asia/Jerusalem')::date
+    select ad_spend_between(
+      (p_from at time zone 'Asia/Jerusalem')::date,
+      (p_to   at time zone 'Asia/Jerusalem')::date
+    ) as spend
   )
   select
     opened.n,

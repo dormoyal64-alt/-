@@ -218,14 +218,10 @@ export default function DailySummaryPage() {
             </CardHeader>
             <CardBody className="space-y-1.5 text-sm">
               <MoneyRow label={`מחזור מ-${money?.jobs_closed ?? 0} עבודות שנסגרו`} value={formatAgorot(money?.revenue_agorot)} />
-              {!!money?.contractor_paid_agorot && (
-                <MoneyRow label="שולם לקבלנים" value={`-${formatAgorot(money.contractor_paid_agorot)}`} negative />
-              )}
-              {!!money?.referral_agorot && (
-                <MoneyRow label="עמלות לחברות מפנות" value={`-${formatAgorot(money.referral_agorot)}`} negative />
-              )}
-              {!!money?.fuel_agorot && <MoneyRow label="דלק" value={`-${formatAgorot(money.fuel_agorot)}`} negative />}
-              {!!money?.helper_agorot && <MoneyRow label="עובדים" value={`-${formatAgorot(money.helper_agorot)}`} negative />}
+              <MoneyRow label="שולם לקבלנים" value={`-${formatAgorot(money?.contractor_paid_agorot)}`} negative />
+              <MoneyRow label="עמלות לחברות מפנות" value={`-${formatAgorot(money?.referral_agorot)}`} negative />
+              <MoneyRow label="דלק" value={`-${formatAgorot(money?.fuel_agorot)}`} negative />
+              <MoneyRow label="עובדים" value={`-${formatAgorot(money?.helper_agorot)}`} negative />
               <div className="border-t border-ink-100 pt-1.5">
                 <MoneyRow label="לפני פרסום" value={formatAgorot(money?.gross_agorot)} />
               </div>

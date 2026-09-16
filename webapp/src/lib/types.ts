@@ -235,7 +235,10 @@ export interface Helper {
 
 export interface AdSpend {
   id: string;
+  /** first day the spend covers */
   spent_on: string;
+  /** last day it covers; same as spent_on for a single day */
+  covers_to: string | null;
   lead_source_id: string | null;
   amount_agorot: number;
   notes: string | null;

@@ -28,23 +28,38 @@ export function DailyAdSpend({
 }) {
   const supabase = useMemo(() => createClient(), []);
   const toast = useToast();
-  const [total, setTotal] = useState<number | null>(null);
+  /** what advertising actually costs this day, including a slice of any longer budget */
+  const [effective, setEffective] = useState(0);
+  /** the part that comes from a week/month/year budget, which this box cannot edit */
+  const [spread, setSpread] = useState(0);
+  /** the day's own rows that are tied to a channel, which this box must not overwrite */
   const [attributed, setAttributed] = useState(0);
+  const [hasAnswer, setHasAnswer] = useState(false);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    // rows that belong to this one day — the only ones this box owns
     const { data } = await supabase
       .from("ad_spend")
-      .select("id, amount_agorot, lead_source_id")
-      .eq("spent_on", day);
+      .select("id, amount_agorot, lead_source_id, covers_to")
+      .eq("spent_on", day)
+      .eq("covers_to", day);
     const rows = (data as { amount_agorot: number; lead_source_id: string | null }[] | null) ?? [];
-    const sum = rows.reduce((s, r) => s + r.amount_agorot, 0);
-    setTotal(rows.length ? sum : null);
+    const dayOwn = rows.reduce((s, r) => s + r.amount_agorot, 0);
+
+    // and what the day costs in total, which the database works out because a
+    // monthly budget contributes a thirtieth of itself to every day in it
+    const { data: eff } = await supabase.rpc("ad_spend_between", { p_from: day, p_to: day });
+    const total = typeof eff === "number" ? eff : dayOwn;
+
+    setEffective(total);
+    setSpread(Math.max(total - dayOwn, 0));
     setAttributed(rows.filter((r) => r.lead_source_id).reduce((s, r) => s + r.amount_agorot, 0));
-    setDraft(rows.length ? String(agorotToShekels(sum)) : "");
+    setHasAnswer(rows.length > 0 || total > 0);
+    setDraft(rows.length ? String(agorotToShekels(dayOwn)) : "");
     setLoading(false);
   }, [supabase, day]);
 
@@ -70,6 +85,7 @@ export function DailyAdSpend({
       .from("ad_spend")
       .select("id")
       .eq("spent_on", day)
+      .eq("covers_to", day)
       .is("lead_source_id", null)
       .limit(1);
     const rest = wanted - attributed;
@@ -80,8 +96,8 @@ export function DailyAdSpend({
         ? await supabase.from("ad_spend").delete().eq("id", looseId)
         : await supabase.from("ad_spend").update({ amount_agorot: rest }).eq("id", looseId)
       : rest === 0
-        ? await supabase.from("ad_spend").insert({ spent_on: day, amount_agorot: 0, lead_source_id: null })
-        : await supabase.from("ad_spend").insert({ spent_on: day, amount_agorot: rest, lead_source_id: null });
+        ? await supabase.from("ad_spend").insert({ spent_on: day, covers_to: day, amount_agorot: 0, lead_source_id: null })
+        : await supabase.from("ad_spend").insert({ spent_on: day, covers_to: day, amount_agorot: rest, lead_source_id: null });
 
     setSaving(false);
     if (error) return toast.error("שגיאה בשמירת ההוצאה");
@@ -98,7 +114,7 @@ export function DailyAdSpend({
     );
   }
 
-  const answered = total != null;
+  const answered = hasAnswer;
 
   return (
     <div
@@ -110,18 +126,25 @@ export function DailyAdSpend({
         <Megaphone className={`mt-0.5 h-[18px] w-[18px] shrink-0 ${answered ? "text-ink-400" : "text-brand-600"}`} />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-ink-900">
-            {answered ? `הוצאות פרסום · ${day}` : "כמה הוצאתם היום על פרסום?"}
+            {answered ? `פרסום היום · ${formatAgorot(effective)}` : "כמה הוצאתם היום על פרסום?"}
           </p>
           {!answered ? (
             <p className="mt-0.5 text-xs text-ink-500">
               בלי זה הרווח שמוצג הוא לפני פרסום — כלומר גבוה מהאמת.
             </p>
           ) : (
-            attributed > 0 && (
-              <p className="mt-0.5 text-xs text-ink-400">
-                מתוכם {formatAgorot(attributed)} משויכים לערוצים במסך ״הוצאות פרסום״
-              </p>
-            )
+            <>
+              {spread > 0 && (
+                <p className="mt-0.5 text-xs text-ink-500">
+                  {formatAgorot(spread)} מתוכם הם החלק היומי של תקציב לתקופה ארוכה — לשינוי, מסך ״הוצאות פרסום״.
+                </p>
+              )}
+              {attributed > 0 && (
+                <p className="mt-0.5 text-xs text-ink-400">
+                  {formatAgorot(attributed)} משויכים לערוצים
+                </p>
+              )}
+            </>
           )}
 
           <div className="mt-2 flex flex-wrap items-end gap-2">
@@ -132,6 +155,7 @@ export function DailyAdSpend({
                 step="any"
                 inputMode="decimal"
                 value={draft}
+                aria-label="הוצאה ליום הזה בלבד"
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") saveAmount(draft);
@@ -149,6 +173,9 @@ export function DailyAdSpend({
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               שמירה
             </button>
+            {spread > 0 && (
+              <span className="self-center text-xs text-ink-400">נוסף על התקציב התקופתי</span>
+            )}
             {!answered && !compact && (
               <button
                 type="button"
