@@ -314,6 +314,12 @@ export interface AppSettings {
   tax_rate_pct: number;
   /** true when quoted prices already contain the tax, as they normally do in Israel */
   prices_include_tax: boolean;
+  /** whether the customer message carries the late-cancellation notice */
+  cancellation_notice: boolean;
+  /** what calling the job off after dispatch costs the customer */
+  cancellation_fee_agorot: number;
+  /** the sentence itself; {fee} is replaced with the amount */
+  cancellation_notice_template: string | null;
   updated_at: string;
 }
 

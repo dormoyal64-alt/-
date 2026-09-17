@@ -1,15 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon, Percent } from "lucide-react";
+import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon, Percent, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useNotifications } from "@/lib/notifications";
 import { useToast } from "@/components/ui/Toast";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input, Label } from "@/components/ui/Input";
+import { Input, Label, Textarea } from "@/components/ui/Input";
 import { EditableList } from "@/components/settings/EditableList";
+import { buildCancellationNotice } from "@/lib/whatsapp";
+import { agorotToShekels, shekelsToAgorot } from "@/lib/money";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const STATUS_COLORS = ["#3b82f6", "#6172f3", "#06b6d4", "#8b5cf6", "#f59e0b", "#64748b", "#f97316", "#10b981", "#ef4444", "#6b7280"];
@@ -295,6 +297,84 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-ink-400" /> דמי ביטול בהודעה ללקוח
+          </CardTitle>
+        </CardHeader>
+        <CardBody className="space-y-3">
+          <p className="text-sm text-ink-500">
+            מה שייכתב כאן מתווסף בסוף ההודעה ״הטכנאי בדרך אליך״ שנשלחת ללקוח, כך שהוא יודע
+            מראש שביטול אחרי שיצאנו אליו כרוך בתשלום.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {[true, false].map((v) => (
+              <button
+                key={String(v)}
+                onClick={() => saveBusinessField("cancellation_notice", v)}
+                disabled={savingBusiness}
+                className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
+                  (settings?.cancellation_notice ?? true) === v
+                    ? "border-brand-600 bg-brand-600 text-white"
+                    : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                }`}
+              >
+                {v ? "לצרף להודעה" : "לא לצרף"}
+              </button>
+            ))}
+          </div>
+
+          {(settings?.cancellation_notice ?? true) && (
+            <>
+              <div className="sm:max-w-[220px]">
+                <Label>סכום החיוב (₪)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={10}
+                  dir="ltr"
+                  key={String(settings?.cancellation_fee_agorot)}
+                  defaultValue={agorotToShekels(settings?.cancellation_fee_agorot ?? 0)}
+                  onBlur={(e) => {
+                    const v = shekelsToAgorot(e.target.value);
+                    if (v >= 0 && v !== (settings?.cancellation_fee_agorot ?? 0)) {
+                      saveBusinessField("cancellation_fee_agorot", String(v));
+                    }
+                  }}
+                />
+              </div>
+              <div>
+                <Label>נוסח ההודעה</Label>
+                <Textarea
+                  rows={5}
+                  key={settings?.cancellation_notice_template ?? ""}
+                  defaultValue={settings?.cancellation_notice_template ?? ""}
+                  placeholder={buildCancellationNotice({
+                    cancellation_notice: true,
+                    cancellation_fee_agorot: settings?.cancellation_fee_agorot ?? 50000,
+                    cancellation_notice_template: null,
+                  }) ?? ""}
+                  onBlur={(e) => {
+                    if (e.target.value.trim() !== (settings?.cancellation_notice_template ?? "").trim()) {
+                      saveBusinessField("cancellation_notice_template", e.target.value);
+                    }
+                  }}
+                />
+                <p className="mt-1 text-xs text-ink-400">
+                  אפשר להשאיר ריק כדי להשתמש בנוסח שמופיע באפור. כתבו <b dir="ltr">{"{fee}"}</b> במקום
+                  שבו הסכום צריך להופיע, והוא יוחלף אוטומטית.
+                </p>
+              </div>
+              <div className="rounded-xl border border-dashed border-ink-200 bg-ink-50 px-3.5 py-3">
+                <p className="mb-1 text-xs font-bold text-ink-400">כך זה ייראה ללקוח</p>
+                <p className="whitespace-pre-line text-sm text-ink-700">{buildCancellationNotice(settings)}</p>
+              </div>
+            </>
+          )}
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>התראות דפדפן</CardTitle>
         </CardHeader>
         <CardBody className="flex items-center justify-between gap-3">
@@ -356,8 +436,8 @@ export default function SettingsPage() {
           </div>
           <div className="divide-y divide-ink-100 overflow-hidden rounded-2xl border border-ink-100">
             {jobStatuses.map((s) => (
-              <div key={s.id} className={`flex items-center gap-2 p-3 ${!s.is_active ? "bg-ink-50/60" : ""}`}>
-                <div className="flex gap-1">
+              <div key={s.id} className={`flex flex-wrap items-center gap-2 p-3 ${!s.is_active ? "bg-ink-50/60" : ""}`}>
+                <div className="flex flex-wrap gap-1">
                   {STATUS_COLORS.map((c) => (
                     <button
                       key={c}
@@ -367,7 +447,7 @@ export default function SettingsPage() {
                     />
                   ))}
                 </div>
-                <span className={`flex-1 text-sm font-semibold ${s.is_active ? "text-ink-800" : "text-ink-400 line-through"}`}>{s.name}</span>
+                <span className={`min-w-[6rem] flex-1 text-sm font-semibold ${s.is_active ? "text-ink-800" : "text-ink-400 line-through"}`}>{s.name}</span>
                 <button
                   onClick={() => toggleStatusActive(s.id, !s.is_active)}
                   className="rounded-lg px-2 py-1 text-xs font-bold text-ink-400 hover:bg-ink-100"

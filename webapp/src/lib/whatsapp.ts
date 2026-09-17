@@ -1,4 +1,4 @@
-import type { JobWithRelations } from "@/lib/types";
+import type { AppSettings, JobWithRelations } from "@/lib/types";
 import { formatAgorot } from "@/lib/money";
 
 // Normalizes an Israeli phone/WhatsApp number to international format without "+" (required by wa.me)
@@ -59,9 +59,17 @@ export function buildNewJobWhatsappMessage(
 const DEFAULT_ON_THE_WAY =
   "שלום {customer}, {technician} כבר בדרך אליך 🚚\nנא להיות זמין/ה לקבלת השירות.\nתודה!";
 
+const DEFAULT_CANCELLATION_NOTICE =
+  "⚠️ שימו לב: ביטול הקריאה לאחר ההזמנה, מסיבה שאינה תלויה בנו — למשל אם הוזמן בינתיים טכנאי אחר — " +
+  "כרוך בתשלום של {fee} עבור ההגעה.";
+
 // Tells the customer the tradesperson is on the way, in the wording that fits
 // this profession ("טכנאי האינסטלציה" / "החשמלאי" / "המנעולן"...).
-export function buildOnTheWayMessage(job: JobWithRelations, template?: string | null): string {
+export function buildOnTheWayMessage(
+  job: JobWithRelations,
+  template?: string | null,
+  cancellationNotice?: string | null
+): string {
   const technician = job.profession?.technician_label?.trim() || "הטכנאי";
   const body = (template && template.trim()) || DEFAULT_ON_THE_WAY;
   const filled = body
@@ -69,8 +77,29 @@ export function buildOnTheWayMessage(job: JobWithRelations, template?: string | 
     .replace(/\{customer\}/g, job.customer_name)
     .replace(/\{address\}/g, job.address_full ?? job.city?.name ?? "");
   // only append the address when the template did not already place it
-  if (!/\{address\}/.test(body) && job.address_full) return filled + "\nכתובת: " + job.address_full;
-  return filled;
+  const withAddress =
+    !/\{address\}/.test(body) && job.address_full ? filled + "\nכתובת: " + job.address_full : filled;
+  // the notice goes last, set off from the message, so it reads as terms
+  // rather than as part of the greeting
+  return cancellationNotice ? withAddress + "\n\n" + cancellationNotice : withAddress;
+}
+
+/**
+ * The late-cancellation notice, in the business's own words.
+ *
+ * {fee} stands in for the amount so the sentence survives a change of price.
+ * Returns null when the notice is switched off, which is what keeps the
+ * callers from having to know about the setting.
+ */
+export function buildCancellationNotice(
+  settings:
+    | Pick<AppSettings, "cancellation_notice" | "cancellation_fee_agorot" | "cancellation_notice_template">
+    | null
+    | undefined
+): string | null {
+  if (!settings || settings.cancellation_notice === false) return null;
+  const body = settings.cancellation_notice_template?.trim() || DEFAULT_CANCELLATION_NOTICE;
+  return body.replace(/\{fee\}/g, formatAgorot(settings.cancellation_fee_agorot ?? 0));
 }
 
 export function buildCallLink(phone: string | null | undefined): string | null {

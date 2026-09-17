@@ -405,6 +405,15 @@ create table app_settings (
   -- prices quoted to a customer in Israel normally already contain the tax
   prices_include_tax boolean not null default true,
 
+  -- What a customer is told a late cancellation costs. Saying it in the
+  -- message, before the trip, is what makes the charge collectable; the
+  -- amount and the wording are the owner's to set.
+  cancellation_notice boolean not null default true,
+  cancellation_fee_agorot bigint not null default 50000
+    constraint app_settings_cancellation_fee_check check (cancellation_fee_agorot >= 0),
+  -- {fee} is replaced with the amount; null uses the built-in wording
+  cancellation_notice_template text,
+
   updated_at timestamptz not null default now()
 );
 

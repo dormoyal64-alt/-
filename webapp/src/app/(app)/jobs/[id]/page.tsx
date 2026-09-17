@@ -37,7 +37,7 @@ import { Timeline, type TimelineEntry } from "@/components/jobs/Timeline";
 import { fetchJob, changeJobStatus, closeJob, reopenJob, duplicateJob, deleteJob, deleteJobBlockedReason, issueReceipt, fetchReceipt } from "@/lib/api/jobs";
 import { ReceiptCard } from "@/components/jobs/ReceiptCard";
 import type { Receipt } from "@/lib/types";
-import { buildCallLink, buildMapLink, buildNewJobWhatsappMessage, buildOnTheWayMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
+import { buildCallLink, buildCancellationNotice, buildMapLink, buildNewJobWhatsappMessage, buildOnTheWayMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
 import { formatAgorot, formatPercent } from "@/lib/money";
 import { formatDateTimeHe, formatDurationHe } from "@/lib/dates";
 import { useRefData } from "@/lib/refdata";
@@ -305,7 +305,7 @@ export default function JobDetailPage() {
   const technicianLabel = job.profession?.technician_label?.trim() || "הטכנאי";
   const onTheWayLink = buildWhatsappLink(
     job.customer_phone,
-    buildOnTheWayMessage(job, settings?.on_the_way_template)
+    buildOnTheWayMessage(job, settings?.on_the_way_template, buildCancellationNotice(settings))
   );
   const sendPhone = sendsCustomerPhone(job, settings?.send_customer_phone_to_contractor);
   const waContractorLink = job.contractor
