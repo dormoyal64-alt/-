@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon, Percent, AlertTriangle } from "lucide-react";
+import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon, Percent, AlertTriangle, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useNotifications } from "@/lib/notifications";
@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { EditableList } from "@/components/settings/EditableList";
 import { buildCancellationNotice } from "@/lib/whatsapp";
+import { createHelper } from "@/lib/api/helpers";
+import { errorMessage } from "@/lib/errors";
 import { agorotToShekels, shekelsToAgorot } from "@/lib/money";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
@@ -18,7 +20,7 @@ const STATUS_COLORS = ["#3b82f6", "#6172f3", "#06b6d4", "#8b5cf6", "#f59e0b", "#
 
 export default function SettingsPage() {
   const supabase = useMemo(() => createClient(), []);
-  const { paymentMethods, leadSources, jobStatuses, settings, refresh } = useRefData();
+  const { paymentMethods, leadSources, jobStatuses, helpers, isOwner, settings, refresh } = useRefData();
   const { notificationPermission, requestPermission } = useNotifications();
   const toast = useToast();
   const [confirmReset, setConfirmReset] = useState(false);
@@ -70,6 +72,20 @@ export default function SettingsPage() {
   async function addLeadSource(name: string) {
     const { error } = await supabase.from("lead_sources").insert({ name, sort_order: leadSources.length });
     if (error) return toast.error("שגיאה בהוספה (אולי כבר קיים)");
+    await refresh();
+  }
+
+  async function addHelper(name: string) {
+    try {
+      await createHelper(name, null);
+      await refresh();
+    } catch (e) {
+      toast.error(errorMessage(e, "שגיאה בהוספת העובד"));
+    }
+  }
+  async function saveHelperPay(id: string, agorot: number | null) {
+    const { error } = await supabase.from("helpers").update({ default_pay_agorot: agorot }).eq("id", id);
+    if (error) return toast.error("שגיאה בשמירת התשלום");
     await refresh();
   }
 
@@ -451,6 +467,52 @@ export default function SettingsPage() {
           />
         </CardBody>
       </Card>
+
+      {isOwner && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-ink-400" /> עובדים שאתם לוקחים איתכם
+            </CardTitle>
+          </CardHeader>
+          <CardBody className="space-y-3">
+            <p className="text-sm text-ink-500">
+              מי שמופיע כאן יוצע בשאלה ״לקחתם עובד?״ בעבודה שאתם מבצעים בעצמכם, והתשלום לו
+              יורד מהרווח של אותה עבודה. אפשר להוסיף עובד גם ישירות מתוך טופס העבודה.
+            </p>
+            <EditableList
+              items={helpers.map((h) => ({ id: h.id, name: h.name, is_active: h.active }))}
+              addPlaceholder="שם העובד"
+              archiveNoun="העובד"
+              onAdd={addHelper}
+              onRename={async (id, name) => { await supabase.from("helpers").update({ name }).eq("id", id); await refresh(); }}
+              onToggleActive={async (id, active) => { await supabase.from("helpers").update({ active }).eq("id", id); await refresh(); }}
+              renderExtra={(item) => {
+                const pay = helpers.find((h) => h.id === item.id)?.default_pay_agorot ?? null;
+                return (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-ink-400">בדרך כלל</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={10}
+                      dir="ltr"
+                      className="w-24 py-1.5"
+                      placeholder="₪"
+                      key={String(pay)}
+                      defaultValue={pay === null ? "" : agorotToShekels(pay)}
+                      onBlur={(e) => {
+                        const next = e.target.value.trim() === "" ? null : shekelsToAgorot(e.target.value);
+                        if (next !== pay) saveHelperPay(item.id, next);
+                      }}
+                    />
+                  </div>
+                );
+              }}
+            />
+          </CardBody>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

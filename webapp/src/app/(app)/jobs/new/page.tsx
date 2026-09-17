@@ -11,13 +11,14 @@ import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { AddressAutocomplete, formatAddressLine } from "@/components/jobs/AddressAutocomplete";
 import { ContractorMatchList } from "@/components/jobs/ContractorMatchList";
+import { HelperSelect } from "@/components/jobs/HelperSelect";
 import { CityPicker } from "@/components/ui/CityPicker";
 import { useContractorMatch } from "@/hooks/useContractorMatch";
 import { createJob } from "@/lib/api/jobs";
 import { agorotToShekels, formatAgorot, shekelsToAgorot } from "@/lib/money";
 import { buildNewJobWhatsappMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
 import type { AddressResult } from "@/hooks/useAddressAutocomplete";
-import type { JobWithRelations, PerformedBy } from "@/lib/types";
+import type { Helper, JobWithRelations, PerformedBy } from "@/lib/types";
 
 function nowForInput() {
   const d = new Date();
@@ -186,9 +187,11 @@ export default function NewJobPage() {
     setReferralPct(c ? String(c.default_commission_pct) : "");
   }
 
-  function selectHelper(id: string) {
+  function selectHelper(id: string, created?: Helper) {
     setHelperId(id);
-    const h = activeHelpers.find((x) => x.id === id);
+    // a worker added from inside the form is handed over directly: the ref data
+    // list has not re-rendered yet, so looking them up here would come up empty
+    const h = created ?? activeHelpers.find((x) => x.id === id);
     // fill in what this worker usually gets, unless a figure was already typed
     if (h?.default_pay_agorot != null && helperPay.trim() === "") {
       setHelperPay(String(agorotToShekels(h.default_pay_agorot)));
@@ -653,17 +656,7 @@ export default function NewJobPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <Label>לקחתם עובד?</Label>
-                  <select value={helperId} onChange={(e) => selectHelper(e.target.value)} className="input">
-                    <option value="">לא, עבדתי לבד</option>
-                    {activeHelpers.map((h) => (
-                      <option key={h.id} value={h.id}>
-                        {h.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <HelperSelect value={helperId} onChange={selectHelper} />
                 {helperId && (
                   <div>
                     <Label>כמה שילמתם לו? (₪)</Label>
