@@ -35,7 +35,7 @@ import { CloseJobModal } from "@/components/jobs/CloseJobModal";
 import { StatusMenu } from "@/components/jobs/StatusMenu";
 import { EditJobModal, type EditJobValues } from "@/components/jobs/EditJobModal";
 import { Timeline, type TimelineEntry } from "@/components/jobs/Timeline";
-import { fetchJob, changeJobStatus, closeJob, reopenJob, duplicateJob, deleteJob, deleteJobBlockedReason, issueReceipt, fetchReceipt } from "@/lib/api/jobs";
+import { fetchJob, changeJobStatus, closeJob, reopenJob, reassignJob, duplicateJob, deleteJob, deleteJobBlockedReason, issueReceipt, fetchReceipt } from "@/lib/api/jobs";
 import { ReceiptCard } from "@/components/jobs/ReceiptCard";
 import type { Receipt } from "@/lib/types";
 import { buildCallLink, buildCancellationNotice, buildMapLink, buildNewJobWhatsappMessage, buildOnTheWayMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
@@ -289,13 +289,30 @@ export default function JobDetailPage() {
   async function handleEditSubmit(values: EditJobValues) {
     setBusy(true);
     try {
-      const { error } = await supabase.from("jobs").update(values).eq("id", job!.id);
+      // Who does the work carries the split with it, which on a closed job has
+      // to be recomputed rather than written over, so it goes its own way.
+      const { performed_by, contractor_id, commission_pct, ...rest } = values;
+      const { error } = await supabase.from("jobs").update(rest).eq("id", job!.id);
       if (error) throw error;
+
+      const moved =
+        performed_by !== job!.performed_by ||
+        contractor_id !== job!.contractor_id ||
+        (contractor_id != null && commission_pct !== job!.commission_pct);
+      if (moved) {
+        await reassignJob(supabase, job!.id, {
+          performedBy: performed_by,
+          contractorId: contractor_id,
+          commissionPct: commission_pct,
+        });
+      }
+
       toast.success("העבודה עודכנה");
       setEditOpen(false);
       await load();
-    } catch {
-      toast.error("שגיאה בעדכון העבודה");
+    } catch (e) {
+      // the database refuses a job already reckoned up, and says why
+      toast.error(e instanceof Error && e.message ? e.message : "שגיאה בעדכון העבודה");
     } finally {
       setBusy(false);
     }

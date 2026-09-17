@@ -8,7 +8,7 @@ import { AddressAutocomplete } from "@/components/jobs/AddressAutocomplete";
 import { ContractorMatchList } from "@/components/jobs/ContractorMatchList";
 import { useContractorMatch } from "@/hooks/useContractorMatch";
 import { useRefData } from "@/lib/refdata";
-import { shekelsToAgorot } from "@/lib/money";
+import { formatAgorot, shekelsToAgorot } from "@/lib/money";
 import type { AddressResult } from "@/hooks/useAddressAutocomplete";
 import type { JobWithRelations, PerformedBy } from "@/lib/types";
 
@@ -176,6 +176,20 @@ export function EditJobModal({
           </div>
         </div>
 
+        {job.is_closed && (
+          <div
+            className={`rounded-xl border px-3.5 py-3 text-xs font-semibold ${
+              job.settlement_id
+                ? "border-danger-100 bg-danger-50 text-danger-700"
+                : "border-warning-100 bg-warning-50 text-warning-700"
+            }`}
+          >
+            {job.settlement_id
+              ? "העבודה כבר נכללה בהתחשבנות מול הקבלן, ולכן אי אפשר להחליף את המבצע. בטלו את ההתחשבנות קודם."
+              : "העבודה סגורה. החלפת המבצע תחשב מחדש את חלוקת הכסף לפי המחיר שכבר נסגר — המחיר עצמו לא ישתנה."}
+          </div>
+        )}
+
         <div>
           <Label>מי מבצע את העבודה?</Label>
           <div className="grid grid-cols-2 gap-2">
@@ -282,6 +296,24 @@ export function EditJobModal({
               </p>
             </div>
             {!pctValid && <p className="mt-1 text-xs font-bold text-danger-600">יש להזין אחוז בין 0 ל-100</p>}
+            {job.is_closed && !!job.final_price_agorot && (() => {
+              const pct = commissionPct !== "" && pctValid ? parsedPct : contractorDefaultPct ?? 0;
+              const forContractor = Math.round((job.final_price_agorot! * pct) / 100);
+              const forMe = job.final_price_agorot! - forContractor - (job.referral_fee_agorot ?? 0);
+              return (
+                <div className="mt-2 rounded-xl bg-ink-50 px-3.5 py-2.5 text-xs">
+                  <p className="mb-1 font-bold text-ink-400">החלוקה אחרי השמירה</p>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-ink-500">לקבלן ({pct}%)</span>
+                    <span className="font-bold">{formatAgorot(forContractor)}</span>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-ink-500">נשאר לי</span>
+                    <span className="font-bold text-success-700">{formatAgorot(forMe)}</span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 

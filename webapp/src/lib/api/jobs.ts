@@ -96,6 +96,27 @@ export async function closeJob(supabase: SupabaseClient, jobId: string, input: C
   if (error) throw error;
 }
 
+/**
+ * Moves a job to a different contractor, or to you.
+ *
+ * On a closed job this also redoes the split from the price already frozen on
+ * it, which a plain row update cannot do — that is why this is not part of the
+ * ordinary edit save.
+ */
+export async function reassignJob(
+  supabase: SupabaseClient,
+  jobId: string,
+  input: { performedBy: PerformedBy; contractorId: string | null; commissionPct: number | null }
+) {
+  const { error } = await supabase.rpc("reassign_job", {
+    p_job_id: jobId,
+    p_performed_by: input.performedBy,
+    p_contractor_id: input.contractorId,
+    p_commission_pct: input.commissionPct,
+  });
+  if (error) throw error;
+}
+
 export async function reopenJob(supabase: SupabaseClient, jobId: string, statusId: string) {
   const { error } = await supabase.rpc("reopen_job", { p_job_id: jobId, p_status_id: statusId });
   if (error) throw error;
