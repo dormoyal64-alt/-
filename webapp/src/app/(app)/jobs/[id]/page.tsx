@@ -41,6 +41,7 @@ import type { Receipt } from "@/lib/types";
 import { buildCallLink, buildCancellationNotice, buildMapLink, buildNewJobWhatsappMessage, buildOnTheWayMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
 import { formatAgorot, formatPercent } from "@/lib/money";
 import { formatAppointmentHe, formatDateTimeHe, formatDurationHe } from "@/lib/dates";
+import { errorMessage } from "@/lib/errors";
 import { useRefData } from "@/lib/refdata";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import type { JobWithRelations } from "@/lib/types";
@@ -223,8 +224,8 @@ export default function JobDetailPage() {
         return;
       }
       await load();
-    } catch {
-      toast.error("שגיאה בסגירת העבודה");
+    } catch (e) {
+      toast.error(errorMessage(e, "שגיאה בסגירת העבודה"));
     } finally {
       setBusy(false);
     }
@@ -236,7 +237,7 @@ export default function JobDetailPage() {
       setReceipt(await issueReceipt(supabase, job!.id));
       toast.success("הקבלה הופקה");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "שגיאה בהפקת הקבלה");
+      toast.error(errorMessage(e, "שגיאה בהפקת הקבלה"));
     } finally {
       setBusy(false);
     }
@@ -312,7 +313,7 @@ export default function JobDetailPage() {
       await load();
     } catch (e) {
       // the database refuses a job already reckoned up, and says why
-      toast.error(e instanceof Error && e.message ? e.message : "שגיאה בעדכון העבודה");
+      toast.error(errorMessage(e, "שגיאה בעדכון העבודה"));
     } finally {
       setBusy(false);
     }
