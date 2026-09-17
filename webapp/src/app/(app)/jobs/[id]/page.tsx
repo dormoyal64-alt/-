@@ -20,6 +20,7 @@ import {
   BellOff,
   Send,
   Megaphone,
+  CalendarClock,
   Receipt as ReceiptIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -39,7 +40,7 @@ import { ReceiptCard } from "@/components/jobs/ReceiptCard";
 import type { Receipt } from "@/lib/types";
 import { buildCallLink, buildCancellationNotice, buildMapLink, buildNewJobWhatsappMessage, buildOnTheWayMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
 import { formatAgorot, formatPercent } from "@/lib/money";
-import { formatDateTimeHe, formatDurationHe } from "@/lib/dates";
+import { formatAppointmentHe, formatDateTimeHe, formatDurationHe } from "@/lib/dates";
 import { useRefData } from "@/lib/refdata";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import type { JobWithRelations } from "@/lib/types";
@@ -336,6 +337,32 @@ export default function JobDetailPage() {
         </button>
       </div>
 
+      {job.scheduled_at && !job.is_closed && (
+        <div
+          className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-3 ${
+            new Date(job.scheduled_at).getTime() < Date.now()
+              ? "border-warning-100 bg-warning-50"
+              : "border-brand-100 bg-brand-50"
+          }`}
+        >
+          <CalendarClock
+            className={`h-5 w-5 shrink-0 ${
+              new Date(job.scheduled_at).getTime() < Date.now() ? "text-warning-600" : "text-brand-600"
+            }`}
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-extrabold text-ink-900">
+              מתוזמנת ל{formatAppointmentHe(job.scheduled_at)}
+            </p>
+            <p className="text-xs text-ink-500">
+              {new Date(job.scheduled_at).getTime() < Date.now()
+                ? "המועד כבר עבר והעבודה עדיין פתוחה."
+                : "זה המועד שהלקוח ביקש."}
+            </p>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardBody className="space-y-3">
           <div>
@@ -539,6 +566,10 @@ export default function JobDetailPage() {
           <InfoRow label="אמצעי תשלום" value={job.payment_method?.name ?? "—"} />
           <InfoRow label="מקור ליד" value={job.lead_source?.name ?? "—"} />
           <InfoRow label="זמן פתיחה" value={formatDateTimeHe(job.opened_at)} />
+          <InfoRow
+            label="מועד מבוקש"
+            value={job.scheduled_at ? formatAppointmentHe(job.scheduled_at) : "בהקדם האפשרי"}
+          />
           <InfoRow
             label={job.is_closed && job.closed_at ? "זמן ביצוע" : "פתוחה כבר"}
             value={

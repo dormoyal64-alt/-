@@ -45,6 +45,8 @@ export interface CreateJobInput {
   notes?: string | null;
   status_id: string;
   opened_at: string;
+  /** when the customer wants it done; null means as soon as possible */
+  scheduled_at?: string | null;
 }
 
 export async function createJob(supabase: SupabaseClient, input: CreateJobInput) {

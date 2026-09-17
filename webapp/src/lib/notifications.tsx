@@ -57,7 +57,10 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       .select("id, job_number, customer_name")
       .eq("is_closed", false)
       .is("reminder_sent_at", null)
-      .lt("opened_at", threshold);
+      .lt("opened_at", threshold)
+      // A job booked for Thursday is not sitting idle on Monday. It becomes
+      // worth chasing the same interval after the hour the customer asked for.
+      .or(`scheduled_at.is.null,scheduled_at.lt.${threshold}`);
 
     if (!staleJobs || staleJobs.length === 0) return;
 

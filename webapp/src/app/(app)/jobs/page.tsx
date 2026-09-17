@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, SlidersHorizontal, ChevronRight, ChevronLeft, Download, Plus, Briefcase, X } from "lucide-react";
+import { Search, SlidersHorizontal, ChevronRight, ChevronLeft, Download, Plus, Briefcase, X, CalendarClock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { JOB_SELECT } from "@/lib/api/jobs";
@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/Input";
 import { StatusBadge } from "@/components/ui/Badge";
 import { EmptyState, PageSpinner } from "@/components/ui/Misc";
 import { formatAgorot } from "@/lib/money";
-import { formatDateHe, formatDateTimeHe } from "@/lib/dates";
+import { formatAppointmentHe, formatDateHe, formatDateTimeHe } from "@/lib/dates";
 import { buildCallLink } from "@/lib/whatsapp";
 import { toCsv, downloadCsv } from "@/lib/csv";
 import type { JobWithRelations } from "@/lib/types";
@@ -50,9 +50,16 @@ function JobsList() {
   const [result, setResult] = useState<"" | "success" | "failed">(
     () => (params.get("result") as "" | "success" | "failed" | null) ?? ""
   );
+  // booked for an hour, or as soon as possible
+  const [scheduledFilter, setScheduledFilter] = useState<"" | "scheduled" | "asap">(
+    () => (params.get("scheduled") as "" | "scheduled" | "asap" | null) ?? ""
+  );
   // the dashboard counts closings by the day they were closed, not opened
-  const [dateField, setDateField] = useState<"opened" | "closed">(
-    () => (params.get("dateField") === "closed" ? "closed" : "opened")
+  const [dateField, setDateField] = useState<"opened" | "closed" | "scheduled">(
+    () => {
+      const f = params.get("dateField");
+      return f === "closed" || f === "scheduled" ? f : "opened";
+    }
   );
   const [dateFrom, setDateFrom] = useState(() => params.get("from") ?? "");
   const [dateTo, setDateTo] = useState(() => params.get("to") ?? "");
@@ -64,7 +71,7 @@ function JobsList() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => setPage(0), [search, professionId, jobTypeId, cityId, contractorId, statusId, paymentMethodId, closedFilter, result, dateField, dateFrom, dateTo]);
+  useEffect(() => setPage(0), [search, professionId, jobTypeId, cityId, contractorId, statusId, paymentMethodId, closedFilter, result, scheduledFilter, dateField, dateFrom, dateTo]);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,7 +91,10 @@ function JobsList() {
         const ids = jobStatuses.filter((st) => (result === "success" ? st.is_success : !st.is_success)).map((st) => st.id);
         query = query.eq("is_closed", true).in("status_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
       }
-      const dateColumn = dateField === "closed" ? "closed_at" : "opened_at";
+      if (scheduledFilter === "scheduled") query = query.not("scheduled_at", "is", null);
+      if (scheduledFilter === "asap") query = query.is("scheduled_at", null);
+      const dateColumn =
+        dateField === "closed" ? "closed_at" : dateField === "scheduled" ? "scheduled_at" : "opened_at";
       if (dateFrom) query = query.gte(dateColumn, new Date(dateFrom + "T00:00:00").toISOString());
       if (dateTo) query = query.lte(dateColumn, new Date(dateTo + "T23:59:59.999").toISOString());
       if (search.trim()) {
@@ -94,7 +104,12 @@ function JobsList() {
         );
       }
 
-      query = query.order("created_at", { ascending: false }).range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+      // looking at a schedule, the soonest appointment belongs at the top
+      query =
+        dateField === "scheduled" || scheduledFilter === "scheduled"
+          ? query.order("scheduled_at", { ascending: true, nullsFirst: false })
+          : query.order("created_at", { ascending: false });
+      query = query.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
 
       const { data, count } = await query;
       if (!cancelled) {
@@ -107,7 +122,7 @@ function JobsList() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, jobStatuses, search, professionId, jobTypeId, cityId, contractorId, statusId, paymentMethodId, closedFilter, result, dateField, dateFrom, dateTo, page, reloadKey]);
+  }, [supabase, jobStatuses, search, professionId, jobTypeId, cityId, contractorId, statusId, paymentMethodId, closedFilter, result, scheduledFilter, dateField, dateFrom, dateTo, page, reloadKey]);
 
   useAutoRefresh(() => setReloadKey((k) => k + 1));
 
@@ -125,7 +140,10 @@ function JobsList() {
       const ids = jobStatuses.filter((st) => (result === "success" ? st.is_success : !st.is_success)).map((st) => st.id);
       query = query.eq("is_closed", true).in("status_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
     }
-    const dateColumn = dateField === "closed" ? "closed_at" : "opened_at";
+    if (scheduledFilter === "scheduled") query = query.not("scheduled_at", "is", null);
+    if (scheduledFilter === "asap") query = query.is("scheduled_at", null);
+    const dateColumn =
+      dateField === "closed" ? "closed_at" : dateField === "scheduled" ? "scheduled_at" : "opened_at";
     if (dateFrom) query = query.gte(dateColumn, new Date(dateFrom + "T00:00:00").toISOString());
     if (dateTo) query = query.lte(dateColumn, new Date(dateTo + "T23:59:59.999").toISOString());
     const { data } = await query;
@@ -153,7 +171,7 @@ function JobsList() {
 
   const anyFilter = !!(
     search || professionId || jobTypeId || cityId || contractorId || statusId ||
-    paymentMethodId || closedFilter || result || dateFrom || dateTo
+    paymentMethodId || closedFilter || result || scheduledFilter || dateFrom || dateTo
   );
 
   function clearFilters() {
@@ -166,6 +184,7 @@ function JobsList() {
     setPaymentMethodId("");
     setClosedFilter("");
     setResult("");
+    setScheduledFilter("");
     setDateField("opened");
     setDateFrom("");
     setDateTo("");
@@ -179,6 +198,8 @@ function JobsList() {
     if (closedFilter === "closed" && !result) parts.push("עבודות סגורות");
     if (result === "success") parts.push("נסגרו בהצלחה");
     if (result === "failed") parts.push("לא נסגרו");
+    if (scheduledFilter === "scheduled") parts.push("מתוזמנות");
+    if (scheduledFilter === "asap") parts.push("בהקדם האפשרי");
     const profession = professions.find((x) => x.id === professionId);
     if (profession) parts.push(profession.name);
     const city = cities.find((x) => x.id === cityId);
@@ -188,7 +209,7 @@ function JobsList() {
     const status = jobStatuses.find((x) => x.id === statusId);
     if (status) parts.push(status.name);
     if (dateFrom || dateTo) {
-      const when = dateField === "closed" ? "נסגרו" : "נפתחו";
+      const when = dateField === "closed" ? "נסגרו" : dateField === "scheduled" ? "מתוזמנות" : "נפתחו";
       if (dateFrom && dateFrom === dateTo) parts.push(`ש${when} ב-${formatDateHe(dateFrom)}`);
       else if (dateFrom && dateTo) parts.push(`ש${when} בין ${formatDateHe(dateFrom)} ל-${formatDateHe(dateTo)}`);
       else if (dateFrom) parts.push(`ש${when} מ-${formatDateHe(dateFrom)}`);
@@ -289,9 +310,15 @@ function JobsList() {
                 <option value="success">נסגרו בהצלחה</option>
                 <option value="failed">לא נסגרו</option>
               </select>
+              <select className="input" value={scheduledFilter} onChange={(e) => setScheduledFilter(e.target.value as any)}>
+                <option value="">מתוזמנות ולא מתוזמנות</option>
+                <option value="scheduled">מתוזמנות בלבד</option>
+                <option value="asap">בהקדם האפשרי בלבד</option>
+              </select>
               <select className="input" value={dateField} onChange={(e) => setDateField(e.target.value as any)}>
                 <option value="opened">לפי תאריך פתיחה</option>
                 <option value="closed">לפי תאריך סגירה</option>
+                <option value="scheduled">לפי מועד מבוקש</option>
               </select>
               <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
               <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
@@ -353,7 +380,14 @@ function JobsList() {
                     <td className="px-4 py-3 font-semibold text-ink-800">
                       {job.is_closed ? formatAgorot(job.final_price_agorot) : formatAgorot(job.quoted_price_agorot)}
                     </td>
-                    <td className="px-4 py-3 text-xs text-ink-400">{formatDateTimeHe(job.opened_at)}</td>
+                    <td className="px-4 py-3 text-xs text-ink-400">
+                      {formatDateTimeHe(job.opened_at)}
+                      {job.scheduled_at && (
+                        <span className="mt-0.5 flex items-center gap-1 font-bold text-brand-700">
+                          <CalendarClock className="h-3 w-3" /> {formatAppointmentHe(job.scheduled_at)}
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -374,6 +408,11 @@ function JobsList() {
                 <p className="mt-1.5 text-xs text-ink-500">
                   {job.profession?.name} · {job.job_type?.name} · {job.city?.name}
                 </p>
+                {job.scheduled_at && (
+                  <p className="mt-1.5 flex items-center gap-1 text-xs font-bold text-brand-700">
+                    <CalendarClock className="h-3.5 w-3.5" /> מתוזמנת ל{formatAppointmentHe(job.scheduled_at)}
+                  </p>
+                )}
                 <div className="mt-2.5 flex items-center justify-between border-t border-ink-50 pt-2.5 text-sm">
                   <span className="text-ink-500">{job.contractor?.name ?? "לא שויך"}</span>
                   <span className="font-extrabold text-ink-900">

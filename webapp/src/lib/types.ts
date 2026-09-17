@@ -168,6 +168,8 @@ export interface Job {
   notes: string | null;
   status_id: string;
   opened_at: string;
+  /** when the customer wants the work done; null means as soon as possible */
+  scheduled_at: string | null;
   is_closed: boolean;
   final_price_agorot: number | null;
   final_payment_method_id: string | null;

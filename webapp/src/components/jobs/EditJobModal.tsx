@@ -27,6 +27,15 @@ export interface EditJobValues {
   contractor_id: string | null;
   commission_pct: number | null;
   notes: string | null;
+  scheduled_at: string | null;
+}
+
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
 }
 
 export function EditJobModal({
@@ -53,8 +62,16 @@ export function EditJobModal({
   const [contractorId, setContractorId] = useState(job.contractor_id);
   const [commissionPct, setCommissionPct] = useState(job.commission_pct != null ? String(job.commission_pct) : "");
   const [notes, setNotes] = useState(job.notes ?? "");
+  const [scheduledAt, setScheduledAt] = useState(toLocalInput(job.scheduled_at));
 
-  const matches = useContractorMatch(job.profession_id, job.job_type_id, job.city_id);
+  // availability is judged against the appointment when the job has one
+  const appointment = scheduledAt ? new Date(scheduledAt) : null;
+  const matches = useContractorMatch(
+    job.profession_id,
+    job.job_type_id,
+    job.city_id,
+    appointment && !isNaN(appointment.getTime()) ? appointment : undefined
+  );
   const selectedContractor = matches.find((m) => m.id === contractorId);
   const contractorDefaultPct = selectedContractor?.commissionPct ?? null;
   const parsedPct = parseFloat(commissionPct);
@@ -81,6 +98,7 @@ export function EditJobModal({
           : selectedContractor?.commissionPct ?? job.commission_pct
         : null,
       notes: notes || null,
+      scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
     });
   }
 
@@ -176,6 +194,14 @@ export function EditJobModal({
             {!pctValid && <p className="mt-1 text-xs font-bold text-danger-600">יש להזין אחוז בין 0 ל-100</p>}
           </div>
         )}
+
+        <div>
+          <Label>מועד מבוקש אצל הלקוח</Label>
+          <Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
+          <p className="mt-1 text-xs text-ink-400">
+            {scheduledAt ? "רוקנו את השדה כדי להחזיר את העבודה ל״בהקדם האפשרי״." : "ריק = בהקדם האפשרי."}
+          </p>
+        </div>
 
         <div>
           <Label>הערות</Label>

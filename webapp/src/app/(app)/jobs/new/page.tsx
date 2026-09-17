@@ -25,6 +25,30 @@ function nowForInput() {
   return d.toISOString().slice(0, 16);
 }
 
+const QUICK_SLOTS: { label: string; value: () => string }[] = [
+  { label: "עוד שעתיים", value: () => atOffset(2, null) },
+  { label: "היום ב-18:00", value: () => atOffset(0, 18) },
+  { label: "מחר ב-09:00", value: () => atOffset(24, 9) },
+  { label: "מחר ב-14:00", value: () => atOffset(24, 14) },
+];
+
+// hoursFromNow moves the day; hour, when given, pins the time of day
+function atOffset(hoursFromNow: number, hour: number | null) {
+  const d = new Date();
+  d.setHours(d.getHours() + hoursFromNow);
+  if (hour !== null) d.setHours(hour, 0, 0, 0);
+  else d.setMinutes(0, 0, 0);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+
+function laterTodayForInput() {
+  const d = new Date();
+  d.setHours(d.getHours() + 2, 0, 0, 0);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+
 export default function NewJobPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -58,6 +82,8 @@ export default function NewJobPage() {
   const [leadSourceId, setLeadSourceId] = useState("");
   const [notes, setNotes] = useState("");
   const [openedAt, setOpenedAt] = useState(nowForInput());
+  // empty means "as soon as possible"; a value is the hour the customer asked for
+  const [scheduledAt, setScheduledAt] = useState("");
 
   const [notifyContractor, setNotifyContractor] = useState(true);
   // null until touched, so the job follows the standing policy unless overridden
@@ -100,9 +126,12 @@ export default function NewJobPage() {
   // availability is judged against when the work is actually needed, which is
   // the opening time on the form — not necessarily right now
   const jobMoment = useMemo(() => {
-    const d = new Date(openedAt);
+    const d = new Date(scheduledAt || openedAt);
     return isNaN(d.getTime()) ? new Date() : d;
-  }, [openedAt]);
+  }, [scheduledAt, openedAt]);
+  const scheduledDate = scheduledAt ? new Date(scheduledAt) : null;
+  const scheduledValid = !scheduledDate || !isNaN(scheduledDate.getTime());
+  const scheduledInPast = !!scheduledDate && scheduledValid && scheduledDate.getTime() < Date.now() - 60_000;
   const matches = useContractorMatch(professionId, jobTypeId, cityId, jobMoment);
   const selectedContractor = matches.find((m) => m.id === contractorId);
   const contractorPct = performedBy === "self" ? 0 : selectedContractor?.commissionPct ?? 0;
@@ -239,6 +268,7 @@ export default function NewJobPage() {
         notes: notes || null,
         status_id: initialStatus.id,
         opened_at: new Date(openedAt).toISOString(),
+        scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
       });
       setCreatedJob(job);
       toast.success(`העבודה ${job.job_number} נשמרה בהצלחה`);
@@ -274,6 +304,7 @@ export default function NewJobPage() {
     setLeadSourceId("");
     setNotes("");
     setOpenedAt(nowForInput());
+    setScheduledAt("");
     setCreatedJob(null);
   }
 
@@ -401,7 +432,63 @@ export default function NewJobPage() {
       )}
 
       {cityId && (
-        <Section title="4. מאיפה הגיעה העבודה?" done={true}>
+        <Section title="4. מתי הלקוח רוצה את העבודה?" done={!scheduledAt || (scheduledValid && !scheduledInPast)}>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setScheduledAt("")}
+              className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${
+                !scheduledAt ? "border-brand-600 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-500"
+              }`}
+            >
+              בהקדם האפשרי
+            </button>
+            <button
+              type="button"
+              onClick={() => setScheduledAt((v) => v || laterTodayForInput())}
+              className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${
+                scheduledAt ? "border-brand-600 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-500"
+              }`}
+            >
+              לשעה מסוימת
+            </button>
+          </div>
+
+          {scheduledAt && (
+            <div className="mt-3 space-y-2">
+              <Label required>מתי להגיע ללקוח</Label>
+              <Input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+              />
+              <div className="flex flex-wrap gap-2">
+                {QUICK_SLOTS.map((slot) => (
+                  <button
+                    key={slot.label}
+                    type="button"
+                    onClick={() => setScheduledAt(slot.value())}
+                    className="rounded-full border border-ink-200 px-3 py-1.5 text-xs font-semibold text-ink-600 hover:bg-ink-50"
+                  >
+                    {slot.label}
+                  </button>
+                ))}
+              </div>
+              {scheduledInPast && (
+                <p className="text-xs font-bold text-warning-600">
+                  המועד שבחרת כבר עבר. אפשר להמשיך, אבל בדקו שזה מה שהתכוונתם.
+                </p>
+              )}
+              <p className="text-xs text-ink-400">
+                לפי המועד הזה המערכת תציע את הקבלנים שעובדים באותה שעה, והוא ייכלל בהודעה לקבלן.
+              </p>
+            </div>
+          )}
+        </Section>
+      )}
+
+      {cityId && (
+        <Section title="5. מאיפה הגיעה העבודה?" done={true}>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -486,7 +573,7 @@ export default function NewJobPage() {
       )}
 
       {cityId && (
-        <Section title="5. מי מבצע את העבודה?" done={performedBy === "self" || !!contractorId || skipContractor}>
+        <Section title="6. מי מבצע את העבודה?" done={performedBy === "self" || !!contractorId || skipContractor}>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -675,7 +762,7 @@ export default function NewJobPage() {
       )}
 
       {cityId && performedBy === "contractor" && (
-        <Section title="6. קבלן מתאים" done={!!contractorId || skipContractor}>
+        <Section title="7. קבלן מתאים" done={!!contractorId || skipContractor}>
           <ContractorMatchList matches={matches} selectedId={contractorId} onSelect={(id) => { setContractorId(id); setSkipContractor(false); }} />
           {/* offered even with nobody on the list — a job still has to be opened */}
           <button
@@ -721,7 +808,7 @@ export default function NewJobPage() {
       )}
 
       {cityId && (
-        <Section title="7. פרטי לקוח ועבודה" done={!!(customerName && customerPhone)}>
+        <Section title="8. פרטי לקוח ועבודה" done={!!(customerName && customerPhone)}>
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>

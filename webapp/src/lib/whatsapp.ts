@@ -1,5 +1,6 @@
 import type { AppSettings, JobWithRelations } from "@/lib/types";
 import { formatAgorot } from "@/lib/money";
+import { formatAppointmentHe } from "@/lib/dates";
 
 // Normalizes an Israeli phone/WhatsApp number to international format without "+" (required by wa.me)
 export function toWhatsappNumber(raw: string | null | undefined): string | null {
@@ -43,6 +44,9 @@ export function buildNewJobWhatsappMessage(
     `מס' עבודה: ${job.job_number}`,
     job.profession?.name ? `תחום: ${job.profession.name}` : null,
     job.job_type?.name ? `סוג עבודה: ${job.job_type.name}` : null,
+    // the hour the customer asked for is the first thing a contractor needs
+    // to know, so it sits above the details of the job itself
+    job.scheduled_at ? `⏰ מועד מבוקש: ${formatAppointmentHe(job.scheduled_at)}` : null,
     `שם לקוח: ${job.customer_name}`,
     // Withholding the number without saying so just leaves the contractor
     // hunting for it, so the message says where to get the customer instead.

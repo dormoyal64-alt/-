@@ -326,6 +326,10 @@ create table jobs (
 
   status_id uuid not null references job_statuses(id),
   opened_at timestamptz not null default now(),
+  -- when the customer wants someone at the door, if they asked for an hour.
+  -- Null means as soon as possible. opened_at stays the day the call came in,
+  -- which is what the daily counts and the advertising split are built on.
+  scheduled_at timestamptz,
 
   is_closed boolean not null default false,
   final_price_agorot bigint,
@@ -445,6 +449,8 @@ create index idx_jobs_profession on jobs(profession_id);
 create index idx_jobs_job_type on jobs(job_type_id);
 create index idx_jobs_created_at on jobs(created_at desc);
 create index idx_jobs_opened_at on jobs(opened_at desc);
+-- the lists that matter are "what is coming up", so only scheduled rows
+create index idx_jobs_scheduled_at on jobs(scheduled_at) where scheduled_at is not null;
 create index idx_jobs_closed_at on jobs(closed_at desc);
 create index idx_jobs_is_closed_opened on jobs(is_closed, opened_at);
 create index idx_jobs_settlement on jobs(settlement_id);

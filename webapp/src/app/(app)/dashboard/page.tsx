@@ -13,6 +13,7 @@ import {
   Building2,
   ArrowLeft,
   Megaphone,
+  CalendarClock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
@@ -32,6 +33,7 @@ export default function DashboardPage() {
   const [today, setToday] = useState<PeriodTotalsRow | null>(null);
   const [yesterday, setYesterday] = useState<PeriodTotalsRow | null>(null);
   const [openJobs, setOpenJobs] = useState(0);
+  const [scheduledToday, setScheduledToday] = useState(0);
   const [byProfession, setByProfession] = useState<ProfessionStatsRow[]>([]);
   const [byCity, setByCity] = useState<CityStatsRow[]>([]);
   const [topContractor, setTopContractor] = useState<{ name: string; row: ContractorStatsRow } | null>(null);
@@ -46,10 +48,17 @@ export default function DashboardPage() {
       const todayIso = isoRange(todayRange);
       const yesterdayIso = isoRange(yesterdayRange);
 
-      const [todayRes, yesterdayRes, openRes, professionRes, cityRes, contractorRes] = await Promise.all([
+      const [todayRes, yesterdayRes, openRes, scheduledRes, professionRes, cityRes, contractorRes] = await Promise.all([
         supabase.rpc("period_totals", { p_from: todayIso.from, p_to: todayIso.to }),
         supabase.rpc("period_totals", { p_from: yesterdayIso.from, p_to: yesterdayIso.to }),
         supabase.from("jobs").select("id", { count: "exact", head: true }).eq("is_closed", false),
+        // what is booked for today and still waiting to be done
+        supabase
+          .from("jobs")
+          .select("id", { count: "exact", head: true })
+          .eq("is_closed", false)
+          .gte("scheduled_at", todayIso.from)
+          .lte("scheduled_at", todayIso.to),
         supabase.rpc("stats_by_profession", { p_from: todayIso.from, p_to: todayIso.to }),
         supabase.rpc("stats_by_city", { p_from: todayIso.from, p_to: todayIso.to }),
         supabase.rpc("contractor_stats", { p_from: todayIso.from, p_to: todayIso.to }),
@@ -58,6 +67,7 @@ export default function DashboardPage() {
       setToday((todayRes.data as PeriodTotalsRow[] | null)?.[0] ?? null);
       setYesterday((yesterdayRes.data as PeriodTotalsRow[] | null)?.[0] ?? null);
       setOpenJobs(openRes.count ?? 0);
+      setScheduledToday(scheduledRes.count ?? 0);
       setByProfession(((professionRes.data as ProfessionStatsRow[]) ?? []).filter((r) => r.jobs_count > 0));
       setByCity(((cityRes.data as CityStatsRow[]) ?? []).filter((r) => r.jobs_count > 0));
 
@@ -115,6 +125,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <StatCard label="עבודות היום" value={formatNumber(today?.jobs_count)} icon={Briefcase} changePct={pctChange(today?.jobs_count, yesterday?.jobs_count)} href={jobsLink(openedToday)} />
         <StatCard label="עבודות פתוחות" value={formatNumber(openJobs)} icon={Building2} tone="warning" href={jobsLink({ closed: "open" })} />
+        <StatCard label="מתוזמנות להיום" value={formatNumber(scheduledToday)} icon={CalendarClock} href={jobsLink({ closed: "open", scheduled: "scheduled", dateField: "scheduled", from: day, to: day })} />
         <StatCard label="נסגרו בהצלחה" value={formatNumber(today?.jobs_closed_success)} icon={CheckCircle2} tone="success" changePct={pctChange(today?.jobs_closed_success, yesterday?.jobs_closed_success)} href={jobsLink({ ...closedToday, result: "success" })} />
         <StatCard label="לא נסגרו" value={formatNumber(today?.jobs_closed_failed)} icon={XCircle} tone="danger" href={jobsLink({ ...closedToday, result: "failed" })} />
         <StatCard label="אחוז סגירה" value={formatPercent(today?.close_rate ?? 0)} icon={Percent} tone="success" changePct={pctChange(today?.close_rate, yesterday?.close_rate)} href={jobsLink({ ...closedToday, closed: "closed" })} />

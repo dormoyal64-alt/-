@@ -61,6 +61,22 @@ export function formatDateTimeHe(iso: string | Date): string {
   }).format(d);
 }
 
+/**
+ * An appointment as a person would say it: "היום ב-18:00", "מחר ב-09:00",
+ * and the full date once it is further out than tomorrow.
+ */
+export function formatAppointmentHe(iso: string | Date): string {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  const time = new Intl.DateTimeFormat("he-IL", { hour: "2-digit", minute: "2-digit" }).format(d);
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((startOfDay(d) - startOfDay(new Date())) / 86_400_000);
+  if (days === 0) return `היום ב-${time}`;
+  if (days === 1) return `מחר ב-${time}`;
+  if (days === -1) return `אתמול ב-${time}`;
+  const date = new Intl.DateTimeFormat("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" }).format(d);
+  return `${date} ב-${time}`;
+}
+
 export function formatTimeHe(iso: string | Date): string {
   const d = typeof iso === "string" ? new Date(iso) : iso;
   return new Intl.DateTimeFormat("he-IL", { hour: "2-digit", minute: "2-digit" }).format(d);
