@@ -114,7 +114,99 @@ export async function reassignJob(
     p_contractor_id: input.contractorId,
     p_commission_pct: input.commissionPct,
   });
+  if (!error) return;
+  // PostgREST keeps its own list of what the database can do, and it can sit
+  // stale for a long while after the function is really there — long enough
+  // that "change the contractor" stops working with nothing wrong underneath.
+  // When that is what happened, do the same arithmetic here instead.
+  if (!isMissingFunction(error)) throw error;
+  await reassignJobDirect(supabase, jobId, input);
+}
+
+function isMissingFunction(error: unknown): boolean {
+  const message = error && typeof error === "object" && "message" in error
+    ? String((error as { message?: unknown }).message ?? "")
+    : "";
+  const code = error && typeof error === "object" && "code" in error
+    ? String((error as { code?: unknown }).code ?? "")
+    : "";
+  return code === "PGRST202" || /could not find the function|schema cache/i.test(message);
+}
+
+/**
+ * What reassign_job does, done from here.
+ *
+ * Only for the case above. It mirrors the function line for line — the split
+ * comes off the price already frozen on the job, the referral company's cut is
+ * left alone, and a job already reckoned up is refused — so the two can never
+ * disagree about what a job is worth.
+ */
+async function reassignJobDirect(
+  supabase: SupabaseClient,
+  jobId: string,
+  input: { performedBy: PerformedBy; contractorId: string | null; commissionPct: number | null }
+) {
+  const { data: job, error: readError } = await supabase
+    .from("jobs")
+    .select("is_closed, settlement_id, final_price_agorot, referral_fee_agorot, referral_pct, travel_km")
+    .eq("id", jobId)
+    .single();
+  if (readError) throw readError;
+
+  if (job.settlement_id) {
+    throw new Error("העבודה כבר נכללה בהתחשבנות מול הקבלן. יש לבטל את ההתחשבנות לפני שינוי הקבלן.");
+  }
+
+  let pct: number | null;
+  if (input.performedBy === "self") {
+    pct = 0;
+  } else if (!input.contractorId) {
+    pct = null;
+  } else {
+    pct = input.commissionPct;
+    if (pct == null) {
+      const { data: contractor } = await supabase
+        .from("contractors")
+        .select("default_commission_pct")
+        .eq("id", input.contractorId)
+        .single();
+      pct = contractor?.default_commission_pct ?? 0;
+    }
+    if (pct == null || pct < 0 || pct > 100) throw new Error("אחוז הקבלן חייב להיות בין 0 ל-100");
+    if (pct + (job.referral_pct ?? 0) > 100) {
+      throw new Error("אחוז הקבלן ואחוז החברה יחד עולים על 100%");
+    }
+  }
+
+  const patch: Record<string, unknown> = {
+    performed_by: input.performedBy,
+    contractor_id: input.performedBy === "self" ? null : input.contractorId,
+    commission_pct: pct,
+  };
+
+  if (job.is_closed) {
+    const price = job.final_price_agorot ?? 0;
+    const contractorShare = Math.round((price * (pct ?? 0)) / 100);
+    patch.contractor_share_agorot = contractorShare;
+    patch.business_share_agorot = price - contractorShare - (job.referral_fee_agorot ?? 0);
+    patch.fuel_cost_agorot =
+      input.performedBy === "self" ? await fuelCostForKm(supabase, job.travel_km) : 0;
+  }
+
+  const { error } = await supabase.from("jobs").update(patch).eq("id", jobId);
   if (error) throw error;
+}
+
+/** Mirrors fuel_cost_for_km: the trip, at the fuel price the settings carry. */
+async function fuelCostForKm(supabase: SupabaseClient, km: number | null): Promise<number> {
+  if (!km || km <= 0) return 0;
+  const { data } = await supabase
+    .from("app_settings")
+    .select("km_per_liter, fuel_price_per_liter_agorot")
+    .eq("id", true)
+    .single();
+  if (!data?.km_per_liter) return 0;
+  return Math.round((km / Number(data.km_per_liter)) * Number(data.fuel_price_per_liter_agorot));
 }
 
 export async function reopenJob(supabase: SupabaseClient, jobId: string, statusId: string) {
