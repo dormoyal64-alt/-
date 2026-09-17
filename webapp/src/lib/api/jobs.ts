@@ -153,8 +153,14 @@ async function reassignJobDirect(
     .single();
   if (readError) throw readError;
 
+  // Pulling a job out of a settlement means recomputing that settlement's
+  // totals, which belongs in one place — the database. This path only exists
+  // for when the API cannot reach it, so here it says so rather than leaving a
+  // settlement describing a job it no longer holds.
   if (job.settlement_id) {
-    throw new Error("העבודה כבר נכללה בהתחשבנות מול הקבלן. יש לבטל את ההתחשבנות לפני שינוי הקבלן.");
+    throw new Error(
+      "העבודה נכללה בהתחשבנות, והחלפת הקבלן צריכה לעדכן גם אותה. רעננו את הדף ונסו שוב; אם זה חוזר, יש להריץ ב-Supabase את הקוד האחרון שנשלח."
+    );
   }
 
   let pct: number | null;

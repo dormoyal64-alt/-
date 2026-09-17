@@ -789,6 +789,47 @@ $$;
 -- The one case it refuses is a job already reckoned up with its contractor:
 -- rewriting the split underneath a settlement would leave that settlement's
 -- totals describing amounts nobody agreed to. Undo the settlement first.
+create or replace function recalc_settlement(p_settlement_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_jobs int;
+begin
+  select count(*) into v_jobs from jobs where settlement_id = p_settlement_id;
+
+  if v_jobs = 0 then
+    delete from settlements where id = p_settlement_id;
+    return;
+  end if;
+
+  update settlements s set
+    total_jobs = agg.n,
+    total_revenue_agorot = agg.revenue,
+    contractor_share_agorot = agg.contractor_share,
+    business_share_agorot = agg.business_share,
+    contractor_received_agorot = agg.contractor_received,
+    business_received_agorot = agg.business_received,
+    contractor_owes_business_agorot = agg.contractor_owes,
+    business_owes_contractor_agorot = agg.business_owes,
+    net_agorot = agg.business_owes - agg.contractor_owes
+  from (
+    select
+      count(*)::int                                                                            as n,
+      coalesce(sum(final_price_agorot), 0)                                                     as revenue,
+      coalesce(sum(contractor_share_agorot), 0)                                                as contractor_share,
+      coalesce(sum(business_share_agorot), 0)                                                  as business_share,
+      coalesce(sum(final_price_agorot) filter (where payment_received_by = 'contractor'), 0)    as contractor_received,
+      coalesce(sum(final_price_agorot) filter (where payment_received_by = 'business'), 0)      as business_received,
+      coalesce(sum(business_share_agorot) filter (where payment_received_by = 'contractor'), 0) as contractor_owes,
+      coalesce(sum(contractor_share_agorot) filter (where payment_received_by = 'business'), 0) as business_owes
+    from jobs where settlement_id = p_settlement_id
+  ) agg
+  where s.id = p_settlement_id;
+end;
+$$;
+
+grant execute on function recalc_settlement(uuid) to authenticated;
+
 create or replace function reassign_job(
   p_job_id uuid,
   p_performed_by text,
@@ -805,6 +846,7 @@ declare
   v_price bigint;
   v_old text;
   v_new text;
+  v_settlement uuid;
 begin
   perform require_owner();
 
@@ -817,13 +859,11 @@ begin
     raise exception 'עבודה לא נמצאה';
   end if;
 
-  if v_job.settlement_id is not null then
-    raise exception 'העבודה כבר נכללה בהתחשבנות מול הקבלן. יש לבטל את ההתחשבנות לפני שינוי הקבלן.'
-      using errcode = '42501';
-  end if;
+  -- the reckoning this job was part of, if any; it is brought up to date at
+  -- the end, once the job no longer belongs to it
+  v_settlement := v_job.settlement_id;
 
   if p_performed_by = 'contractor' and p_contractor_id is null then
-    -- unassigning is allowed, it just leaves the job waiting for someone
     v_pct := null;
   elsif p_performed_by = 'self' then
     v_pct := 0;
@@ -848,7 +888,6 @@ begin
                 else coalesce((select name from contractors where id = p_contractor_id), 'לא שויך') end;
 
   if v_job.is_closed then
-    -- the price is frozen; only the split between the two of you moves
     v_price := coalesce(v_job.final_price_agorot, 0);
     v_fuel := case when p_performed_by = 'self'
                    then fuel_cost_for_km(v_job.travel_km) else 0 end;
@@ -861,7 +900,8 @@ begin
     'המבצע שונה מ' || v_old || ' ל' || v_new ||
     case when p_performed_by = 'contractor' and p_contractor_id is not null
          then ' (' || trim(trailing '.' from trim(to_char(v_pct, 'FM990.99'))) || '%)'
-         else '' end,
+         else '' end ||
+    case when v_settlement is not null then ' — והעבודה הוצאה מההתחשבנות שכללה אותה' else '' end,
     true
   );
 
@@ -869,12 +909,18 @@ begin
     performed_by = p_performed_by,
     contractor_id = case when p_performed_by = 'self' then null else p_contractor_id end,
     commission_pct = v_pct,
-    -- a closed job keeps its price and its tax; the split is redone
     contractor_share_agorot = case when v_job.is_closed then v_contractor_share else contractor_share_agorot end,
     business_share_agorot = case when v_job.is_closed then v_business_share else business_share_agorot end,
-    fuel_cost_agorot = case when v_job.is_closed then v_fuel else fuel_cost_agorot end
+    fuel_cost_agorot = case when v_job.is_closed then v_fuel else fuel_cost_agorot end,
+    -- it no longer belongs to that reckoning; it is free to be settled again
+    -- with whoever actually did the work
+    settlement_id = null
   where id = p_job_id
   returning * into v_job;
+
+  if v_settlement is not null then
+    perform recalc_settlement(v_settlement);
+  end if;
 
   return v_job;
 end;
