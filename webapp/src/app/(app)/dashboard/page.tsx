@@ -205,7 +205,11 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Link href="/schedule" className="card flex items-center justify-between p-4 hover:shadow-card-hover">
+          <span className="font-bold text-ink-800">לוח זמנים שבועי</span>
+          <ArrowLeft className="h-4 w-4 text-ink-400" />
+        </Link>
         <Link href="/analytics" className="card flex items-center justify-between p-4 hover:shadow-card-hover">
           <span className="font-bold text-ink-800">אנליטיקס מלא</span>
           <ArrowLeft className="h-4 w-4 text-ink-400" />

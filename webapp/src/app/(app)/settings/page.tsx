@@ -110,6 +110,7 @@ export default function SettingsPage() {
   const sendPhonePolicy = settings?.send_customer_phone_to_contractor ?? true;
   const taxRate = settings?.tax_rate_pct ?? 18;
   const includesTax = settings?.prices_include_tax ?? true;
+  const appointmentLead = settings?.appointment_lead_minutes ?? 15;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -156,6 +157,32 @@ export default function SettingsPage() {
                 }}
               />
             </div>
+          </div>
+
+          <div className="border-t border-ink-100 pt-3">
+            <p className="mb-2 text-sm font-semibold text-ink-700">
+              וכמה זמן <b>לפני</b> עבודה מתוזמנת לקבל תזכורת?
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {[0, 15, 30, 60, 120].map((v) => (
+                <button
+                  key={v}
+                  onClick={() => saveBusinessField("appointment_lead_minutes", String(v))}
+                  disabled={savingBusiness}
+                  className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
+                    appointmentLead === v
+                      ? "border-brand-600 bg-brand-600 text-white"
+                      : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                  }`}
+                >
+                  {v === 0 ? "בלי תזכורת" : v < 60 ? `${v} דק׳` : v === 60 ? "שעה" : `${v / 60} שעות`}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-ink-400">
+              נשלחת פעם אחת לכל עבודה מתוזמנת. עבודה שהמועד שלה חלף לפני יותר משעה כבר לא מפעילה
+              אותה — שם נכנסת תזכורת המעקב שלמעלה.
+            </p>
           </div>
         </CardBody>
       </Card>

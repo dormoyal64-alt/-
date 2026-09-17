@@ -7,6 +7,7 @@ import {
   BarChart3,
   Trophy,
   CalendarRange,
+  CalendarClock,
   Bell,
   Settings,
   Tags,
@@ -31,6 +32,7 @@ export interface NavItem {
 export const mainNav: NavItem[] = [
   { href: "/dashboard", label: "בית", icon: LayoutDashboard },
   { href: "/jobs", label: "עבודות", icon: Briefcase },
+  { href: "/schedule", label: "לוח זמנים", icon: CalendarClock },
   { href: "/jobs/new", label: "הוספת עבודה", icon: PlusCircle },
   { href: "/contractors", label: "קבלנים", icon: Users },
 ];

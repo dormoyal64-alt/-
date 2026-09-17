@@ -181,6 +181,7 @@ export interface Job {
   business_share_agorot: number | null;
   settlement_id: string | null;
   reminder_sent_at: string | null;
+  scheduled_reminder_sent_at: string | null;
   is_archived: boolean;
   created_at: string;
   updated_at: string;
@@ -294,6 +295,8 @@ export interface AdPerformanceRow {
 export interface AppSettings {
   id: boolean;
   reminder_minutes: number;
+  /** how long before a booked job to raise the reminder; 0 switches it off */
+  appointment_lead_minutes: number;
   on_the_way_template: string;
   /** fuel price you keep current yourself — nothing fetches it */
   fuel_price_per_liter_agorot: number;

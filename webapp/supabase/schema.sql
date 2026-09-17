@@ -344,6 +344,9 @@ create table jobs (
 
   settlement_id uuid references settlements(id) on delete set null,
   reminder_sent_at timestamptz,
+  -- the before-the-appointment heads-up has its own mark: reminder_sent_at
+  -- means "this has been sitting too long", which a booked job is not
+  scheduled_reminder_sent_at timestamptz,
 
   is_archived boolean not null default false,
 
@@ -417,6 +420,11 @@ create table app_settings (
     constraint app_settings_cancellation_fee_check check (cancellation_fee_agorot >= 0),
   -- {fee} is replaced with the amount; null uses the built-in wording
   cancellation_notice_template text,
+
+  -- how long before a booked job to raise the reminder; 0 switches it off
+  appointment_lead_minutes int not null default 15
+    constraint app_settings_appointment_lead_check
+    check (appointment_lead_minutes >= 0 and appointment_lead_minutes <= 1440),
 
   updated_at timestamptz not null default now()
 );

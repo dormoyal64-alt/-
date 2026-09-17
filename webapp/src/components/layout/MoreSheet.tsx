@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Modal } from "@/components/ui/Modal";
-import { reportsNav, settingsNav, utilityNav } from "./nav";
+import { mainNav, reportsNav, settingsNav, utilityNav } from "./nav";
 import { LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
@@ -13,6 +13,10 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
   const { isOwner } = useRefData();
   const reports = reportsNav.filter((i) => isOwner || !i.ownerOnly);
   const rest = [...settingsNav, ...utilityNav].filter((i) => isOwner || !i.ownerOnly);
+  // the bar at the bottom of the screen only holds four, so whatever is left
+  // over from the main navigation has to be reachable from here
+  const BOTTOM_BAR = ["/dashboard", "/jobs", "/jobs/new", "/contractors"];
+  const extras = mainNav.filter((i) => !BOTTOM_BAR.includes(i.href) && (isOwner || !i.ownerOnly));
 
   async function signOut() {
     const supabase = createClient();
@@ -23,6 +27,23 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
   return (
     <Modal open={open} onClose={onClose} title="עוד">
       <div className="space-y-5">
+        {extras.length > 0 && (
+          <div>
+            <div className="grid grid-cols-2 gap-2">
+              {extras.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  className="flex flex-col items-center gap-2 rounded-2xl border border-ink-100 p-4 text-center text-sm font-semibold text-ink-700 active:scale-[.97]"
+                >
+                  <item.icon className="h-6 w-6 text-brand-600" />
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
         {reports.length > 0 && (
         <div>
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">דוחות וניהול כספי</p>
