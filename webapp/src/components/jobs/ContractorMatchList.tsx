@@ -10,6 +10,7 @@ const TIER_STYLE: Record<MatchTier, string> = {
   city: "bg-brand-50 text-brand-700",
   region: "bg-warning-50 text-warning-600",
   profession: "bg-ink-100 text-ink-500",
+  other: "bg-danger-50 text-danger-600",
 };
 
 export function ContractorMatchList({
@@ -39,7 +40,7 @@ export function ContractorMatchList({
   return (
     <div className="space-y-2">
       <p className="text-xs text-ink-500">
-        {matches.length} קבלנים בתחום — ממוינים לפי זמינות והתאמה
+        {matches.filter((m) => m.tier !== "other").length} קבלנים בתחום — ממוינים לפי זמינות והתאמה
         {availableNow > 0 ? `, ${availableNow} זמינים עכשיו` : ""}
         {exactCount > 0 ? `, ${exactCount} בהתאמה מלאה` : ""}
       </p>

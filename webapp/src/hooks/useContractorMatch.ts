@@ -11,13 +11,14 @@ import { availabilityAt, describeHours, nextOpening, type Availability } from "@
  * most people never tick every job type for every contractor — so instead of
  * hiding everyone who isn't an exact match, rank them and show the lot.
  */
-export type MatchTier = "exact" | "city" | "region" | "profession";
+export type MatchTier = "exact" | "city" | "region" | "profession" | "other";
 
 export const MATCH_TIER_LABEL: Record<MatchTier, string> = {
   exact: "התאמה מלאה",
   city: "עובד בעיר הזו",
   region: "עובד באזור",
   profession: "מהתחום",
+  other: "לא רשום לתחום",
 };
 
 export const MATCH_TIER_HINT: Record<MatchTier, string> = {
@@ -25,9 +26,10 @@ export const MATCH_TIER_HINT: Record<MatchTier, string> = {
   city: "רשום לתחום ולעיר, לא לסוג העבודה הזה",
   region: "רשום לתחום ולעיר אחרת באותו אזור",
   profession: "רשום לתחום, אבל לא לאזור הזה",
+  other: "לא רשום לתחום הזה — אפשר לשייך אותו בכל זאת",
 };
 
-const TIER_RANK: Record<MatchTier, number> = { exact: 3, city: 2, region: 1, profession: 0 };
+const TIER_RANK: Record<MatchTier, number> = { exact: 3, city: 2, region: 1, profession: 0, other: -1 };
 const AVAIL_RANK: Record<Availability, number> = { open: 2, unknown: 1, closed: 0 };
 
 export interface MatchedContractor {
@@ -57,7 +59,9 @@ export function useContractorMatch(
   jobTypeId: string | null,
   cityId: string | null,
   /** when the work is needed; defaults to now */
-  when?: Date
+  when?: Date,
+  /** also list contractors who are not registered for this trade */
+  includeOtherTrades?: boolean
 ) {
   const { contractors, cities } = useRefData();
   const supabase = useMemo(() => createClient(), []);
@@ -85,8 +89,8 @@ export function useContractorMatch(
   }, [supabase]);
 
   const matches = useMemo(
-    () => rankMatches({ contractors, cities, professionId, jobTypeId, cityId, stats, openCounts, when }),
-    [contractors, cities, professionId, jobTypeId, cityId, stats, openCounts, when]
+    () => rankMatches({ contractors, cities, professionId, jobTypeId, cityId, stats, openCounts, when, includeOtherTrades }),
+    [contractors, cities, professionId, jobTypeId, cityId, stats, openCounts, when, includeOtherTrades]
   );
 
   return matches;
@@ -102,6 +106,7 @@ export function rankMatches({
   stats,
   openCounts,
   when,
+  includeOtherTrades,
 }: {
   contractors: ContractorWithRelations[];
   cities: Pick<City, "id" | "name" | "region">[];
@@ -111,6 +116,7 @@ export function rankMatches({
   stats: Record<string, Pick<ContractorStatsRow, "close_rate" | "jobs_sent" | "jobs_closed_success">>;
   openCounts: Record<string, number>;
   when?: Date;
+  includeOtherTrades?: boolean;
 }): MatchedContractor[] {
   // The profession is the one hard filter: a plumber is no help on an electrical
   // job. Everything narrower than that only affects the ordering, so the whole
@@ -124,21 +130,29 @@ export function rankMatches({
     ? new Set(cities.filter((c) => c.region === region).map((c) => c.id))
     : new Set<string>();
 
+  const inTrade = (c: ContractorWithRelations) =>
+    c.contractor_professions.some((p) => p.profession_id === professionId);
+
   return contractors
-    .filter((c) => c.contractor_professions.some((p) => p.profession_id === professionId))
+    // Normally the trade is the one hard filter. On an existing job it cannot
+    // be: a contractor whose trades were never filled in would be unreachable,
+    // and so would the one already doing the work.
+    .filter((c) => includeOtherTrades || inTrade(c))
     .map((c) => {
       const coveredCityIds = c.contractor_cities.map((ci) => ci.city_id);
       const coversCity = coveredCityIds.includes(cityId);
       const coversJobType = !!jobTypeId && c.contractor_job_types.some((jt) => jt.job_type_id === jobTypeId);
       const nearbyIds = coveredCityIds.filter((id) => id !== cityId && regionCityIds.has(id));
 
-      const tier: MatchTier = coversCity
-        ? coversJobType
-          ? "exact"
-          : "city"
-        : nearbyIds.length > 0
-          ? "region"
-          : "profession";
+      const tier: MatchTier = !inTrade(c)
+        ? "other"
+        : coversCity
+          ? coversJobType
+            ? "exact"
+            : "city"
+          : nearbyIds.length > 0
+            ? "region"
+            : "profession";
 
       const override = c.contractor_job_types.find((jt) => jt.job_type_id === jobTypeId)?.commission_pct;
       const s = stats[c.id];

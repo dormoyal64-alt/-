@@ -10,7 +10,7 @@ import { useContractorMatch } from "@/hooks/useContractorMatch";
 import { useRefData } from "@/lib/refdata";
 import { shekelsToAgorot } from "@/lib/money";
 import type { AddressResult } from "@/hooks/useAddressAutocomplete";
-import type { JobWithRelations } from "@/lib/types";
+import type { JobWithRelations, PerformedBy } from "@/lib/types";
 
 export interface EditJobValues {
   customer_name: string;
@@ -28,6 +28,7 @@ export interface EditJobValues {
   commission_pct: number | null;
   notes: string | null;
   scheduled_at: string | null;
+  performed_by: PerformedBy;
 }
 
 function toLocalInput(iso: string | null): string {
@@ -60,18 +61,25 @@ export function EditJobModal({
   const [paymentMethodId, setPaymentMethodId] = useState(job.payment_method_id ?? "");
   const [leadSourceId, setLeadSourceId] = useState(job.lead_source_id ?? "");
   const [contractorId, setContractorId] = useState(job.contractor_id);
+  const [performedBy, setPerformedBy] = useState<PerformedBy>(job.performed_by ?? "contractor");
+  // the trade filter is useful, but it must never be a dead end
+  const [showAll, setShowAll] = useState(false);
   const [commissionPct, setCommissionPct] = useState(job.commission_pct != null ? String(job.commission_pct) : "");
   const [notes, setNotes] = useState(job.notes ?? "");
   const [scheduledAt, setScheduledAt] = useState(toLocalInput(job.scheduled_at));
 
   // availability is judged against the appointment when the job has one
   const appointment = scheduledAt ? new Date(scheduledAt) : null;
-  const matches = useContractorMatch(
-    job.profession_id,
-    job.job_type_id,
-    job.city_id,
-    appointment && !isNaN(appointment.getTime()) ? appointment : undefined
-  );
+  const when = appointment && !isNaN(appointment.getTime()) ? appointment : undefined;
+  const inTrade = useContractorMatch(job.profession_id, job.job_type_id, job.city_id, when);
+  const everyone = useContractorMatch(job.profession_id, job.job_type_id, job.city_id, when, true);
+  // Nobody registered for this trade would otherwise leave an empty box with
+  // no way out, and the contractor already on the job has to stay reachable
+  // even when their trades were never filled in.
+  const noneInTrade = inTrade.length === 0;
+  const assignedIsListed = !job.contractor_id || inTrade.some((m) => m.id === job.contractor_id);
+  const matches = showAll || noneInTrade || !assignedIsListed ? everyone : inTrade;
+  const hiddenCount = everyone.length - inTrade.length;
   const selectedContractor = matches.find((m) => m.id === contractorId);
   const contractorDefaultPct = selectedContractor?.commissionPct ?? null;
   const parsedPct = parseFloat(commissionPct);
@@ -90,13 +98,17 @@ export function EditJobModal({
       quoted_price_agorot: quotedPrice ? shekelsToAgorot(quotedPrice) : null,
       payment_method_id: paymentMethodId || null,
       lead_source_id: leadSourceId || null,
-      contractor_id: contractorId,
+      performed_by: performedBy,
+      contractor_id: performedBy === "self" ? null : contractorId,
       // an explicit percentage wins; blank falls back to the contractor's usual rate
-      commission_pct: contractorId
-        ? commissionPct !== "" && pctValid
-          ? parsedPct
-          : selectedContractor?.commissionPct ?? job.commission_pct
-        : null,
+      commission_pct:
+        performedBy === "self"
+          ? 0
+          : contractorId
+            ? commissionPct !== "" && pctValid
+              ? parsedPct
+              : selectedContractor?.commissionPct ?? job.commission_pct
+            : null,
       notes: notes || null,
       scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
     });
@@ -165,11 +177,89 @@ export function EditJobModal({
         </div>
 
         <div>
-          <Label>קבלן מבצע</Label>
-          <ContractorMatchList matches={matches} selectedId={contractorId} onSelect={setContractorId} />
+          <Label>מי מבצע את העבודה?</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setPerformedBy("self")}
+              className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${
+                performedBy === "self" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-500"
+              }`}
+            >
+              אני מבצע
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPerformedBy("contractor");
+                // a job that was mine carries a 0% split that belongs to nobody
+                if (job.performed_by === "self") setCommissionPct("");
+              }}
+              className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${
+                performedBy === "contractor" ? "border-brand-600 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-500"
+              }`}
+            >
+              קבלן
+            </button>
+          </div>
         </div>
 
-        {contractorId && (
+        {performedBy === "contractor" && (
+        <div>
+          <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+            <Label>קבלן מבצע</Label>
+            <div className="flex gap-2">
+              {contractorId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setContractorId(null);
+                    setCommissionPct("");
+                  }}
+                  className="rounded-full border border-ink-200 px-3 py-1 text-xs font-semibold text-ink-600 hover:bg-ink-50"
+                >
+                  בלי קבלן
+                </button>
+              )}
+              {hiddenCount > 0 && !noneInTrade && assignedIsListed && (
+                <button
+                  type="button"
+                  onClick={() => setShowAll((v) => !v)}
+                  className="rounded-full border border-ink-200 px-3 py-1 text-xs font-semibold text-ink-600 hover:bg-ink-50"
+                >
+                  {showAll ? "רק קבלני התחום" : `הצג את כל הקבלנים (${hiddenCount} נוספים)`}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {noneInTrade && (
+            <p className="mb-2 text-xs font-semibold text-warning-600">
+              אף קבלן לא רשום לתחום של העבודה הזו, אז מוצגים כל הקבלנים. כדאי לשייך תחומים לקבלנים
+              במסך ״קבלנים״ כדי שההתאמה תעבוד.
+            </p>
+          )}
+          {!noneInTrade && !assignedIsListed && (
+            <p className="mb-2 text-xs font-semibold text-warning-600">
+              הקבלן שמשויך כרגע אינו רשום לתחום של העבודה, אז מוצגים כל הקבלנים.
+            </p>
+          )}
+
+          <ContractorMatchList
+            matches={matches}
+            selectedId={contractorId}
+            // A percentage typed for the previous contractor does not describe
+            // the new one, so picking somebody falls back to their usual rate
+            // until it is typed over again.
+            onSelect={(id) => {
+              setContractorId(id);
+              if (id !== job.contractor_id) setCommissionPct("");
+            }}
+          />
+        </div>
+        )}
+
+        {performedBy === "contractor" && contractorId && (
           <div>
             <Label>אחוז הקבלן בעבודה הזו</Label>
             <div className="flex items-center gap-3">
