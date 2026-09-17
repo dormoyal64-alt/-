@@ -1,5 +1,6 @@
 import clsx from "clsx";
-import { ArrowDown, ArrowUp, type LucideIcon } from "lucide-react";
+import Link from "next/link";
+import { ArrowDown, ArrowUp, ChevronLeft, type LucideIcon } from "lucide-react";
 
 export function StatCard({
   label,
@@ -8,6 +9,7 @@ export function StatCard({
   changePct,
   tone = "brand",
   subtitle,
+  href,
 }: {
   label: string;
   value: string;
@@ -15,6 +17,8 @@ export function StatCard({
   changePct?: number | null;
   tone?: "brand" | "success" | "warning" | "danger";
   subtitle?: string;
+  /** where the number came from — tapping the card opens it */
+  href?: string;
 }) {
   const toneClass = {
     brand: "bg-brand-50 text-brand-600",
@@ -23,8 +27,8 @@ export function StatCard({
     danger: "bg-danger-50 text-danger-600",
   }[tone];
 
-  return (
-    <div className="card p-3 sm:p-5">
+  const body = (
+    <>
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-medium leading-snug text-ink-500 sm:text-sm">{label}</p>
         {Icon && (
@@ -47,7 +51,21 @@ export function StatCard({
             {Math.abs(changePct).toFixed(0)}%
           </span>
         )}
+        {href && <ChevronLeft className="mr-auto h-4 w-4 text-ink-300" aria-hidden />}
       </div>
-    </div>
+    </>
   );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="card block p-3 text-right transition hover:border-brand-200 hover:shadow-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 sm:p-5"
+      >
+        {body}
+      </Link>
+    );
+  }
+
+  return <div className="card p-3 sm:p-5">{body}</div>;
 }

@@ -78,6 +78,17 @@ export default function DashboardPage() {
   // someone else may have opened a job since this loaded
   useAutoRefresh(() => setReloadKey((k) => k + 1));
 
+  // Every number on this screen comes from a list of jobs, and tapping it
+  // should open exactly that list. The dashboard counts openings by the day
+  // they were opened and closings by the day they were closed, so the link
+  // has to say which date it means.
+  const day = todayLocalDate();
+  function jobsLink(extra: Record<string, string>) {
+    return `/jobs?${new URLSearchParams(extra).toString()}`;
+  }
+  const openedToday = { from: day, to: day, dateField: "opened" };
+  const closedToday = { from: day, to: day, dateField: "closed" };
+
   function pctChange(curr?: number | null, prev?: number | null) {
     if (curr === undefined || curr === null || prev === undefined || prev === null || prev === 0) return null;
     return ((curr - prev) / prev) * 100;
@@ -102,33 +113,34 @@ export default function DashboardPage() {
       {isOwner && <DailyAdSpend day={todayLocalDate()} compact onSaved={() => setReloadKey((k) => k + 1)} />}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        <StatCard label="עבודות היום" value={formatNumber(today?.jobs_count)} icon={Briefcase} changePct={pctChange(today?.jobs_count, yesterday?.jobs_count)} />
-        <StatCard label="עבודות פתוחות" value={formatNumber(openJobs)} icon={Building2} tone="warning" />
-        <StatCard label="נסגרו בהצלחה" value={formatNumber(today?.jobs_closed_success)} icon={CheckCircle2} tone="success" changePct={pctChange(today?.jobs_closed_success, yesterday?.jobs_closed_success)} />
-        <StatCard label="לא נסגרו" value={formatNumber(today?.jobs_closed_failed)} icon={XCircle} tone="danger" />
-        <StatCard label="אחוז סגירה" value={formatPercent(today?.close_rate ?? 0)} icon={Percent} tone="success" changePct={pctChange(today?.close_rate, yesterday?.close_rate)} />
+        <StatCard label="עבודות היום" value={formatNumber(today?.jobs_count)} icon={Briefcase} changePct={pctChange(today?.jobs_count, yesterday?.jobs_count)} href={jobsLink(openedToday)} />
+        <StatCard label="עבודות פתוחות" value={formatNumber(openJobs)} icon={Building2} tone="warning" href={jobsLink({ closed: "open" })} />
+        <StatCard label="נסגרו בהצלחה" value={formatNumber(today?.jobs_closed_success)} icon={CheckCircle2} tone="success" changePct={pctChange(today?.jobs_closed_success, yesterday?.jobs_closed_success)} href={jobsLink({ ...closedToday, result: "success" })} />
+        <StatCard label="לא נסגרו" value={formatNumber(today?.jobs_closed_failed)} icon={XCircle} tone="danger" href={jobsLink({ ...closedToday, result: "failed" })} />
+        <StatCard label="אחוז סגירה" value={formatPercent(today?.close_rate ?? 0)} icon={Percent} tone="success" changePct={pctChange(today?.close_rate, yesterday?.close_rate)} href={jobsLink({ ...closedToday, closed: "closed" })} />
         {isOwner && (
-  <StatCard label="מחזור היום" value={formatAgorot(today?.revenue_agorot)} icon={Wallet} changePct={pctChange(today?.revenue_agorot, yesterday?.revenue_agorot)} />
+  <StatCard label="מחזור היום" value={formatAgorot(today?.revenue_agorot)} icon={Wallet} changePct={pctChange(today?.revenue_agorot, yesterday?.revenue_agorot)} href={jobsLink({ ...closedToday, result: "success" })} />
         )}
         {isOwner && (
-  <StatCard label="הרווח שלי היום (אחרי פרסום)" value={formatAgorot(today?.profit_agorot)} icon={TrendingUp} tone={(today?.profit_agorot ?? 0) < 0 ? "danger" : "success"} changePct={pctChange(today?.profit_agorot, yesterday?.profit_agorot)} />
+  <StatCard label="הרווח שלי היום (אחרי פרסום)" value={formatAgorot(today?.profit_agorot)} icon={TrendingUp} tone={(today?.profit_agorot ?? 0) < 0 ? "danger" : "success"} changePct={pctChange(today?.profit_agorot, yesterday?.profit_agorot)} href="/daily-summary" />
         )}
         {isOwner && (
-  <StatCard label="פרסום היום" value={formatAgorot(today?.ad_spend_agorot)} icon={Megaphone} tone="warning" />
+  <StatCard label="פרסום היום" value={formatAgorot(today?.ad_spend_agorot)} icon={Megaphone} tone="warning" href="/advertising" />
         )}
         {isOwner && (
-  <StatCard label="ממוצע לעבודה" value={formatAgorot(today?.avg_price_agorot)} icon={Wallet} />
+  <StatCard label="ממוצע לעבודה" value={formatAgorot(today?.avg_price_agorot)} icon={Wallet} href={jobsLink({ ...closedToday, result: "success" })} />
         )}
         {isOwner && (
-  <StatCard label="מגיע לקבלנים ממני" value={formatAgorot(today?.contractor_payable_agorot)} icon={Users} tone="warning" />
+  <StatCard label="מגיע לקבלנים ממני" value={formatAgorot(today?.contractor_payable_agorot)} icon={Users} tone="warning" href="/settlements" />
         )}
         {isOwner && (
-  <StatCard label="קבלנים חייבים לי" value={formatAgorot(today?.contractor_receivable_agorot)} icon={Users} tone="danger" />
+  <StatCard label="קבלנים חייבים לי" value={formatAgorot(today?.contractor_receivable_agorot)} icon={Users} tone="danger" href="/settlements" />
         )}
       </div>
 
       {topContractor && (
-        <Card className="border-2 border-brand-100 bg-brand-50/40">
+        <Link href={`/contractors/${topContractor.row.contractor_id}`} className="block">
+        <Card className="border-2 border-brand-100 bg-brand-50/40 transition hover:shadow-card-hover">
           <CardBody className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-white">
               <Users className="h-6 w-6" />
@@ -140,8 +152,10 @@ export default function DashboardPage() {
                 {topContractor.row.jobs_closed_success} עבודות סגורות · {formatPercent(topContractor.row.close_rate ?? 0)} אחוז סגירה
               </p>
             </div>
+            <ArrowLeft className="mr-auto h-4 w-4 shrink-0 text-brand-400" />
           </CardBody>
         </Card>
+        </Link>
       )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -155,7 +169,7 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 {byProfession.map((row) => (
-                  <BreakdownRow key={row.profession_id} label={row.profession_name} count={row.jobs_count} closed={row.closed_success} revenue={row.revenue_agorot} />
+                  <BreakdownRow key={row.profession_id} label={row.profession_name} count={row.jobs_count} closed={row.closed_success} revenue={row.revenue_agorot} href={jobsLink({ ...openedToday, profession: row.profession_id })} />
                 ))}
               </div>
             )}
@@ -172,7 +186,7 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 {byCity.map((row) => (
-                  <BreakdownRow key={row.city_id} label={row.city_name} count={row.jobs_count} closed={row.closed_success} revenue={row.revenue_agorot} />
+                  <BreakdownRow key={row.city_id} label={row.city_name} count={row.jobs_count} closed={row.closed_success} revenue={row.revenue_agorot} href={jobsLink({ ...openedToday, city: row.city_id })} />
                 ))}
               </div>
             )}
@@ -198,10 +212,22 @@ export default function DashboardPage() {
   );
 }
 
-function BreakdownRow({ label, count, closed, revenue }: { label: string; count: number; closed: number; revenue: number }) {
+function BreakdownRow({
+  label,
+  count,
+  closed,
+  revenue,
+  href,
+}: {
+  label: string;
+  count: number;
+  closed: number;
+  revenue: number;
+  href: string;
+}) {
   const rate = count > 0 ? (closed / count) * 100 : 0;
   return (
-    <div>
+    <Link href={href} className="-mx-2 block rounded-xl px-2 py-1 transition hover:bg-ink-50">
       <div className="flex items-center justify-between text-sm">
         <span className="font-semibold text-ink-800">{label}</span>
         <span className="text-ink-500">
@@ -211,6 +237,6 @@ function BreakdownRow({ label, count, closed, revenue }: { label: string; count:
       <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-ink-100">
         <div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.min(rate, 100)}%` }} />
       </div>
-    </div>
+    </Link>
   );
 }

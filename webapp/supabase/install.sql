@@ -857,7 +857,7 @@ language sql stable as $$
     coalesce(sum(j.contractor_share_agorot) filter (where j.is_closed and coalesce(js.is_success, false) and j.payment_received_by = 'business'), 0) as business_owes_contractor_agorot
   from jobs j
   left join job_statuses js on js.id = j.status_id
-  where j.contractor_id is not null and j.created_at between p_from and p_to
+  where j.contractor_id is not null and j.opened_at between p_from and p_to
   group by j.contractor_id;
 $$;
 
@@ -870,7 +870,7 @@ language sql stable as $$
     coalesce(sum(j.final_price_agorot) filter (where j.is_closed and coalesce(js.is_success, false)), 0),
     coalesce(sum(j.business_share_agorot) filter (where j.is_closed and coalesce(js.is_success, false)), 0)
   from professions p
-  left join jobs j on j.profession_id = p.id and j.created_at between p_from and p_to
+  left join jobs j on j.profession_id = p.id and j.opened_at between p_from and p_to
   left join job_statuses js on js.id = j.status_id
   group by p.id, p.name
   order by count(j.id) desc;
@@ -885,7 +885,7 @@ language sql stable as $$
     coalesce(sum(j.final_price_agorot) filter (where j.is_closed and coalesce(js.is_success, false)), 0),
     coalesce(sum(j.business_share_agorot) filter (where j.is_closed and coalesce(js.is_success, false)), 0)
   from cities c
-  left join jobs j on j.city_id = c.id and j.created_at between p_from and p_to
+  left join jobs j on j.city_id = c.id and j.opened_at between p_from and p_to
   left join job_statuses js on js.id = j.status_id
   group by c.id, c.name
   order by count(j.id) desc;
@@ -899,7 +899,7 @@ language sql stable as $$
     count(j.id) filter (where j.is_closed and coalesce(js.is_success, false)),
     coalesce(sum(j.final_price_agorot) filter (where j.is_closed and coalesce(js.is_success, false)), 0)
   from job_types jt
-  left join jobs j on j.job_type_id = jt.id and j.created_at between p_from and p_to
+  left join jobs j on j.job_type_id = jt.id and j.opened_at between p_from and p_to
   left join job_statuses js on js.id = j.status_id
   group by jt.id, jt.name, jt.profession_id
   order by count(j.id) desc;
@@ -914,7 +914,7 @@ language sql stable as $$
     coalesce(sum(j.final_price_agorot) filter (where j.is_closed and coalesce(js.is_success, false)), 0),
     coalesce(sum(j.business_share_agorot) filter (where j.is_closed and coalesce(js.is_success, false)), 0)
   from lead_sources ls
-  left join jobs j on j.lead_source_id = ls.id and j.created_at between p_from and p_to
+  left join jobs j on j.lead_source_id = ls.id and j.opened_at between p_from and p_to
   left join job_statuses js on js.id = j.status_id
   group by ls.id, ls.name
   order by count(j.id) desc;

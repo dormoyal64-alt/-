@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
-import { useRouter } from "next/navigation";
-import { Search, SlidersHorizontal, ChevronRight, ChevronLeft, Download, Plus, Briefcase } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Search, SlidersHorizontal, ChevronRight, ChevronLeft, Download, Plus, Briefcase, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { JOB_SELECT } from "@/lib/api/jobs";
@@ -14,27 +14,47 @@ import { Input } from "@/components/ui/Input";
 import { StatusBadge } from "@/components/ui/Badge";
 import { EmptyState, PageSpinner } from "@/components/ui/Misc";
 import { formatAgorot } from "@/lib/money";
-import { formatDateTimeHe } from "@/lib/dates";
+import { formatDateHe, formatDateTimeHe } from "@/lib/dates";
 import { toCsv, downloadCsv } from "@/lib/csv";
 import type { JobWithRelations } from "@/lib/types";
 
 const PAGE_SIZE = 20;
 
 export default function JobsPage() {
+  // useSearchParams needs a boundary, and the dashboard links here with filters
+  return (
+    <Suspense fallback={<PageSpinner />}>
+      <JobsList />
+    </Suspense>
+  );
+}
+
+function JobsList() {
   const router = useRouter();
+  const params = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
   const { professions, jobTypes, cities, contractors, paymentMethods, jobStatuses } = useRefData();
 
-  const [search, setSearch] = useState("");
-  const [professionId, setProfessionId] = useState("");
-  const [jobTypeId, setJobTypeId] = useState("");
-  const [cityId, setCityId] = useState("");
-  const [contractorId, setContractorId] = useState("");
-  const [statusId, setStatusId] = useState("");
+  const [search, setSearch] = useState(() => params.get("q") ?? "");
+  const [professionId, setProfessionId] = useState(() => params.get("profession") ?? "");
+  const [jobTypeId, setJobTypeId] = useState(() => params.get("jobType") ?? "");
+  const [cityId, setCityId] = useState(() => params.get("city") ?? "");
+  const [contractorId, setContractorId] = useState(() => params.get("contractor") ?? "");
+  const [statusId, setStatusId] = useState(() => params.get("status") ?? "");
   const [paymentMethodId, setPaymentMethodId] = useState("");
-  const [closedFilter, setClosedFilter] = useState<"" | "closed" | "open">("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [closedFilter, setClosedFilter] = useState<"" | "closed" | "open">(
+    () => (params.get("closed") as "" | "closed" | "open" | null) ?? ""
+  );
+  // how a job ended, which is not the same question as whether it is closed
+  const [result, setResult] = useState<"" | "success" | "failed">(
+    () => (params.get("result") as "" | "success" | "failed" | null) ?? ""
+  );
+  // the dashboard counts closings by the day they were closed, not opened
+  const [dateField, setDateField] = useState<"opened" | "closed">(
+    () => (params.get("dateField") === "closed" ? "closed" : "opened")
+  );
+  const [dateFrom, setDateFrom] = useState(() => params.get("from") ?? "");
+  const [dateTo, setDateTo] = useState(() => params.get("to") ?? "");
   const [showFilters, setShowFilters] = useState(false);
 
   const [page, setPage] = useState(0);
@@ -43,7 +63,7 @@ export default function JobsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => setPage(0), [search, professionId, jobTypeId, cityId, contractorId, statusId, paymentMethodId, closedFilter, dateFrom, dateTo]);
+  useEffect(() => setPage(0), [search, professionId, jobTypeId, cityId, contractorId, statusId, paymentMethodId, closedFilter, result, dateField, dateFrom, dateTo]);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,8 +79,13 @@ export default function JobsPage() {
       if (paymentMethodId) query = query.eq("payment_method_id", paymentMethodId);
       if (closedFilter === "closed") query = query.eq("is_closed", true);
       if (closedFilter === "open") query = query.eq("is_closed", false);
-      if (dateFrom) query = query.gte("opened_at", new Date(dateFrom).toISOString());
-      if (dateTo) query = query.lte("opened_at", new Date(dateTo + "T23:59:59").toISOString());
+      if (result) {
+        const ids = jobStatuses.filter((st) => (result === "success" ? st.is_success : !st.is_success)).map((st) => st.id);
+        query = query.eq("is_closed", true).in("status_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+      }
+      const dateColumn = dateField === "closed" ? "closed_at" : "opened_at";
+      if (dateFrom) query = query.gte(dateColumn, new Date(dateFrom + "T00:00:00").toISOString());
+      if (dateTo) query = query.lte(dateColumn, new Date(dateTo + "T23:59:59.999").toISOString());
       if (search.trim()) {
         const s = search.trim();
         query = query.or(
@@ -81,17 +106,27 @@ export default function JobsPage() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, search, professionId, jobTypeId, cityId, contractorId, statusId, paymentMethodId, closedFilter, dateFrom, dateTo, page, reloadKey]);
+  }, [supabase, jobStatuses, search, professionId, jobTypeId, cityId, contractorId, statusId, paymentMethodId, closedFilter, result, dateField, dateFrom, dateTo, page, reloadKey]);
 
   useAutoRefresh(() => setReloadKey((k) => k + 1));
 
   async function handleExport() {
     let query = supabase.from("jobs").select(JOB_SELECT).order("created_at", { ascending: false }).limit(10000);
     if (professionId) query = query.eq("profession_id", professionId);
+    if (jobTypeId) query = query.eq("job_type_id", jobTypeId);
     if (cityId) query = query.eq("city_id", cityId);
+    if (contractorId) query = query.eq("contractor_id", contractorId);
     if (statusId) query = query.eq("status_id", statusId);
-    if (dateFrom) query = query.gte("opened_at", new Date(dateFrom).toISOString());
-    if (dateTo) query = query.lte("opened_at", new Date(dateTo + "T23:59:59").toISOString());
+    if (paymentMethodId) query = query.eq("payment_method_id", paymentMethodId);
+    if (closedFilter === "closed") query = query.eq("is_closed", true);
+    if (closedFilter === "open") query = query.eq("is_closed", false);
+    if (result) {
+      const ids = jobStatuses.filter((st) => (result === "success" ? st.is_success : !st.is_success)).map((st) => st.id);
+      query = query.eq("is_closed", true).in("status_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+    }
+    const dateColumn = dateField === "closed" ? "closed_at" : "opened_at";
+    if (dateFrom) query = query.gte(dateColumn, new Date(dateFrom + "T00:00:00").toISOString());
+    if (dateTo) query = query.lte(dateColumn, new Date(dateTo + "T23:59:59.999").toISOString());
     const { data } = await query;
     const rows = ((data as unknown as JobWithRelations[]) ?? []).map((j) => ({
       job_number: j.job_number,
@@ -115,12 +150,58 @@ export default function JobsPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  const anyFilter = !!(
+    search || professionId || jobTypeId || cityId || contractorId || statusId ||
+    paymentMethodId || closedFilter || result || dateFrom || dateTo
+  );
+
+  function clearFilters() {
+    setSearch("");
+    setProfessionId("");
+    setJobTypeId("");
+    setCityId("");
+    setContractorId("");
+    setStatusId("");
+    setPaymentMethodId("");
+    setClosedFilter("");
+    setResult("");
+    setDateField("opened");
+    setDateFrom("");
+    setDateTo("");
+    router.replace("/jobs");
+  }
+
+  // a short line naming what the list is narrowed to, for when the dashboard sent you here
+  const activeLabel = (() => {
+    const parts: string[] = [];
+    if (closedFilter === "open") parts.push("עבודות פתוחות");
+    if (closedFilter === "closed" && !result) parts.push("עבודות סגורות");
+    if (result === "success") parts.push("נסגרו בהצלחה");
+    if (result === "failed") parts.push("לא נסגרו");
+    const profession = professions.find((x) => x.id === professionId);
+    if (profession) parts.push(profession.name);
+    const city = cities.find((x) => x.id === cityId);
+    if (city) parts.push(city.name);
+    const contractor = contractors.find((x) => x.id === contractorId);
+    if (contractor) parts.push(contractor.name);
+    const status = jobStatuses.find((x) => x.id === statusId);
+    if (status) parts.push(status.name);
+    if (dateFrom || dateTo) {
+      const when = dateField === "closed" ? "נסגרו" : "נפתחו";
+      if (dateFrom && dateFrom === dateTo) parts.push(`ש${when} ב-${formatDateHe(dateFrom)}`);
+      else if (dateFrom && dateTo) parts.push(`ש${when} בין ${formatDateHe(dateFrom)} ל-${formatDateHe(dateTo)}`);
+      else if (dateFrom) parts.push(`ש${when} מ-${formatDateHe(dateFrom)}`);
+      else parts.push(`ש${when} עד ${formatDateHe(dateTo)}`);
+    }
+    return parts.join(" · ");
+  })();
+
   return (
     <div className="mx-auto max-w-6xl space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold text-ink-900">עבודות</h1>
-          <p className="text-sm text-ink-500">{total} עבודות במערכת</p>
+          <p className="text-sm text-ink-500">{anyFilter ? `נמצאו ${total} עבודות` : `${total} עבודות במערכת`}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={handleExport}>
@@ -145,7 +226,19 @@ export default function JobsPage() {
             >
               <SlidersHorizontal className="h-4 w-4" /> סינון
             </button>
+            {anyFilter && (
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-1.5 rounded-xl border border-ink-200 px-3.5 text-sm font-semibold text-ink-600"
+              >
+                <X className="h-4 w-4" /> נקה סינון
+              </button>
+            )}
           </div>
+
+          {activeLabel && (
+            <p className="text-sm font-bold text-brand-700">מוצג: {activeLabel}</p>
+          )}
 
           {showFilters && (
             <div className="grid grid-cols-2 gap-2 border-t border-ink-100 pt-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -189,6 +282,15 @@ export default function JobsPage() {
                 <option value="">הכל</option>
                 <option value="open">פתוחות בלבד</option>
                 <option value="closed">סגורות בלבד</option>
+              </select>
+              <select className="input" value={result} onChange={(e) => setResult(e.target.value as any)}>
+                <option value="">כל התוצאות</option>
+                <option value="success">נסגרו בהצלחה</option>
+                <option value="failed">לא נסגרו</option>
+              </select>
+              <select className="input" value={dateField} onChange={(e) => setDateField(e.target.value as any)}>
+                <option value="opened">לפי תאריך פתיחה</option>
+                <option value="closed">לפי תאריך סגירה</option>
               </select>
               <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
               <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
