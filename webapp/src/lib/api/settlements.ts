@@ -76,3 +76,15 @@ export async function settleContractor(
   if (error) throw error;
   return data;
 }
+
+/**
+ * Undoes a settlement: the jobs go back to unsettled and the record is gone.
+ *
+ * Needed because a settled job refuses to change hands, and without this the
+ * refusal has nowhere to send you.
+ */
+export async function unsettle(supabase: SupabaseClient, settlementId: string) {
+  const { data, error } = await supabase.rpc("unsettle", { p_settlement_id: settlementId });
+  if (error) throw error;
+  return (typeof data === "number" ? data : 0) as number;
+}

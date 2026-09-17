@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
@@ -184,9 +185,17 @@ export function EditJobModal({
                 : "border-warning-100 bg-warning-50 text-warning-700"
             }`}
           >
-            {job.settlement_id
-              ? "העבודה כבר נכללה בהתחשבנות מול הקבלן, ולכן אי אפשר להחליף את המבצע. בטלו את ההתחשבנות קודם."
-              : "העבודה סגורה. החלפת המבצע תחשב מחדש את חלוקת הכסף לפי המחיר שכבר נסגר — המחיר עצמו לא ישתנה."}
+            {job.settlement_id ? (
+              <>
+                העבודה כבר נכללה בהתחשבנות מול הקבלן, ולכן אי אפשר להחליף את המבצע.{" "}
+                <Link href="/settlements" className="underline underline-offset-2">
+                  היכנסו להתחשבנות ← היסטוריה, בטלו את ההתחשבנות הזו
+                </Link>
+                , החליפו כאן את הקבלן, ואז סמנו שוב כשולם.
+              </>
+            ) : (
+              "העבודה סגורה. החלפת המבצע תחשב מחדש את חלוקת הכסף לפי המחיר שכבר נסגר — המחיר עצמו לא ישתנה."
+            )}
           </div>
         )}
 

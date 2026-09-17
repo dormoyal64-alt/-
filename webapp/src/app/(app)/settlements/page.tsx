@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Wallet, CheckCircle2, Download, History } from "lucide-react";
+import { Wallet, CheckCircle2, Download, History, Undo2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useToast } from "@/components/ui/Toast";
@@ -12,7 +12,8 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState, PageSpinner } from "@/components/ui/Misc";
 import { formatAgorot } from "@/lib/money";
 import { getPeriodRange, isoRange, customDateRange, formatDateHe, type PeriodKey } from "@/lib/dates";
-import { fetchUnsettledByContractor, settleContractor, type UnsettledSummary } from "@/lib/api/settlements";
+import { fetchUnsettledByContractor, settleContractor, unsettle, type UnsettledSummary } from "@/lib/api/settlements";
+import { errorMessage } from "@/lib/errors";
 import { toCsv, downloadCsv } from "@/lib/csv";
 import type { Settlement } from "@/lib/types";
 
@@ -31,6 +32,22 @@ export default function SettlementsPage() {
   const [loading, setLoading] = useState(true);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [settling, setSettling] = useState(false);
+  const [undoId, setUndoId] = useState<string | null>(null);
+  const [undoing, setUndoing] = useState(false);
+
+  async function handleUnsettle(id: string) {
+    setUndoing(true);
+    try {
+      const released = await unsettle(supabase, id);
+      toast.success(`ההתחשבנות בוטלה. ${released} עבודות חזרו להיות פתוחות להתחשבנות.`);
+      setUndoId(null);
+      await load();
+    } catch (e) {
+      toast.error(errorMessage(e, "שגיאה בביטול ההתחשבנות"));
+    } finally {
+      setUndoing(false);
+    }
+  }
 
   const range = period === "custom" ? customDateRange(customFrom, customTo) : getPeriodRange(period);
   const rangeIso = isoRange(range);
@@ -154,8 +171,10 @@ export default function SettlementsPage() {
       ) : history.length === 0 ? (
         <EmptyState icon={History} title="אין עדיין היסטוריית התחשבנויות" />
       ) : (
-        <Card className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <>
+        <Card className="hidden overflow-hidden lg:block">
+          <div className="w-full overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-ink-100 text-right text-xs font-bold uppercase text-ink-400">
                 <th className="px-4 py-3">קבלן</th>
@@ -164,6 +183,7 @@ export default function SettlementsPage() {
                 <th className="px-4 py-3">מחזור</th>
                 <th className="px-4 py-3">יתרה נטו</th>
                 <th className="px-4 py-3">תאריך סילוק</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -179,12 +199,65 @@ export default function SettlementsPage() {
                     {formatAgorot(Math.abs(s.net_agorot))} {s.net_agorot >= 0 ? "(אני חייב)" : "(הקבלן חייב)"}
                   </td>
                   <td className="px-4 py-3 text-xs text-ink-400">{s.settled_at ? formatDateHe(s.settled_at) : "—"}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => setUndoId(s.id)}
+                      className="flex items-center gap-1.5 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-bold text-ink-600 hover:bg-ink-50"
+                    >
+                      <Undo2 className="h-3.5 w-3.5" /> ביטול
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
+
+        <div className="space-y-2.5 lg:hidden">
+          {history.map((s) => (
+            <Card key={s.id}>
+              <CardBody className="space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-bold text-ink-900">{s.contractor_name}</p>
+                    <p className="text-xs text-ink-500">
+                      {formatDateHe(s.period_start)} - {formatDateHe(s.period_end)} · {s.total_jobs} עבודות
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs text-ink-400">
+                    {s.settled_at ? formatDateHe(s.settled_at) : "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2 border-t border-ink-50 pt-2.5 text-sm">
+                  <span className="text-ink-500">מחזור {formatAgorot(s.total_revenue_agorot)}</span>
+                  <span className={`font-bold ${s.net_agorot >= 0 ? "text-warning-600" : "text-danger-600"}`}>
+                    {formatAgorot(Math.abs(s.net_agorot))} {s.net_agorot >= 0 ? "(אני חייב)" : "(הקבלן חייב)"}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setUndoId(s.id)}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-ink-200 py-2.5 text-sm font-bold text-ink-600"
+                >
+                  <Undo2 className="h-4 w-4" /> ביטול ההתחשבנות
+                </button>
+              </CardBody>
+            </Card>
+          ))}
+        </div>
+        </>
       )}
+
+      <ConfirmDialog
+        open={!!undoId}
+        onClose={() => setUndoId(null)}
+        onConfirm={() => undoId && handleUnsettle(undoId)}
+        title="לבטל את ההתחשבנות?"
+        description="העבודות שנכללו בה יחזרו להיות פתוחות להתחשבנות, ורשומת ההתחשבנות תימחק מההיסטוריה. הכסף על העבודות עצמן לא משתנה. עשו זאת כדי לתקן עבודה שנכללה בטעות — למשל להחליף בה קבלן — ואז לסמן שוב כשולם."
+        confirmLabel="כן, בטל את ההתחשבנות"
+        danger
+        loading={undoing}
+      />
 
       <ConfirmDialog
         open={!!confirmId}
