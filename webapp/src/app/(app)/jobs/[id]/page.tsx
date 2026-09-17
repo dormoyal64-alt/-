@@ -49,7 +49,7 @@ export default function JobDetailPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const toast = useToast();
-  const { jobStatuses, settings } = useRefData();
+  const { jobStatuses, settings, isOwner } = useRefData();
 
   const [job, setJob] = useState<JobWithRelations | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
@@ -61,6 +61,9 @@ export default function JobDetailPage() {
   const [noteText, setNoteText] = useState("");
   const [adShare, setAdShare] = useState<number | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
+  // A closed job is out of the clerk's reach, so once she closes one the page
+  // has nothing left to show her but the receipt she just produced.
+  const [clerkClosed, setClerkClosed] = useState<{ receipt: Receipt | null } | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -142,7 +145,39 @@ export default function JobDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  if (loading || !job) return <PageSpinner />;
+  if (clerkClosed) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-5 pb-8">
+        <button onClick={() => router.push("/jobs")} className="flex items-center gap-1.5 text-sm font-semibold text-ink-500">
+          <ArrowRight className="h-4 w-4" /> חזרה לרשימת עבודות
+        </button>
+        <Card className="border-2 border-success-100 bg-success-50/40">
+          <CardBody className="flex items-center gap-2.5">
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-success-600" />
+            <p className="text-sm font-bold text-ink-900">העבודה נסגרה ונשמרה.</p>
+          </CardBody>
+        </Card>
+        {clerkClosed.receipt && <ReceiptCard receipt={clerkClosed.receipt} />}
+      </div>
+    );
+  }
+
+  if (loading) return <PageSpinner />;
+
+  if (!job) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-5 pb-8">
+        <button onClick={() => router.push("/jobs")} className="flex items-center gap-1.5 text-sm font-semibold text-ink-500">
+          <ArrowRight className="h-4 w-4" /> חזרה לרשימת עבודות
+        </button>
+        <Card>
+          <CardBody className="py-8 text-center text-sm font-semibold text-ink-500">
+            העבודה הזו אינה זמינה.
+          </CardBody>
+        </Card>
+      </div>
+    );
+  }
 
   async function handleStatusSelect(statusId: string) {
     setBusy(true);
@@ -166,15 +201,25 @@ export default function JobDetailPage() {
 
       // The job is closed either way; a receipt that fails to issue must not
       // read as the closing having failed.
+      let issued: Receipt | null = null;
       if (input.issueReceipt) {
         try {
-          await issueReceipt(supabase, job!.id);
+          issued = await issueReceipt(supabase, job!.id);
+          setReceipt(issued);
           toast.success("העבודה נסגרה והקבלה הופקה");
         } catch {
           toast.error("העבודה נסגרה, אבל הפקת הקבלה נכשלה. אפשר להפיק אותה מדף העבודה.");
         }
       } else {
-        toast.success("העבודה נסגרה ועודכנה ההתחשבנות");
+        toast.success(isOwner ? "העבודה נסגרה ועודכנה ההתחשבנות" : "העבודה נסגרה");
+      }
+
+      if (!isOwner) {
+        // Reloading would come back empty, so keep her on the receipt if there
+        // is one and send her back to the list if there is not.
+        if (issued) setClerkClosed({ receipt: issued });
+        else router.push("/jobs");
+        return;
       }
       await load();
     } catch {

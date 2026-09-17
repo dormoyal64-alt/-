@@ -174,6 +174,7 @@ export interface Job {
   payment_received_by: PaymentReceivedBy | null;
   closing_notes: string | null;
   closed_at: string | null;
+  closed_by: string | null;
   contractor_share_agorot: number | null;
   business_share_agorot: number | null;
   settlement_id: string | null;

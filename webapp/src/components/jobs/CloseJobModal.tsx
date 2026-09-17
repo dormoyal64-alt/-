@@ -34,7 +34,7 @@ export function CloseJobModal({
   }) => Promise<void>;
   loading?: boolean;
 }) {
-  const { paymentMethods, settings } = useRefData();
+  const { paymentMethods, settings, isOwner } = useRefData();
   const [closedSuccessfully, setClosedSuccessfully] = useState(true);
   const [finalPrice, setFinalPrice] = useState(
     job.quoted_price_agorot ? String(job.quoted_price_agorot / 100) : ""
@@ -184,6 +184,7 @@ export function CloseJobModal({
                   ))}
               </select>
             </div>
+            {isOwner && (
             <div>
               <Label required>חלוקה בינך לבין הקבלן</Label>
               <div className="rounded-2xl border border-ink-200 p-3.5">
@@ -234,8 +235,9 @@ export function CloseJobModal({
                 )}
               </div>
             </div>
+            )}
 
-            {hasCompany && (
+            {isOwner && hasCompany && (
               <div>
                 <Label required>העבודה הגיעה מ{job.referral_company?.name ?? "חברה"}</Label>
                 <div className="rounded-2xl border border-ink-200 p-3.5">
@@ -282,7 +284,7 @@ export function CloseJobModal({
               </div>
             )}
 
-            {finalPriceAgorot > 0 && (
+            {isOwner && finalPriceAgorot > 0 && (
               <div className="rounded-2xl bg-ink-50 p-3.5 text-sm">
                 <p className="mb-1.5 text-xs font-bold text-ink-400">איך מתחלק הכסף</p>
                 <div className="flex justify-between py-0.5">
@@ -347,7 +349,7 @@ export function CloseJobModal({
               </div>
             </div>
 
-            {finalPriceAgorot > 0 && (
+            {isOwner && finalPriceAgorot > 0 && (
               <div className="space-y-1.5 rounded-2xl bg-ink-50 p-4 text-sm">
                 <Row label={`חלק הקבלן (${effectivePct}%)`} value={formatAgorot(preview.contractorShareAgorot)} />
                 <Row label="החלק שלי" value={formatAgorot(preview.businessShareAgorot)} />
@@ -386,9 +388,11 @@ export function CloseJobModal({
                 {withReceipt ? "העבודה נסגרה עם קבלה" : "העבודה נסגרה בלי קבלה"}
               </span>
               <span className="block text-xs text-ink-500">
-                {withReceipt
-                  ? `יירשם מס של ${formatAgorot(taxAgorot)} (${taxRate}%${includesTax ? ", כלול במחיר" : ", מעל המחיר"}) והוא ירד מהרווח`
-                  : "לא יירשם מס על העבודה הזו"}
+                {!withReceipt
+                  ? "לא יירשם מס על העבודה הזו"
+                  : isOwner
+                    ? `יירשם מס של ${formatAgorot(taxAgorot)} (${taxRate}%${includesTax ? ", כלול במחיר" : ", מעל המחיר"}) והוא ירד מהרווח`
+                    : "העבודה תירשם כמוצהרת"}
               </span>
             </span>
           </button>

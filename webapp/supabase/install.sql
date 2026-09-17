@@ -1,18 +1,3 @@
--- ============================================================================
--- JobCRM — התקנה בהדבקה אחת
---
--- מה הקובץ הזה עושה:
---   1. בונה את כל מסד הנתונים (טבלאות, חישובים, אבטחה)
---   2. ממלא את מה שהמערכת חייבת כדי לעבוד: סטטוסים, אמצעי תשלום, מקורות ליד,
---      תחומים וסוגי עבודה עם מחירי בסיס, והגדרות דלק
---   3. טוען את כל 670 היישובים בישראל, מחולקים לצפון / מרכז / דרום
---
--- מה הוא לא עושה: לא מכניס עבודות, קבלנים או חברות לדוגמה. המערכת מתחילה נקייה
--- ומוכנה לנתונים האמיתיים שלכם.
---
--- איך מריצים: Supabase → SQL Editor → New query → מדביקים הכל → Run
--- בטוח להרצה חוזרת רק על מסד נתונים חדש. אל תריצו פעמיים על מסד עם נתונים.
--- ============================================================================
 
 -- ============================================================================
 -- JobCRM - Full database schema
@@ -349,6 +334,8 @@ create table jobs (
   payment_received_by text check (payment_received_by in ('contractor', 'business')),
   closing_notes text,
   closed_at timestamptz,
+  -- who closed it; also decides whose receipt the clerk may print
+  closed_by uuid references auth.users(id),
   contractor_share_agorot bigint,
   business_share_agorot bigint,
 
@@ -610,9 +597,10 @@ create or replace function close_job(
   p_referral_pct numeric default null,
   p_with_receipt boolean default false
 ) returns jobs
-language plpgsql as $$
+language plpgsql security definer set search_path = public as $$
 declare
   v_job jobs;
+  v_owner boolean := is_owner();
   v_commission_pct numeric(5,2);
   v_referral_pct numeric(5,2);
   v_contractor_share bigint := 0;
@@ -624,11 +612,16 @@ declare
   v_status_id uuid;
   v_status_name text;
 begin
-  perform require_owner();
-
   select * into v_job from jobs where id = p_job_id;
   if not found then
     raise exception 'עבודה לא נמצאה';
+  end if;
+
+  -- The clerk never sees a closed job, so she has no business reopening one
+  -- through the back door and changing what it was closed for.
+  if not v_owner and v_job.is_closed then
+    raise exception 'העבודה כבר נסגרה — רק בעל העסק יכול לשנות אותה'
+      using errcode = '42501';
   end if;
 
   v_price := coalesce(p_final_price_agorot, 0);
@@ -655,6 +648,15 @@ begin
     v_referral_pct := coalesce(v_job.referral_pct, 0);
   end if;
 
+  -- The clerk is not shown the percentages, so she cannot have chosen them.
+  -- Whatever the job already carries is what applies.
+  if not v_owner then
+    v_commission_pct := case when v_job.performed_by = 'self' then 0
+                             else coalesce(v_job.commission_pct, 0) end;
+    v_referral_pct := case when v_job.referral_company_id is null then 0
+                           else coalesce(v_job.referral_pct, 0) end;
+  end if;
+
   if v_commission_pct + v_referral_pct > 100 then
     raise exception 'אחוז הקבלן (%) ואחוז החברה (%) יחד עולים על 100%%',
       v_commission_pct, v_referral_pct;
@@ -667,7 +669,6 @@ begin
     v_referral_fee := round((v_price::numeric * v_referral_pct) / 100.0)::bigint;
     v_contractor_share := round((v_price::numeric * v_commission_pct) / 100.0)::bigint;
     v_business_share := v_price - v_contractor_share - v_referral_fee;
-    -- only a declared job carries tax
     v_tax := case when p_with_receipt then tax_on(v_price) else 0 end;
     v_status_name := 'נסגרה בהצלחה';
   else
@@ -701,6 +702,7 @@ begin
     payment_received_by = p_payment_received_by,
     closing_notes = p_closing_notes,
     closed_at = p_closed_at,
+    closed_by = coalesce(auth.uid(), closed_by),
     contractor_share_agorot = v_contractor_share,
     referral_fee_agorot = v_referral_fee,
     business_share_agorot = v_business_share,
@@ -710,6 +712,18 @@ begin
     status_id = coalesce(v_status_id, status_id)
   where id = p_job_id
   returning * into v_job;
+
+  -- The row itself keeps every figure. The clerk simply is not handed them.
+  if not v_owner then
+    v_job.contractor_share_agorot := null;
+    v_job.referral_fee_agorot := null;
+    v_job.business_share_agorot := null;
+    v_job.fuel_cost_agorot := null;
+    v_job.tax_agorot := null;
+    v_job.commission_pct := null;
+    v_job.referral_pct := null;
+    v_job.helper_pay_agorot := null;
+  end if;
 
   return v_job;
 end;
@@ -1129,13 +1143,6 @@ create table if not exists receipts (
 create index if not exists idx_receipts_job on receipts(job_id);
 create index if not exists idx_receipts_issued on receipts(issued_at);
 
-alter table receipts enable row level security;
-drop policy if exists owner_only on receipts;
-drop policy if exists authenticated_all on receipts;
--- a clerk can issue and re-send a receipt: it tells the customer what they
--- already paid, which is not the same as showing her what the business earns
-create policy authenticated_all on receipts for all to authenticated using (true) with check (true);
-
 grant select, insert, update, delete on receipts to authenticated;
 grant usage, select on sequence receipt_number_seq to authenticated;
 
@@ -1144,23 +1151,27 @@ grant usage, select on sequence receipt_number_seq to authenticated;
 -- ---------------------------------------------------------------------------
 create or replace function issue_receipt(p_job_id uuid)
 returns receipts
-language plpgsql as $$
+language plpgsql security definer set search_path = public as $$
 declare
   v_job jobs;
   v_settings app_settings;
   v_receipt receipts;
   v_method text;
 begin
-  select * into v_receipt from receipts where job_id = p_job_id order by issued_at limit 1;
-  if found then
-    -- a job has one receipt; asking again returns it rather than issuing a second
-    return v_receipt;
-  end if;
-
   select * into v_job from jobs where id = p_job_id;
   if not found then
     raise exception 'עבודה לא נמצאה';
   end if;
+  if not is_owner() and v_job.closed_by is distinct from auth.uid() then
+    raise exception 'אפשר להפיק קבלה רק לעבודה שסגרת'
+      using errcode = '42501';
+  end if;
+
+  select * into v_receipt from receipts where job_id = p_job_id order by issued_at limit 1;
+  if found then
+    return v_receipt;
+  end if;
+
   if not v_job.is_closed then
     raise exception 'אפשר להפיק קבלה רק לעבודה סגורה';
   end if;
@@ -1503,6 +1514,12 @@ end $$;
 drop policy if exists authenticated_all on contractors;
 drop policy if exists owner_only on contractors;
 create policy authenticated_all on contractors for all to authenticated using (true) with check (true);
+
+-- Reading the receipts table is the owner's. The clerk gets the one receipt
+-- she just issued handed straight back to her by issue_receipt().
+drop policy if exists authenticated_all on receipts;
+drop policy if exists owner_only on receipts;
+create policy owner_only on receipts for all to authenticated using (is_owner()) with check (is_owner());
 
 -- Money with nothing else in it. A clerk cannot see these rows exist, which is
 -- also what empties out every total built on top of them.
