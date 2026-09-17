@@ -301,6 +301,7 @@ export default function JobDetailPage() {
   }
 
   const waCustomerLink = buildWhatsappLink(job.customer_phone);
+  const callCustomerLink = buildCallLink(job.customer_phone);
   const technicianLabel = job.profession?.technician_label?.trim() || "הטכנאי";
   const onTheWayLink = buildWhatsappLink(
     job.customer_phone,
@@ -334,6 +335,40 @@ export default function JobDetailPage() {
           <Pencil className="h-4 w-4" /> עריכה
         </button>
       </div>
+
+      <Card>
+        <CardBody className="space-y-3">
+          <div>
+            <p className="text-xs font-bold text-ink-400">לקוח</p>
+            <p className="text-lg font-extrabold leading-tight text-ink-900">{job.customer_name}</p>
+          </div>
+          {callCustomerLink ? (
+            <div className="flex items-center gap-2">
+              <a
+                href={callCustomerLink}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-lg font-extrabold text-white transition hover:bg-brand-700 active:scale-[0.99]"
+                aria-label={`התקשר ל${job.customer_name}`}
+              >
+                <Phone className="h-5 w-5 shrink-0" />
+                <span dir="ltr">{job.customer_phone}</span>
+              </a>
+              {waCustomerLink && (
+                <a
+                  href={waCustomerLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl bg-success-50 text-success-600 transition hover:bg-success-100"
+                  aria-label={`WhatsApp ל${job.customer_name}`}
+                >
+                  <MessageCircle className="h-5 w-5" />
+                </a>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-ink-400">לא נרשם טלפון ללקוח הזה</p>
+          )}
+        </CardBody>
+      </Card>
 
       {job.is_closed && (
         <Card className="border-2 border-success-100 bg-success-50/40">
@@ -496,7 +531,7 @@ export default function JobDetailPage() {
         </CardHeader>
         <CardBody className="space-y-2 text-sm">
           <InfoRow label="לקוח" value={job.customer_name} />
-          <InfoRow label="טלפון" value={job.customer_phone} dir="ltr" />
+          <InfoRow label="טלפון" value={job.customer_phone} dir="ltr" href={callCustomerLink} />
           <InfoRow label="כתובת" value={job.address_full ?? "—"} />
           <InfoRow label="קבלן מבצע" value={job.contractor?.name ?? "לא שויך"} />
           <InfoRow label="אחוז קבלן" value={job.commission_pct != null ? formatPercent(job.commission_pct) : "—"} />
@@ -631,13 +666,30 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function InfoRow({ label, value, dir }: { label: string; value: string; dir?: "ltr" | "rtl" }) {
+function InfoRow({
+  label,
+  value,
+  dir,
+  href,
+}: {
+  label: string;
+  value: string;
+  dir?: "ltr" | "rtl";
+  /** makes the value itself the control — a phone number dials */
+  href?: string | null;
+}) {
   return (
     <div className="flex items-start justify-between gap-3 border-b border-ink-50 py-1.5 last:border-0">
       <span className="shrink-0 text-ink-400">{label}</span>
-      <span className="text-left font-semibold text-ink-800" dir={dir}>
-        {value}
-      </span>
+      {href ? (
+        <a href={href} className="text-left font-bold text-brand-700 underline underline-offset-2" dir={dir}>
+          {value}
+        </a>
+      ) : (
+        <span className="text-left font-semibold text-ink-800" dir={dir}>
+          {value}
+        </span>
+      )}
     </div>
   );
 }

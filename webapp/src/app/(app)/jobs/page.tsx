@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/ui/Badge";
 import { EmptyState, PageSpinner } from "@/components/ui/Misc";
 import { formatAgorot } from "@/lib/money";
 import { formatDateHe, formatDateTimeHe } from "@/lib/dates";
+import { buildCallLink } from "@/lib/whatsapp";
 import { toCsv, downloadCsv } from "@/lib/csv";
 import type { JobWithRelations } from "@/lib/types";
 
@@ -330,7 +331,18 @@ function JobsList() {
                     <td className="px-4 py-3 font-bold text-brand-700">{job.job_number}</td>
                     <td className="px-4 py-3">
                       <p className="font-semibold text-ink-900">{job.customer_name}</p>
-                      <p dir="ltr" className="text-left text-xs text-ink-400">{job.customer_phone}</p>
+                      {job.customer_phone ? (
+                        <a
+                          href={buildCallLink(job.customer_phone) ?? undefined}
+                          dir="ltr"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-left text-xs font-semibold text-brand-700 hover:underline"
+                        >
+                          {job.customer_phone}
+                        </a>
+                      ) : (
+                        <p className="text-left text-xs text-ink-400">—</p>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-ink-600">
                       {job.profession?.name} <br /> <span className="text-xs text-ink-400">{job.job_type?.name}</span>
