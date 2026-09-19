@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon, Percent, AlertTriangle, Users, FileCheck } from "lucide-react";
+import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon, Percent, AlertTriangle, Users, FileCheck, Zap, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useNotifications } from "@/lib/notifications";
+import { useWhatsappSender } from "@/hooks/useWhatsappSender";
 import { useToast } from "@/components/ui/Toast";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -131,6 +132,7 @@ export default function SettingsPage() {
   // the messages work on a database that has not been updated yet; only
   // changing them from here needs the columns
   const canEditOrder = supportsOrderSettings(settings);
+  const whatsapp = useWhatsappSender();
   const etaWindow = settings?.eta_window_minutes ?? 60;
   const etaLabel = etaWindow ? `${14 + Math.floor(etaWindow / 60)}:${String(etaWindow % 60).padStart(2, "0")}` : "";
 
@@ -561,6 +563,36 @@ export default function SettingsPage() {
               אם לא כתבתם <b dir="ltr">{"{confirm}"}</b>, הקישור יתווסף אוטומטית בסוף.
             </p>
           </div>
+          )}
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-ink-400" /> שליחה אוטומטית ב-WhatsApp
+          </CardTitle>
+        </CardHeader>
+        <CardBody className="space-y-2">
+          {whatsapp.configured ? (
+            <>
+              <p className="flex items-center gap-2 text-sm font-bold text-success-700">
+                <CheckCircle2 className="h-4 w-4" /> מחובר — פרטי ההזמנה נשלחים ללקוח לבד
+              </p>
+              <p className="text-sm text-ink-500">
+                כל עבודה חדשה שתישמר תשלח ללקוח את פרטי ההזמנה מיד, בלי לפתוח וואטסאפ. בכל עבודה
+                יש גם כפתור ״שליחה אוטומטית״ לשליחה חוזרת.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-bold text-ink-700">לא מחובר — ההודעה נשלחת בלחיצה שלכם</p>
+              <p className="text-sm text-ink-500">
+                הכפתור בעבודה פותח וואטסאפ עם ההודעה מוכנה, ואתם לוחצים שלח. כדי שהמערכת תשלח
+                לבד צריך לחבר חשבון WhatsApp Business API — הקישור נשמר כמשתנה סביבה ב-Vercel
+                ולא נחשף בדפדפן.
+              </p>
+            </>
           )}
         </CardBody>
       </Card>

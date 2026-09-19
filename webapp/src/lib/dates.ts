@@ -61,19 +61,34 @@ export function formatDateTimeHe(iso: string | Date): string {
   }).format(d);
 }
 
+/** Where the work happens. Server code has no timezone of its own to fall back on. */
+export const BUSINESS_TIME_ZONE = "Asia/Jerusalem";
+
 /**
  * An appointment as a person would say it: "היום ב-18:00", "מחר ב-09:00",
  * and the full date once it is further out than tomorrow.
+ *
+ * A timezone may be named, which is what server code has to do: a route
+ * rendering a customer's arrival hour runs in UTC, and "09:00" would leave
+ * their message promising 06:00. In the browser it is left out, so the hour
+ * reads in the viewer's own zone.
  */
-export function formatAppointmentHe(iso: string | Date): string {
+export function formatAppointmentHe(iso: string | Date, timeZone?: string): string {
   const d = typeof iso === "string" ? new Date(iso) : iso;
-  const time = new Intl.DateTimeFormat("he-IL", { hour: "2-digit", minute: "2-digit" }).format(d);
-  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-  const days = Math.round((startOfDay(d) - startOfDay(new Date())) / 86_400_000);
+  const time = new Intl.DateTimeFormat("he-IL", { hour: "2-digit", minute: "2-digit", timeZone }).format(d);
+  // today and tomorrow have to be counted in the same zone the hour is read in
+  const dayKey = (x: Date) =>
+    new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone }).format(x);
+  const days = Math.round((Date.parse(dayKey(d)) - Date.parse(dayKey(new Date()))) / 86_400_000);
   if (days === 0) return `היום ב-${time}`;
   if (days === 1) return `מחר ב-${time}`;
   if (days === -1) return `אתמול ב-${time}`;
-  const date = new Intl.DateTimeFormat("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" }).format(d);
+  const date = new Intl.DateTimeFormat("he-IL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone,
+  }).format(d);
   return `${date} ב-${time}`;
 }
 
@@ -83,13 +98,18 @@ export function formatAppointmentHe(iso: string | Date): string {
  * A customer told "14:00" reads it as a promise; a window is what the trade
  * actually commits to. A window of 0 falls back to the plain hour.
  */
-export function formatAppointmentWindowHe(iso: string | Date, windowMinutes: number): string {
-  if (!windowMinutes || windowMinutes <= 0) return formatAppointmentHe(iso);
+export function formatAppointmentWindowHe(
+  iso: string | Date,
+  windowMinutes: number,
+  timeZone?: string
+): string {
+  if (!windowMinutes || windowMinutes <= 0) return formatAppointmentHe(iso, timeZone);
   const from = typeof iso === "string" ? new Date(iso) : iso;
   const to = new Date(from.getTime() + windowMinutes * 60_000);
-  const time = (d: Date) => new Intl.DateTimeFormat("he-IL", { hour: "2-digit", minute: "2-digit" }).format(d);
+  const time = (d: Date) =>
+    new Intl.DateTimeFormat("he-IL", { hour: "2-digit", minute: "2-digit", timeZone }).format(d);
   // "היום ב-14:00" -> "היום", so the day is said once and the hours follow it
-  const day = formatAppointmentHe(from).replace(/ ב-\d{1,2}:\d{2}$/, "");
+  const day = formatAppointmentHe(from, timeZone).replace(/ ב-\d{1,2}:\d{2}$/, "");
   return `${day} בין ${time(from)} ל-${time(to)}`;
 }
 

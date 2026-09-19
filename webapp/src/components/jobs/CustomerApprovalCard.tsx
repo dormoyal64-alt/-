@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, ChevronDown, MessageCircle, Send, Undo2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, Loader2, MessageCircle, Send, Undo2, Zap } from "lucide-react";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import {
   buildCancellationNotice,
@@ -16,6 +16,7 @@ import { formatAgorot } from "@/lib/money";
 import { formatDateTimeHe } from "@/lib/dates";
 import type { AppSettings, JobWithRelations } from "@/lib/types";
 import type { ConfirmationStep } from "@/lib/api/jobs";
+import { useWhatsappSender } from "@/hooks/useWhatsappSender";
 
 /**
  * Getting the call-out fee agreed, in the three steps it actually takes.
@@ -40,6 +41,9 @@ export function CustomerApprovalCard({
   // outlive the page.
   const remembers = "customer_confirmed_at" in job;
   const [confirmedHere, setConfirmedHere] = useState(false);
+  const whatsapp = useWhatsappSender();
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const technician = job.profession?.technician_label?.trim() || "הטכנאי";
   const confirmed = remembers ? !!job.customer_confirmed_at : confirmedHere;
@@ -54,6 +58,15 @@ export function CustomerApprovalCard({
   const dispatchLink = buildWhatsappLink(job.customer_phone, dispatchMessage);
 
   const fee = formatAgorot(settings?.visit_fee_agorot ?? 49900);
+
+  async function sendNow() {
+    setSending(true);
+    setSendError(null);
+    const result = await whatsapp.send(job.id);
+    setSending(false);
+    if (!result.ok) return setSendError(result.error ?? "השליחה נכשלה");
+    if (remembers) onStamp("confirmation_sent_at", new Date().toISOString());
+  }
 
   function confirm(at: string | null) {
     setConfirmedHere(!!at);
@@ -79,6 +92,11 @@ export function CustomerApprovalCard({
           onPreview={() => setPreview(preview === "order" ? null : "order")}
           previewOpen={preview === "order"}
           message={orderMessage}
+          auto={
+            whatsapp.configured
+              ? { sending, onClick: sendNow, error: sendError }
+              : undefined
+          }
         />
 
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-ink-100 px-3.5 py-3">
@@ -161,6 +179,7 @@ function Step({
   onPreview,
   previewOpen,
   message,
+  auto,
 }: {
   index: number;
   title: string;
@@ -172,6 +191,8 @@ function Step({
   onPreview: () => void;
   previewOpen: boolean;
   message: string;
+  /** present when WhatsApp is connected: send without opening the app */
+  auto?: { sending: boolean; onClick: () => void | Promise<void>; error: string | null };
 }) {
   return (
     <div className="rounded-xl border border-ink-100">
@@ -188,7 +209,28 @@ function Step({
             </p>
           )}
         </div>
-        {href ? (
+        {auto && href ? (
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <button
+              type="button"
+              onClick={auto.onClick}
+              disabled={auto.sending}
+              className="btn-success flex items-center gap-1.5 px-3.5 py-2 text-sm"
+            >
+              {auto.sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+              {doneAt ? "שליחה שוב" : "שליחה אוטומטית"}
+            </button>
+            <a
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              onClick={onSend}
+              className="text-xs font-bold text-ink-400 hover:text-ink-700"
+            >
+              או לפתוח ב-WhatsApp
+            </a>
+          </div>
+        ) : href ? (
           <a
             href={href}
             target="_blank"
@@ -203,6 +245,11 @@ function Step({
           <span className="shrink-0 text-xs font-semibold text-ink-400">אין טלפון ללקוח</span>
         )}
       </div>
+      {auto?.error && (
+        <p className="border-t border-ink-100 bg-warning-50 px-3.5 py-2 text-xs font-bold text-warning-700">
+          {auto.error}
+        </p>
+      )}
       <button
         type="button"
         onClick={onPreview}

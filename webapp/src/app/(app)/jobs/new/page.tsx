@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, MessageCircle, ArrowLeft, Briefcase, Eye, EyeOff, Send, BellOff } from "lucide-react";
+import { CheckCircle2, MessageCircle, ArrowLeft, Briefcase, Eye, EyeOff, Send, BellOff, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useToast } from "@/components/ui/Toast";
@@ -15,6 +15,7 @@ import { HelperSelect } from "@/components/jobs/HelperSelect";
 import { CityPicker } from "@/components/ui/CityPicker";
 import { useContractorMatch } from "@/hooks/useContractorMatch";
 import { createJob, stampConfirmationStep } from "@/lib/api/jobs";
+import { useWhatsappSender } from "@/hooks/useWhatsappSender";
 import { agorotToShekels, formatAgorot, shekelsToAgorot } from "@/lib/money";
 import { buildNewJobWhatsappMessage, buildOrderConfirmationMessage, buildWhatsappLink, sendsCustomerPhone, siteOrigin } from "@/lib/whatsapp";
 import type { AddressResult } from "@/hooks/useAddressAutocomplete";
@@ -93,6 +94,10 @@ export default function NewJobPage() {
 
   const [saving, setSaving] = useState(false);
   const [createdJob, setCreatedJob] = useState<JobWithRelations | null>(null);
+  const whatsapp = useWhatsappSender();
+  const [autoSend, setAutoSend] = useState<{ state: "idle" | "sending" | "sent" | "failed"; error?: string }>({
+    state: "idle",
+  });
 
   const activeProfessions = professions.filter((p) => p.is_active);
   const relevantJobTypes = jobTypes.filter((jt) => jt.profession_id === professionId && jt.is_active);
@@ -275,6 +280,12 @@ export default function NewJobPage() {
       });
       setCreatedJob(job);
       toast.success(`העבודה ${job.job_number} נשמרה בהצלחה`);
+      // the customer hears from us before the form has finished closing
+      if (whatsapp.configured) {
+        setAutoSend({ state: "sending" });
+        const result = await whatsapp.send(job.id);
+        setAutoSend(result.ok ? { state: "sent" } : { state: "failed", error: result.error });
+      }
     } catch (e) {
       toast.error("שגיאה בשמירת העבודה. נסו שוב.");
     } finally {
@@ -309,6 +320,7 @@ export default function NewJobPage() {
     setOpenedAt(nowForInput());
     setScheduledAt("");
     setCreatedJob(null);
+    setAutoSend({ state: "idle" });
   }
 
   if (createdJob) {
@@ -338,7 +350,30 @@ export default function NewJobPage() {
           </p>
         </div>
 
-        {orderLink && (
+        {autoSend.state === "sending" && (
+          <div className="flex items-center justify-center gap-2 rounded-2xl border border-ink-100 bg-white py-4 text-sm font-bold text-ink-500">
+            <Loader2 className="h-4 w-4 animate-spin" /> שולח את פרטי ההזמנה ללקוח…
+          </div>
+        )}
+
+        {autoSend.state === "sent" && (
+          <div className="flex flex-col items-center gap-0.5 rounded-2xl border border-success-100 bg-success-50 py-4 text-center">
+            <p className="flex items-center gap-2 font-extrabold text-success-700">
+              <CheckCircle2 className="h-5 w-5" /> פרטי ההזמנה נשלחו ללקוח ב-WhatsApp
+            </p>
+            <p className="text-xs font-semibold text-success-600/80">
+              כשהוא יאשר תגיע לכם התראה, והוא יראה מיד שיצאתם אליו
+            </p>
+          </div>
+        )}
+
+        {autoSend.state === "failed" && (
+          <p className="rounded-xl bg-warning-50 px-3.5 py-3 text-sm font-bold text-warning-700">
+            {autoSend.error} — אפשר לשלוח ידנית בכפתור שלמטה.
+          </p>
+        )}
+
+        {orderLink && autoSend.state !== "sent" && (
           <a
             href={orderLink}
             target="_blank"
