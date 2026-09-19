@@ -16,7 +16,7 @@ import { CityPicker } from "@/components/ui/CityPicker";
 import { useContractorMatch } from "@/hooks/useContractorMatch";
 import { createJob, stampConfirmationStep } from "@/lib/api/jobs";
 import { agorotToShekels, formatAgorot, shekelsToAgorot } from "@/lib/money";
-import { buildNewJobWhatsappMessage, buildOrderConfirmationMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
+import { buildNewJobWhatsappMessage, buildOrderConfirmationMessage, buildWhatsappLink, sendsCustomerPhone, siteOrigin } from "@/lib/whatsapp";
 import type { AddressResult } from "@/hooks/useAddressAutocomplete";
 import type { Helper, JobWithRelations, PerformedBy } from "@/lib/types";
 
@@ -324,7 +324,7 @@ export default function NewJobPage() {
     // customer is still on the line and the details are fresh
     const orderLink = buildWhatsappLink(
       createdJob.customer_phone,
-      buildOrderConfirmationMessage(createdJob, settings)
+      buildOrderConfirmationMessage(createdJob, settings, siteOrigin())
     );
     return (
       <div className="mx-auto max-w-lg space-y-5">

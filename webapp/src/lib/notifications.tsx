@@ -11,6 +11,7 @@ const DEFAULT_APPOINTMENT_LEAD_MINUTES = 15;
 // past that the stale-job reminder is the one that should speak
 const APPOINTMENT_GRACE_MS = 60 * 60 * 1000;
 const POLL_INTERVAL_MS = 60_000;
+const ANNOUNCED_KEY = "jobcrm:announced-confirmations";
 
 function minutesLabel(mins: number): string {
   if (mins < 60) return `${mins} דקות`;
@@ -156,6 +157,43 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     refresh();
   }, [supabase, refresh]);
 
+  // The customer's own confirmation arrives from the database, not from here:
+  // the page they tapped wrote the notice. All this does is make sure it
+  // reaches the phone rather than waiting quietly in the bell. The ids already
+  // announced are kept per browser, so opening a second tab does not repeat
+  // every confirmation of the day.
+  const announceConfirmations = useCallback(async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+
+    const { data } = await supabase
+      .from("notifications")
+      .select("id, message, created_at")
+      .eq("type", "customer_confirmed")
+      .eq("is_read", false)
+      .gte("created_at", new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString());
+    if (!data || data.length === 0) return;
+
+    let seen: string[] = [];
+    try {
+      seen = JSON.parse(window.localStorage.getItem(ANNOUNCED_KEY) ?? "[]");
+    } catch {
+      seen = [];
+    }
+    const fresh = data.filter((n) => !seen.includes(n.id));
+    if (fresh.length === 0) return;
+
+    fresh.forEach((n) => {
+      new Notification("הלקוח אישר את ההזמנה ✅", { body: n.message, tag: `confirmed-${n.id}` });
+    });
+    try {
+      // only the recent ids are worth keeping; the list is a dedupe guard, not a log
+      window.localStorage.setItem(ANNOUNCED_KEY, JSON.stringify([...seen, ...fresh.map((n) => n.id)].slice(-50)));
+    } catch {
+      // a browser that refuses storage just repeats a notification; nothing breaks
+    }
+  }, [supabase]);
+
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
       setPermission(Notification.permission);
@@ -165,9 +203,11 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     refresh();
     checkStaleJobs();
     checkUpcomingAppointments();
+    announceConfirmations();
     const interval = setInterval(() => {
       checkStaleJobs();
       checkUpcomingAppointments();
+      announceConfirmations();
     }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps

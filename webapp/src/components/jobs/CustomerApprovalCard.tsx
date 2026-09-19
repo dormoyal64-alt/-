@@ -9,6 +9,7 @@ import {
   buildOrderApprovedMessage,
   buildOrderConfirmationMessage,
   buildWhatsappLink,
+  siteOrigin,
   supportsOrderSettings,
 } from "@/lib/whatsapp";
 import { formatAgorot } from "@/lib/money";
@@ -43,7 +44,7 @@ export function CustomerApprovalCard({
   const technician = job.profession?.technician_label?.trim() || "הטכנאי";
   const confirmed = remembers ? !!job.customer_confirmed_at : confirmedHere;
 
-  const orderMessage = buildOrderConfirmationMessage(job, settings);
+  const orderMessage = buildOrderConfirmationMessage(job, settings, siteOrigin());
   const orderLink = buildWhatsappLink(job.customer_phone, orderMessage);
   // once they have agreed the message names the fee they agreed to; until then
   // it is the plain "on the way", which promises nothing about money
@@ -123,7 +124,14 @@ export function CustomerApprovalCard({
               : "הלקוח עדיין לא אישר — תישלח ההודעה הקצרה, בלי אישור דמי הביקור"
           }
           doneAt={remembers ? job.dispatch_sent_at : null}
-          doneLabel="נשלח"
+          doneLabel={
+            // the confirmation page shows this message as the customer taps, so
+            // the two stamps land together — saying "sent" there would have the
+            // business looking for a WhatsApp message nobody sent
+            job.dispatch_sent_at && job.dispatch_sent_at === job.customer_confirmed_at
+              ? "הוצג ללקוח במסך האישור"
+              : "נשלח"
+          }
           href={dispatchLink}
           onSend={() => { if (remembers) onStamp("dispatch_sent_at", new Date().toISOString()); }}
           onPreview={() => setPreview(preview === "dispatch" ? null : "dispatch")}

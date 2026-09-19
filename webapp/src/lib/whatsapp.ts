@@ -204,6 +204,29 @@ export function buildConfirmReplyLink(settings: Partial<ConfirmationSettings> | 
   return buildWhatsappLink(contactPhone(settings), approvalSentence(settings));
 }
 
+/**
+ * Where the customer taps to agree.
+ *
+ * Their own page when the job carries a token and we know our address — one
+ * tap, recorded by us, and they are shown straight away that the tradesperson
+ * is coming. Otherwise the WhatsApp reply, which asks them to press send and
+ * asks us to read it.
+ */
+export function buildConfirmLink(
+  job: Pick<JobWithRelations, "confirm_token">,
+  settings: Partial<ConfirmationSettings> | null | undefined,
+  origin?: string | null
+): string | null {
+  const base = (origin ?? "").replace(/\/+$/, "");
+  if (job.confirm_token && base) return `${base}/c/${job.confirm_token}`;
+  return buildConfirmReplyLink(settings);
+}
+
+/** The app's own address, as the browser knows it. Empty on the server. */
+export function siteOrigin(): string {
+  return typeof window === "undefined" ? "" : window.location.origin;
+}
+
 function fillCustomerTemplate(
   body: string,
   job: JobWithRelations,
@@ -234,11 +257,12 @@ function fillCustomerTemplate(
  */
 export function buildOrderConfirmationMessage(
   job: JobWithRelations,
-  settings: Partial<ConfirmationSettings> | null | undefined
+  settings: Partial<ConfirmationSettings> | null | undefined,
+  origin?: string | null
 ): string {
   const body = settings?.order_confirmation_template?.trim() || DEFAULT_ORDER_CONFIRMATION;
   const filled = fillCustomerTemplate(body, job, settings);
-  const link = buildConfirmReplyLink(settings);
+  const link = buildConfirmLink(job, settings, origin);
   if (!link) return filled.replace(/\{confirm\}/g, "");
   if (/\{confirm\}/.test(body)) return filled.replace(/\{confirm\}/g, link);
   return `${filled}\n\nלאישור בלחיצה אחת:\n${link}`;

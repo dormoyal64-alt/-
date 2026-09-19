@@ -1,7 +1,8 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/manifest.json", "/sw.js"];
+// "/c" is the customer's confirmation page: no account, no session, just a token
+const PUBLIC_PATHS = ["/login", "/manifest.json", "/sw.js", "/c/"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });

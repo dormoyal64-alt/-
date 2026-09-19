@@ -188,6 +188,8 @@ export interface Job {
   customer_confirmed_at: string | null;
   /** when the customer was told the tradesperson had set out */
   dispatch_sent_at: string | null;
+  /** the secret in the customer's confirmation link; null before migration 026 */
+  confirm_token: string | null;
   is_archived: boolean;
   created_at: string;
   updated_at: string;

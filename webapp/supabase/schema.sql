@@ -353,6 +353,9 @@ create table jobs (
   confirmation_sent_at timestamptz,
   customer_confirmed_at timestamptz,
   dispatch_sent_at timestamptz,
+  -- the secret in the customer's confirmation link, and the only key to it
+  confirm_token text unique
+    default replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', ''),
 
   is_archived boolean not null default false,
 
