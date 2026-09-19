@@ -567,35 +567,24 @@ export default function SettingsPage() {
         </CardBody>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-ink-400" /> שליחה אוטומטית ב-WhatsApp
-          </CardTitle>
-        </CardHeader>
-        <CardBody className="space-y-2">
-          {whatsapp.configured ? (
-            <>
-              <p className="flex items-center gap-2 text-sm font-bold text-success-700">
-                <CheckCircle2 className="h-4 w-4" /> מחובר — פרטי ההזמנה נשלחים ללקוח לבד
-              </p>
-              <p className="text-sm text-ink-500">
-                כל עבודה חדשה שתישמר תשלח ללקוח את פרטי ההזמנה מיד, בלי לפתוח וואטסאפ. בכל עבודה
-                יש גם כפתור ״שליחה אוטומטית״ לשליחה חוזרת.
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-sm font-bold text-ink-700">לא מחובר — ההודעה נשלחת בלחיצה שלכם</p>
-              <p className="text-sm text-ink-500">
-                הכפתור בעבודה פותח וואטסאפ עם ההודעה מוכנה, ואתם לוחצים שלח. כדי שהמערכת תשלח
-                לבד צריך לחבר חשבון WhatsApp Business API — הקישור נשמר כמשתנה סביבה ב-Vercel
-                ולא נחשף בדפדפן.
-              </p>
-            </>
-          )}
-        </CardBody>
-      </Card>
+      {whatsapp.configured && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-ink-400" /> שליחה אוטומטית ב-WhatsApp
+            </CardTitle>
+          </CardHeader>
+          <CardBody className="space-y-2">
+            <p className="flex items-center gap-2 text-sm font-bold text-success-700">
+              <CheckCircle2 className="h-4 w-4" /> מחובר — פרטי ההזמנה נשלחים ללקוח לבד
+            </p>
+            <p className="text-sm text-ink-500">
+              כל עבודה חדשה שתישמר תשלח ללקוח את פרטי ההזמנה מיד, בלי לפתוח וואטסאפ. בכל עבודה
+              יש גם כפתור ״שליחה אוטומטית״ לשליחה חוזרת.
+            </p>
+          </CardBody>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
