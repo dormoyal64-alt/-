@@ -10,10 +10,10 @@ import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { EditableList } from "@/components/settings/EditableList";
-import { buildCancellationNotice, ORDER_TEMPLATE_DEFAULTS } from "@/lib/whatsapp";
+import { buildCancellationNotice, contactPhone, ORDER_TEMPLATE_DEFAULTS, supportsOrderSettings } from "@/lib/whatsapp";
 import { createHelper } from "@/lib/api/helpers";
 import { errorMessage } from "@/lib/errors";
-import { agorotToShekels, shekelsToAgorot } from "@/lib/money";
+import { agorotToShekels, formatAgorot, shekelsToAgorot } from "@/lib/money";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const STATUS_COLORS = ["#3b82f6", "#6172f3", "#06b6d4", "#8b5cf6", "#f59e0b", "#64748b", "#f97316", "#10b981", "#ef4444", "#6b7280"];
@@ -128,6 +128,9 @@ export default function SettingsPage() {
   const includesTax = settings?.prices_include_tax ?? true;
   const appointmentLead = settings?.appointment_lead_minutes ?? 15;
   const visitFee = settings?.visit_fee_agorot ?? 49900;
+  // the messages work on a database that has not been updated yet; only
+  // changing them from here needs the columns
+  const canEditOrder = supportsOrderSettings(settings);
   const etaWindow = settings?.eta_window_minutes ?? 60;
   const etaLabel = etaWindow ? `${14 + Math.floor(etaWindow / 60)}:${String(etaWindow % 60).padStart(2, "0")}` : "";
 
@@ -432,6 +435,23 @@ export default function SettingsPage() {
             לשליחה חזרה אליכם.
           </p>
 
+          {!canEditOrder && (
+            <div className="space-y-1.5 rounded-xl bg-warning-50 px-3.5 py-3 text-xs font-semibold text-warning-700">
+              <p>
+                ההודעות כבר עובדות בנוסח המובנה: דמי ביקור {formatAgorot(visitFee)}, טווח הגעה של
+                שעה, ומספר לאישור {contactPhone(settings)}. אפשר לראות בדיוק מה נשלח בכפתור
+                ״מה ייכתב ללקוח״ שבתוך כל עבודה.
+              </p>
+              <p className="font-bold">
+                כדי לשנות את הסכום, המספר או הנוסח — יש להריץ ב-Supabase את הקוד האחרון שנשלח.
+              </p>
+              <p className="font-normal">
+                את מספר הטלפון אפשר לשנות כבר עכשיו בכרטיס ״פרטי העסק לקבלות״ שלמעלה.
+              </p>
+            </div>
+          )}
+
+          {canEditOrder && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label>דמי ביקור ואבחון (₪)</Label>
@@ -467,7 +487,9 @@ export default function SettingsPage() {
               </p>
             </div>
           </div>
+          )}
 
+          {canEditOrder && (
           <div>
             <Label>טווח שעת ההגעה שמוצג ללקוח</Label>
             <div className="flex flex-wrap gap-2">
@@ -491,7 +513,9 @@ export default function SettingsPage() {
               {etaWindow === 0 ? "״היום ב-14:00״" : `״היום בין 14:00 ל-${etaLabel}״`}.
             </p>
           </div>
+          )}
 
+          {canEditOrder && (
           <div>
             <Label>נוסח ההודעה ללקוח לפני האישור</Label>
             <Textarea
@@ -506,7 +530,9 @@ export default function SettingsPage() {
               }}
             />
           </div>
+          )}
 
+          {canEditOrder && (
           <div>
             <Label>נוסח ההודעה אחרי שהלקוח אישר</Label>
             <Textarea
@@ -521,7 +547,9 @@ export default function SettingsPage() {
               }}
             />
           </div>
+          )}
 
+          {canEditOrder && (
           <div className="rounded-xl border border-dashed border-ink-200 bg-ink-50 px-3.5 py-3 text-xs text-ink-500">
             <p className="mb-1 font-bold text-ink-400">מילים שמתחלפות אוטומטית</p>
             <p dir="ltr" className="text-left font-mono text-[11px] leading-5">
@@ -533,6 +561,7 @@ export default function SettingsPage() {
               אם לא כתבתם <b dir="ltr">{"{confirm}"}</b>, הקישור יתווסף אוטומטית בסוף.
             </p>
           </div>
+          )}
         </CardBody>
       </Card>
 

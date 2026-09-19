@@ -155,9 +155,35 @@ type ConfirmationSettings = Pick<
 
 const VISIT_FEE_FALLBACK = 49900;
 
-/** The number a customer is told to call, and the one their confirmation goes to. */
+/**
+ * The number a customer is told to call, and the one their confirmation goes to.
+ *
+ * Three fallbacks deep, because the feature has to work before anything has
+ * been configured: its own setting, then the business phone the receipts
+ * already use, then the number the business gave when this was built. Every
+ * one of them is editable from the settings screen.
+ */
+export const SEED_CONTACT_PHONE = "054-828-2952";
+
 export function contactPhone(settings: Partial<ConfirmationSettings> | null | undefined): string | null {
-  return settings?.contact_whatsapp_phone?.trim() || settings?.business_phone?.trim() || null;
+  return (
+    settings?.contact_whatsapp_phone?.trim() ||
+    settings?.business_phone?.trim() ||
+    SEED_CONTACT_PHONE
+  );
+}
+
+/**
+ * Whether the database has caught up with this feature.
+ *
+ * The messages themselves need nothing new — they fall back to the built-in
+ * wording and the standard fee — so the useful half works the moment the code
+ * deploys. Only remembering who agreed, and editing the wording, need the
+ * columns. Asking the object rather than a version number means this answers
+ * itself correctly on a database that is half-updated.
+ */
+export function supportsOrderSettings(settings: object | null | undefined): boolean {
+  return !!settings && "visit_fee_agorot" in settings;
 }
 
 /** The sentence the customer sends back. It names the fee, so it stands on its own. */
