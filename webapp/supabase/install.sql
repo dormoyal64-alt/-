@@ -349,6 +349,12 @@ create table jobs (
   -- means "this has been sitting too long", which a booked job is not
   scheduled_reminder_sent_at timestamptz,
 
+  -- getting the call-out fee agreed in writing: what was sent, what came back,
+  -- and when the tradesperson was released
+  confirmation_sent_at timestamptz,
+  customer_confirmed_at timestamptz,
+  dispatch_sent_at timestamptz,
+
   is_archived boolean not null default false,
 
   created_at timestamptz not null default now(),
@@ -421,6 +427,21 @@ create table app_settings (
     constraint app_settings_cancellation_fee_check check (cancellation_fee_agorot >= 0),
   -- {fee} is replaced with the amount; null uses the built-in wording
   cancellation_notice_template text,
+
+  -- The call-out and diagnosis fee the customer confirms in writing before
+  -- anyone drives out, the number their confirmation is addressed to, and the
+  -- two messages that carry the exchange.
+  visit_fee_agorot bigint not null default 49900
+    constraint app_settings_visit_fee_check check (visit_fee_agorot >= 0),
+  -- null falls back to business_phone
+  contact_whatsapp_phone text,
+  -- how wide an arrival window to quote around a booked hour; 0 quotes the hour
+  eta_window_minutes int not null default 60
+    constraint app_settings_eta_window_check check (eta_window_minutes between 0 and 720),
+  -- {customer} {address} {issue} {eta} {fee} {phone} {confirm} are filled in;
+  -- null uses the built-in wording
+  order_confirmation_template text,
+  order_approved_template text,
 
   -- how long before a booked job to raise the reminder; 0 switches it off
   appointment_lead_minutes int not null default 15

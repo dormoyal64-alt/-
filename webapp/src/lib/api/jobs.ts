@@ -215,6 +215,32 @@ async function fuelCostForKm(supabase: SupabaseClient, km: number | null): Promi
   return Math.round((km / Number(data.km_per_liter)) * Number(data.fuel_price_per_liter_agorot));
 }
 
+/** The three steps of getting the visit fee agreed, in the order they happen. */
+export type ConfirmationStep = "confirmation_sent_at" | "customer_confirmed_at" | "dispatch_sent_at";
+
+/**
+ * Stamp one step of the customer confirmation.
+ *
+ * A null clears it, which is how a step marked by mistake is taken back — the
+ * confirmation is evidence, and evidence that cannot be corrected is worse
+ * than none.
+ */
+export async function stampConfirmationStep(
+  supabase: SupabaseClient,
+  jobId: string,
+  step: ConfirmationStep,
+  at: string | null = new Date().toISOString()
+) {
+  const { data, error } = await supabase
+    .from("jobs")
+    .update({ [step]: at })
+    .eq("id", jobId)
+    .select(JOB_SELECT)
+    .single();
+  if (error) throw error;
+  return data as JobWithRelations;
+}
+
 export async function reopenJob(supabase: SupabaseClient, jobId: string, statusId: string) {
   const { error } = await supabase.rpc("reopen_job", { p_job_id: jobId, p_status_id: statusId });
   if (error) throw error;

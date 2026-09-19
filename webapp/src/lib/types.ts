@@ -182,6 +182,12 @@ export interface Job {
   settlement_id: string | null;
   reminder_sent_at: string | null;
   scheduled_reminder_sent_at: string | null;
+  /** when the order details and the visit fee were sent to the customer */
+  confirmation_sent_at: string | null;
+  /** when the customer confirmed them; null means not yet */
+  customer_confirmed_at: string | null;
+  /** when the customer was told the tradesperson had set out */
+  dispatch_sent_at: string | null;
   is_archived: boolean;
   created_at: string;
   updated_at: string;
@@ -325,6 +331,16 @@ export interface AppSettings {
   cancellation_fee_agorot: number;
   /** the sentence itself; {fee} is replaced with the amount */
   cancellation_notice_template: string | null;
+  /** the call-out and diagnosis fee the customer confirms in writing */
+  visit_fee_agorot: number;
+  /** the number a customer calls to change or cancel; null uses business_phone */
+  contact_whatsapp_phone: string | null;
+  /** how wide an arrival window to quote around a booked hour; 0 quotes the hour */
+  eta_window_minutes: number;
+  /** the order-details message; null uses the built-in wording */
+  order_confirmation_template: string | null;
+  /** the message sent once the customer has confirmed */
+  order_approved_template: string | null;
   updated_at: string;
 }
 

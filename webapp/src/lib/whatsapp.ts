@@ -1,6 +1,6 @@
 import type { AppSettings, JobWithRelations } from "@/lib/types";
-import { formatAgorot } from "@/lib/money";
-import { formatAppointmentHe } from "@/lib/dates";
+import { formatAgorotPlain } from "@/lib/money";
+import { formatAppointmentHe, formatAppointmentWindowHe } from "@/lib/dates";
 
 // Normalizes an Israeli phone/WhatsApp number to international format without "+" (required by wa.me)
 export function toWhatsappNumber(raw: string | null | undefined): string | null {
@@ -53,7 +53,7 @@ export function buildNewJobWhatsappMessage(
     withPhone ? `טלפון לקוח: ${job.customer_phone}` : "טלפון לקוח: לתיאום מול הלקוח — דברו איתי",
     job.city?.name ? `עיר: ${job.city.name}` : null,
     job.address_full ? `כתובת: ${job.address_full}` : null,
-    job.quoted_price_agorot ? `מחיר שנאמר בטלפון: ${formatAgorot(job.quoted_price_agorot)}` : null,
+    job.quoted_price_agorot ? `מחיר שנאמר בטלפון: ${formatAgorotPlain(job.quoted_price_agorot)}` : null,
     job.payment_method?.name ? `אמצעי תשלום: ${job.payment_method.name}` : null,
     job.notes ? `הערות: ${job.notes}` : null,
   ].filter(Boolean);
@@ -103,7 +103,128 @@ export function buildCancellationNotice(
 ): string | null {
   if (!settings || settings.cancellation_notice === false) return null;
   const body = settings.cancellation_notice_template?.trim() || DEFAULT_CANCELLATION_NOTICE;
-  return body.replace(/\{fee\}/g, formatAgorot(settings.cancellation_fee_agorot ?? 0));
+  return body.replace(/\{fee\}/g, formatAgorotPlain(settings.cancellation_fee_agorot ?? 0));
+}
+
+// ---------------------------------------------------------------------------
+// Confirming the call-out fee before anyone drives out
+// ---------------------------------------------------------------------------
+
+const DEFAULT_ORDER_CONFIRMATION = `שלום {customer},
+
+להלן פרטי הזמנת השירות:
+
+• כתובת השירות: {address}
+• סוג התקלה: {issue}
+• מועד הגעה משוער: {eta}
+
+דמי הביקור והאבחון הם {fee}, כולל כל מס החל, והם משולמים עבור הגעת בעל המקצוע ובדיקת התקלה — גם אם לאחר הבדיקה תבחר/י שלא להזמין עבודה נוספת.
+
+אם יהיה צורך בעבודה, חלקים או ציוד נוסף, המחיר יימסר לך בנפרד ויבוצע רק לאחר קבלת אישורך.
+
+ניתן לבטל את ההזמנה ללא חיוב כל עוד הטכנאי טרם יצא לדרך. לאחר שהטכנאי יצא לדרך, ובמקרה של ביטול, אי־זמינות הלקוח או חוסר אפשרות לקבל גישה למקום, עשויים לחול דמי הביקור בסך {fee}, בכפוף להוראות חוק הגנת הצרכן ולכל זכות ביטול שאינה ניתנת להתניה.
+
+לביטול או שינוי ניתן לפנות בטלפון או ב־WhatsApp למספר {phone}.
+
+כדי לאשר את ההזמנה ואת יציאת הטכנאי, נא להשיב:
+״{approval}״`;
+
+const DEFAULT_ORDER_APPROVED = `שלום {customer}, ההזמנה אושרה ו{technician} יצא כעת לכתובת {address}.
+
+זמן הגעה משוער: {eta}.
+
+דמי הביקור והאבחון שאושרו הם {fee}. כל עבודה נוספת תתבצע רק לאחר הסבר וקבלת אישורך למחיר.
+
+לשינוי או לביטול ניתן ליצור קשר מיידי במספר {phone}.`;
+
+/** The built-in wording, so the settings screen can show what an empty box falls back to. */
+export const ORDER_TEMPLATE_DEFAULTS = {
+  confirmation: DEFAULT_ORDER_CONFIRMATION,
+  approved: DEFAULT_ORDER_APPROVED,
+};
+
+type ConfirmationSettings = Pick<
+  AppSettings,
+  | "visit_fee_agorot"
+  | "contact_whatsapp_phone"
+  | "business_phone"
+  | "eta_window_minutes"
+  | "order_confirmation_template"
+  | "order_approved_template"
+>;
+
+const VISIT_FEE_FALLBACK = 49900;
+
+/** The number a customer is told to call, and the one their confirmation goes to. */
+export function contactPhone(settings: Partial<ConfirmationSettings> | null | undefined): string | null {
+  return settings?.contact_whatsapp_phone?.trim() || settings?.business_phone?.trim() || null;
+}
+
+/** The sentence the customer sends back. It names the fee, so it stands on its own. */
+export function approvalSentence(settings: Partial<ConfirmationSettings> | null | undefined): string {
+  const fee = formatAgorotPlain(settings?.visit_fee_agorot ?? VISIT_FEE_FALLBACK);
+  return `אני מאשר/ת את פרטי ההזמנה ואת דמי הביקור והאבחון בסך ${fee}`;
+}
+
+/**
+ * The one tap that turns "please reply" into a reply.
+ *
+ * A wa.me link addressed to the business, carrying the approval sentence
+ * already typed: the customer taps it and only has to press send. Nothing is
+ * asked of them that they could get wrong, and what comes back is their own
+ * message, in writing, from their own number.
+ */
+export function buildConfirmReplyLink(settings: Partial<ConfirmationSettings> | null | undefined): string | null {
+  return buildWhatsappLink(contactPhone(settings), approvalSentence(settings));
+}
+
+function fillCustomerTemplate(
+  body: string,
+  job: JobWithRelations,
+  settings: Partial<ConfirmationSettings> | null | undefined
+): string {
+  const window = settings?.eta_window_minutes ?? 60;
+  const eta = job.scheduled_at
+    ? formatAppointmentWindowHe(job.scheduled_at, window)
+    : "בהקדם — ניצור קשר לתיאום מדויק";
+  const issue = [job.job_type?.name, job.notes?.trim()].filter(Boolean).join(" — ") || "לפי השיחה בטלפון";
+  return body
+    .replace(/\{customer\}/g, job.customer_name)
+    .replace(/\{address\}/g, job.address_full ?? job.city?.name ?? "")
+    .replace(/\{issue\}/g, issue)
+    .replace(/\{eta\}/g, eta)
+    .replace(/\{fee\}/g, formatAgorotPlain(settings?.visit_fee_agorot ?? VISIT_FEE_FALLBACK))
+    .replace(/\{phone\}/g, contactPhone(settings) ?? "")
+    .replace(/\{technician\}/g, job.profession?.technician_label?.trim() || "הטכנאי")
+    .replace(/\{approval\}/g, approvalSentence(settings));
+}
+
+/**
+ * The order as the customer will read it, ending in a tap that confirms it.
+ *
+ * The link is appended rather than required, so a business that rewrites the
+ * wording cannot accidentally drop the only part that closes the loop. Putting
+ * {confirm} in the template places it deliberately instead.
+ */
+export function buildOrderConfirmationMessage(
+  job: JobWithRelations,
+  settings: Partial<ConfirmationSettings> | null | undefined
+): string {
+  const body = settings?.order_confirmation_template?.trim() || DEFAULT_ORDER_CONFIRMATION;
+  const filled = fillCustomerTemplate(body, job, settings);
+  const link = buildConfirmReplyLink(settings);
+  if (!link) return filled.replace(/\{confirm\}/g, "");
+  if (/\{confirm\}/.test(body)) return filled.replace(/\{confirm\}/g, link);
+  return `${filled}\n\nלאישור בלחיצה אחת:\n${link}`;
+}
+
+/** What the customer gets once they have confirmed and the tradesperson sets out. */
+export function buildOrderApprovedMessage(
+  job: JobWithRelations,
+  settings: Partial<ConfirmationSettings> | null | undefined
+): string {
+  const body = settings?.order_approved_template?.trim() || DEFAULT_ORDER_APPROVED;
+  return fillCustomerTemplate(body, job, settings);
 }
 
 export function buildCallLink(phone: string | null | undefined): string | null {

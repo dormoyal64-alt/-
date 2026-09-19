@@ -35,10 +35,11 @@ import { CloseJobModal } from "@/components/jobs/CloseJobModal";
 import { StatusMenu } from "@/components/jobs/StatusMenu";
 import { EditJobModal, type EditJobValues } from "@/components/jobs/EditJobModal";
 import { Timeline, type TimelineEntry } from "@/components/jobs/Timeline";
-import { fetchJob, changeJobStatus, closeJob, reopenJob, reassignJob, duplicateJob, deleteJob, deleteJobBlockedReason, issueReceipt, fetchReceipt } from "@/lib/api/jobs";
+import { fetchJob, changeJobStatus, closeJob, reopenJob, reassignJob, duplicateJob, deleteJob, deleteJobBlockedReason, issueReceipt, fetchReceipt, stampConfirmationStep, type ConfirmationStep } from "@/lib/api/jobs";
 import { ReceiptCard } from "@/components/jobs/ReceiptCard";
+import { CustomerApprovalCard } from "@/components/jobs/CustomerApprovalCard";
 import type { Receipt } from "@/lib/types";
-import { buildCallLink, buildCancellationNotice, buildMapLink, buildNewJobWhatsappMessage, buildOnTheWayMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
+import { buildCallLink, buildMapLink, buildNewJobWhatsappMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
 import { formatAgorot, formatPercent } from "@/lib/money";
 import { formatAppointmentHe, formatDateTimeHe, formatDurationHe } from "@/lib/dates";
 import { errorMessage } from "@/lib/errors";
@@ -84,6 +85,23 @@ export default function JobDetailPage() {
       await changeJobStatus(supabase, job.id, sent.id, "פרטי העבודה נשלחו לקבלן");
     }
     await load();
+  }
+
+  async function handleStamp(step: ConfirmationStep, at: string | null) {
+    if (!job) return;
+    const previous = job;
+    // the buttons above read these stamps, so the card has to change under the
+    // finger that tapped it, not a round trip later
+    setJob({ ...job, [step]: at });
+    try {
+      setJob(await stampConfirmationStep(supabase, job.id, step, at));
+      if (step === "customer_confirmed_at") {
+        toast.success(at ? "סומן שהלקוח אישר את ההזמנה" : "סימון האישור בוטל");
+      }
+    } catch (e) {
+      setJob(previous);
+      toast.error(errorMessage(e, "לא הצלחנו לשמור את השינוי. נסו שוב."));
+    }
   }
 
   async function toggleSendPhone() {
@@ -321,11 +339,6 @@ export default function JobDetailPage() {
 
   const waCustomerLink = buildWhatsappLink(job.customer_phone);
   const callCustomerLink = buildCallLink(job.customer_phone);
-  const technicianLabel = job.profession?.technician_label?.trim() || "הטכנאי";
-  const onTheWayLink = buildWhatsappLink(
-    job.customer_phone,
-    buildOnTheWayMessage(job, settings?.on_the_way_template, buildCancellationNotice(settings))
-  );
   const sendPhone = sendsCustomerPhone(job, settings?.send_customer_phone_to_contractor);
   const waContractorLink = job.contractor
     ? buildWhatsappLink(
@@ -543,19 +556,8 @@ export default function JobDetailPage() {
         </span>
       </button>
 
-      {!job.is_closed && onTheWayLink && (
-        <a
-          href={onTheWayLink}
-          target="_blank"
-          rel="noreferrer"
-          className="mb-3 flex w-full flex-col items-center gap-0.5 rounded-xl border border-success-100 bg-success-50 px-4 py-3 font-bold text-success-700 transition hover:bg-success-100/60 active:scale-[.99]"
-        >
-          <span className="flex items-center gap-2">
-            <MessageCircle className="h-[18px] w-[18px]" />
-            הודע ללקוח ש{technicianLabel} בדרך
-          </span>
-          <span className="text-xs font-semibold text-success-600/80">״{technicianLabel} כבר בדרך אליך״</span>
-        </a>
+      {!job.is_closed && (
+        <CustomerApprovalCard job={job} settings={settings} onStamp={handleStamp} />
       )}
 
       {!job.is_closed ? (

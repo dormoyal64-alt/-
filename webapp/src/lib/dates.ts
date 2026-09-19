@@ -77,6 +77,22 @@ export function formatAppointmentHe(iso: string | Date): string {
   return `${date} ב-${time}`;
 }
 
+/**
+ * The same appointment as an arrival window: "היום בין 14:00 ל-15:00".
+ *
+ * A customer told "14:00" reads it as a promise; a window is what the trade
+ * actually commits to. A window of 0 falls back to the plain hour.
+ */
+export function formatAppointmentWindowHe(iso: string | Date, windowMinutes: number): string {
+  if (!windowMinutes || windowMinutes <= 0) return formatAppointmentHe(iso);
+  const from = typeof iso === "string" ? new Date(iso) : iso;
+  const to = new Date(from.getTime() + windowMinutes * 60_000);
+  const time = (d: Date) => new Intl.DateTimeFormat("he-IL", { hour: "2-digit", minute: "2-digit" }).format(d);
+  // "היום ב-14:00" -> "היום", so the day is said once and the hours follow it
+  const day = formatAppointmentHe(from).replace(/ ב-\d{1,2}:\d{2}$/, "");
+  return `${day} בין ${time(from)} ל-${time(to)}`;
+}
+
 export function formatTimeHe(iso: string | Date): string {
   const d = typeof iso === "string" ? new Date(iso) : iso;
   return new Intl.DateTimeFormat("he-IL", { hour: "2-digit", minute: "2-digit" }).format(d);

@@ -20,6 +20,20 @@ export function formatAgorot(agorot: number | null | undefined): string {
   }).format(shekels);
 }
 
+/**
+ * The same amount, plainly, for text that leaves the app.
+ *
+ * Intl's Hebrew currency format carries bidi marks and a non-breaking space,
+ * which are invisible on screen but survive into a WhatsApp message and its
+ * URL encoding — and the confirmation sentence the customer sends back is
+ * quoted evidence, so it should be exactly the characters it appears to be.
+ */
+export function formatAgorotPlain(agorot: number | null | undefined): string {
+  const shekels = agorotToShekels(agorot);
+  const digits = shekels % 1 === 0 ? 0 : 2;
+  return `${new Intl.NumberFormat("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(shekels)} ₪`;
+}
+
 // Short form for chart axes, where a full "₪1,234.00" label gets clipped.
 export function formatAgorotCompact(agorot: number | null | undefined): string {
   const shekels = agorotToShekels(agorot);

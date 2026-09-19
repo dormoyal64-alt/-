@@ -14,9 +14,9 @@ import { ContractorMatchList } from "@/components/jobs/ContractorMatchList";
 import { HelperSelect } from "@/components/jobs/HelperSelect";
 import { CityPicker } from "@/components/ui/CityPicker";
 import { useContractorMatch } from "@/hooks/useContractorMatch";
-import { createJob } from "@/lib/api/jobs";
+import { createJob, stampConfirmationStep } from "@/lib/api/jobs";
 import { agorotToShekels, formatAgorot, shekelsToAgorot } from "@/lib/money";
-import { buildNewJobWhatsappMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
+import { buildNewJobWhatsappMessage, buildOrderConfirmationMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
 import type { AddressResult } from "@/hooks/useAddressAutocomplete";
 import type { Helper, JobWithRelations, PerformedBy } from "@/lib/types";
 
@@ -320,6 +320,12 @@ export default function NewJobPage() {
           })
         )
       : null;
+    // the order, the fee and the one-tap approval — sent from here, while the
+    // customer is still on the line and the details are fresh
+    const orderLink = buildWhatsappLink(
+      createdJob.customer_phone,
+      buildOrderConfirmationMessage(createdJob, settings)
+    );
     return (
       <div className="mx-auto max-w-lg space-y-5">
         <div className="flex flex-col items-center gap-3 py-6 text-center">
@@ -331,6 +337,24 @@ export default function NewJobPage() {
             {createdJob.customer_name} · {createdJob.city?.name} · {createdJob.job_type?.name}
           </p>
         </div>
+
+        {orderLink && (
+          <a
+            href={orderLink}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => stampConfirmationStep(supabase, createdJob.id, "confirmation_sent_at").catch(() => {})}
+            className="btn-success flex w-full flex-col items-center gap-0.5 py-4 shadow-lg shadow-success-600/20"
+          >
+            <span className="flex items-center gap-2 text-lg">
+              <MessageCircle className="h-5 w-5" />
+              שליחת פרטי ההזמנה ללקוח לאישור
+            </span>
+            <span className="text-xs font-semibold text-white/80">
+              כולל דמי הביקור {formatAgorot(settings?.visit_fee_agorot ?? 49900)} וכפתור אישור בלחיצה אחת
+            </span>
+          </a>
+        )}
 
         {waLink ? (
           <a

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon, Percent, AlertTriangle, Users } from "lucide-react";
+import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon, Percent, AlertTriangle, Users, FileCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useNotifications } from "@/lib/notifications";
@@ -10,7 +10,7 @@ import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { EditableList } from "@/components/settings/EditableList";
-import { buildCancellationNotice } from "@/lib/whatsapp";
+import { buildCancellationNotice, ORDER_TEMPLATE_DEFAULTS } from "@/lib/whatsapp";
 import { createHelper } from "@/lib/api/helpers";
 import { errorMessage } from "@/lib/errors";
 import { agorotToShekels, shekelsToAgorot } from "@/lib/money";
@@ -127,6 +127,9 @@ export default function SettingsPage() {
   const taxRate = settings?.tax_rate_pct ?? 18;
   const includesTax = settings?.prices_include_tax ?? true;
   const appointmentLead = settings?.appointment_lead_minutes ?? 15;
+  const visitFee = settings?.visit_fee_agorot ?? 49900;
+  const etaWindow = settings?.eta_window_minutes ?? 60;
+  const etaLabel = etaWindow ? `${14 + Math.floor(etaWindow / 60)}:${String(etaWindow % 60).padStart(2, "0")}` : "";
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -413,6 +416,123 @@ export default function SettingsPage() {
               </div>
             </>
           )}
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileCheck className="h-5 w-5 text-ink-400" /> אישור הזמנה ודמי ביקור
+          </CardTitle>
+        </CardHeader>
+        <CardBody className="space-y-3">
+          <p className="text-sm text-ink-500">
+            ההודעה הזו נשלחת ללקוח מיד אחרי פתיחת העבודה, ומפרטת בכתב מה הוא מזמין וכמה עולים
+            דמי הביקור והאבחון. בסופה מצורף קישור שבלחיצה אחת פותח ללקוח הודעת אישור מוכנה
+            לשליחה חזרה אליכם.
+          </p>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <Label>דמי ביקור ואבחון (₪)</Label>
+              <Input
+                type="number"
+                min={0}
+                step={10}
+                dir="ltr"
+                key={String(visitFee)}
+                defaultValue={agorotToShekels(visitFee)}
+                onBlur={(e) => {
+                  const v = shekelsToAgorot(e.target.value);
+                  if (v >= 0 && v !== visitFee) saveBusinessField("visit_fee_agorot", String(v));
+                }}
+              />
+              <p className="mt-1 text-xs text-ink-400">הסכום שהלקוח מאשר בכתב לפני היציאה אליו</p>
+            </div>
+            <div>
+              <Label>מספר לאישור, לשינוי ולביטול</Label>
+              <Input
+                dir="ltr"
+                placeholder={settings?.business_phone ?? "054-0000000"}
+                key={settings?.contact_whatsapp_phone ?? ""}
+                defaultValue={settings?.contact_whatsapp_phone ?? ""}
+                onBlur={(e) => {
+                  if (e.target.value.trim() !== (settings?.contact_whatsapp_phone ?? "").trim()) {
+                    saveBusinessField("contact_whatsapp_phone", e.target.value);
+                  }
+                }}
+              />
+              <p className="mt-1 text-xs text-ink-400">
+                לכאן חוזר האישור של הלקוח. ריק — ישתמש בטלפון העסק שלמעלה.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <Label>טווח שעת ההגעה שמוצג ללקוח</Label>
+            <div className="flex flex-wrap gap-2">
+              {[0, 30, 60, 120].map((v) => (
+                <button
+                  key={v}
+                  onClick={() => saveBusinessField("eta_window_minutes", String(v))}
+                  disabled={savingBusiness}
+                  className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
+                    etaWindow === v
+                      ? "border-brand-600 bg-brand-600 text-white"
+                      : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                  }`}
+                >
+                  {v === 0 ? "שעה מדויקת" : `${v} דק׳`}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-ink-400">
+              עבודה שתוזמנה ל-14:00 תיקרא ללקוח{" "}
+              {etaWindow === 0 ? "״היום ב-14:00״" : `״היום בין 14:00 ל-${etaLabel}״`}.
+            </p>
+          </div>
+
+          <div>
+            <Label>נוסח ההודעה ללקוח לפני האישור</Label>
+            <Textarea
+              rows={12}
+              key={settings?.order_confirmation_template ?? ""}
+              defaultValue={settings?.order_confirmation_template ?? ""}
+              placeholder={ORDER_TEMPLATE_DEFAULTS.confirmation}
+              onBlur={(e) => {
+                if (e.target.value.trim() !== (settings?.order_confirmation_template ?? "").trim()) {
+                  saveBusinessField("order_confirmation_template", e.target.value);
+                }
+              }}
+            />
+          </div>
+
+          <div>
+            <Label>נוסח ההודעה אחרי שהלקוח אישר</Label>
+            <Textarea
+              rows={7}
+              key={settings?.order_approved_template ?? ""}
+              defaultValue={settings?.order_approved_template ?? ""}
+              placeholder={ORDER_TEMPLATE_DEFAULTS.approved}
+              onBlur={(e) => {
+                if (e.target.value.trim() !== (settings?.order_approved_template ?? "").trim()) {
+                  saveBusinessField("order_approved_template", e.target.value);
+                }
+              }}
+            />
+          </div>
+
+          <div className="rounded-xl border border-dashed border-ink-200 bg-ink-50 px-3.5 py-3 text-xs text-ink-500">
+            <p className="mb-1 font-bold text-ink-400">מילים שמתחלפות אוטומטית</p>
+            <p dir="ltr" className="text-left font-mono text-[11px] leading-5">
+              {"{customer} {address} {issue} {eta} {fee} {phone} {technician} {approval} {confirm}"}
+            </p>
+            <p className="mt-1">
+              שם הלקוח · הכתובת · סוג התקלה · מועד ההגעה · דמי הביקור · מספר הטלפון שלכם ·
+              ״טכנאי האינסטלציה״ לפי התחום · משפט האישור · קישור האישור בלחיצה אחת.
+              אם לא כתבתם <b dir="ltr">{"{confirm}"}</b>, הקישור יתווסף אוטומטית בסוף.
+            </p>
+          </div>
         </CardBody>
       </Card>
 
