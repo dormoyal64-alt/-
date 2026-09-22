@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon, Percent, AlertTriangle, Users, FileCheck, Zap, CheckCircle2 } from "lucide-react";
+import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon, Percent, AlertTriangle, Users, FileCheck, Zap, CheckCircle2, HandCoins } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useNotifications } from "@/lib/notifications";
@@ -132,6 +132,9 @@ export default function SettingsPage() {
   // the messages work on a database that has not been updated yet; only
   // changing them from here needs the columns
   const canEditOrder = supportsOrderSettings(settings);
+  const canEditTithe = !!settings && "tithe_pct" in settings;
+  const tithePct = Number(settings?.tithe_pct ?? 0);
+  const titheBasis = settings?.tithe_basis ?? "net";
   const whatsapp = useWhatsappSender();
   const etaWindow = settings?.eta_window_minutes ?? 60;
   const etaLabel = etaWindow ? `${14 + Math.floor(etaWindow / 60)}:${String(etaWindow % 60).padStart(2, "0")}` : "";
@@ -582,6 +585,92 @@ export default function SettingsPage() {
               כל עבודה חדשה שתישמר תשלח ללקוח את פרטי ההזמנה מיד, בלי לפתוח וואטסאפ. בכל עבודה
               יש גם כפתור ״שליחה אוטומטית״ לשליחה חוזרת.
             </p>
+          </CardBody>
+        </Card>
+      )}
+
+      {canEditTithe && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <HandCoins className="h-5 w-5 text-ink-400" /> מעשר / חומש
+            </CardTitle>
+          </CardHeader>
+          <CardBody className="space-y-3">
+            <p className="text-sm text-ink-500">
+              המערכת תחשב לבד כמה להפריש, ותציג את זה בסיכומים, במאזן וברווח הנקי — ליום,
+              לשבוע, לחודש ולשנה. הסכום מחושב מחדש בכל פעם, כך שתיקון בעבודה או עבודה
+              שנפתחה מחדש לא משאירים מספר ישן.
+            </p>
+
+            <div className="flex flex-wrap gap-2">
+              {[0, 10, 20].map((v) => (
+                <button
+                  key={v}
+                  onClick={() => saveBusinessField("tithe_pct", String(v))}
+                  disabled={savingBusiness}
+                  className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
+                    tithePct === v
+                      ? "border-brand-600 bg-brand-600 text-white"
+                      : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                  }`}
+                >
+                  {v === 0 ? "לא מפריש" : v === 10 ? "מעשר — 10%" : "חומש — 20%"}
+                </button>
+              ))}
+            </div>
+
+            {tithePct > 0 && (
+              <>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label>או אחוז אחר</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="any"
+                      dir="ltr"
+                      key={String(tithePct)}
+                      defaultValue={tithePct}
+                      onBlur={(e) => {
+                        const v = parseFloat(e.target.value);
+                        if (!Number.isNaN(v) && v >= 0 && v <= 100 && v !== tithePct) {
+                          saveBusinessField("tithe_pct", String(v));
+                        }
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label>ממה מפרישים</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {(["net", "revenue"] as const).map((v) => (
+                        <button
+                          key={v}
+                          onClick={() => saveBusinessField("tithe_basis", v)}
+                          disabled={savingBusiness}
+                          className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
+                            titheBasis === v
+                              ? "border-brand-600 bg-brand-600 text-white"
+                              : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                          }`}
+                        >
+                          {v === "net" ? "מהרווח" : "מהמחזור"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-ink-400">
+                  {titheBasis === "net"
+                    ? "מהרווח — אחרי קבלנים, דלק, עובדים, הוצאות על העבודות, פרסום, הוצאות קבועות ומס. זו דרך החישוב המקובלת."
+                    : "מהמחזור — מכל שקל שנכנס, בלי קשר להוצאות. הסכום יוצא גבוה בהרבה."}
+                </p>
+                <p className="rounded-xl bg-ink-50 px-3.5 py-2.5 text-xs text-ink-500">
+                  הפסד לא מחייב הפרשה — בתקופה שנגמרה במינוס הסכום יהיה 0.
+                </p>
+              </>
+            )}
           </CardBody>
         </Card>
       )}

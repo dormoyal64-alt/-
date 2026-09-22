@@ -17,7 +17,7 @@ import { useContractorMatch } from "@/hooks/useContractorMatch";
 import { createJob, stampConfirmationStep } from "@/lib/api/jobs";
 import { useWhatsappSender } from "@/hooks/useWhatsappSender";
 import { agorotToShekels, formatAgorot, shekelsToAgorot } from "@/lib/money";
-import { buildNewJobWhatsappMessage, buildOrderConfirmationMessage, buildWhatsappLink, sendsCustomerPhone, siteOrigin } from "@/lib/whatsapp";
+import { buildNewJobWhatsappMessage, buildOrderConfirmationMessage, buildWhatsappLink, sendsCustomerPhone, siteOrigin, visitFeeForJob } from "@/lib/whatsapp";
 import type { AddressResult } from "@/hooks/useAddressAutocomplete";
 import type { Helper, JobWithRelations, PerformedBy } from "@/lib/types";
 
@@ -386,7 +386,7 @@ export default function NewJobPage() {
               שליחת פרטי ההזמנה ללקוח לאישור
             </span>
             <span className="text-xs font-semibold text-white/80">
-              כולל דמי הביקור {formatAgorot(settings?.visit_fee_agorot ?? 49900)} וכפתור אישור בלחיצה אחת
+              כולל דמי הביקור {formatAgorot(visitFeeForJob(createdJob, settings))} וכפתור אישור בלחיצה אחת
             </span>
           </a>
         )}

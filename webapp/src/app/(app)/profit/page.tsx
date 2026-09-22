@@ -5,7 +5,8 @@ import { Briefcase, Building2, Fuel, Megaphone, Users, Wrench } from "lucide-rea
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { PeriodPicker } from "@/components/ui/PeriodPicker";
-import { formatAgorot } from "@/lib/money";
+import { formatAgorot, titheLabel } from "@/lib/money";
+import { useRefData } from "@/lib/refdata";
 import { customDateRange, getPeriodRange, isoRange, type PeriodKey } from "@/lib/dates";
 import type { AdPerformanceRow, ProfitReport } from "@/lib/types";
 
@@ -40,6 +41,7 @@ function Line({
 }
 
 export default function ProfitPage() {
+  const { settings } = useRefData();
   const supabase = useMemo(() => createClient(), []);
   const [period, setPeriod] = useState<PeriodKey>("month");
   const [customFrom, setCustomFrom] = useState(new Date().toISOString().slice(0, 10));
@@ -129,6 +131,9 @@ export default function ProfitPage() {
                 )}
                 <Line label="דלק" agorot={r.self_fuel_agorot} kind="cost" />
                 <Line label="עובדים ששילמתי להם" agorot={r.self_helper_agorot} kind="cost" />
+                {r.self_expenses_agorot > 0 && (
+                  <Line label="הוצאות על העבודות" agorot={r.self_expenses_agorot} kind="cost" hint="חלקים, ציוד, חניה — מה שנרשם בתוך כל עבודה" />
+                )}
                 <Line
                   label="פרסום (חלק יחסי)"
                   agorot={r.ad_spend_self_agorot}
@@ -153,6 +158,9 @@ export default function ProfitPage() {
                   <Line label="לחברות שהפנו" agorot={r.contractor_referral_agorot} kind="cost" />
                 )}
                 <Line label="שולם לקבלנים" agorot={r.contractor_paid_agorot} kind="cost" />
+                {r.contractor_expenses_agorot > 0 && (
+                  <Line label="הוצאות על העבודות" agorot={r.contractor_expenses_agorot} kind="cost" />
+                )}
                 <Line
                   label="פרסום (חלק יחסי)"
                   agorot={r.ad_spend_contractor_agorot}
@@ -171,6 +179,18 @@ export default function ProfitPage() {
             <CardBody>
               <Line label="רווח מהעבודות שלי" agorot={r.self_net_agorot} />
               <Line label="רווח מהקבלנים" agorot={r.contractor_net_agorot} />
+              {r.business_expenses_agorot > 0 && (
+                <Line label="הוצאות קבועות" agorot={r.business_expenses_agorot} kind="cost" hint="רואה חשבון, ביטוח, שכירות — לפי החלק שנופל בתקופה" />
+              )}
+              {r.tax_agorot > 0 && (
+                <Line label="מס (עבודות שנסגרו עם קבלה)" agorot={r.tax_agorot} kind="cost" />
+              )}
+              {r.tithe_agorot > 0 && (
+                <>
+                  <Line label="רווח לפני הפרשה" agorot={r.net_before_tithe_agorot} />
+                  <Line label={titheLabel(settings?.tithe_pct)} agorot={r.tithe_agorot} kind="cost" />
+                </>
+              )}
               <Line label="רווח נקי" agorot={r.net_profit_agorot} kind="total" />
               <div className="mt-3 flex flex-wrap gap-4 border-t border-ink-100 pt-3 text-xs text-ink-400">
                 <span className="flex items-center gap-1.5">

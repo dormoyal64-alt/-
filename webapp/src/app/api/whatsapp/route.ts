@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { JOB_SELECT } from "@/lib/api/jobs";
-import { toWhatsappNumber, buildOrderConfirmationMessage } from "@/lib/whatsapp";
+import { toWhatsappNumber, buildOrderConfirmationMessage, visitFeeForJob } from "@/lib/whatsapp";
 import { formatAgorotPlain } from "@/lib/money";
 import { BUSINESS_TIME_ZONE, formatAppointmentWindowHe } from "@/lib/dates";
 import type { AppSettings, JobWithRelations } from "@/lib/types";
@@ -138,7 +138,7 @@ function buildPayload(to: string, job: JobWithRelations, settings: AppSettings |
         { type: "text", text: job.address_full ?? job.city?.name ?? "" },
         { type: "text", text: issue },
         { type: "text", text: eta },
-        { type: "text", text: formatAgorotPlain(settings?.visit_fee_agorot ?? 49900) },
+        { type: "text", text: formatAgorotPlain(visitFeeForJob(job, settings)) },
       ],
     },
   ];

@@ -9,6 +9,8 @@ export interface Profession {
   name: string;
   /** how the customer hears about the tradesperson: "טכנאי האינסטלציה" */
   technician_label: string;
+  /** call-out fee for this trade; null falls back to the standing fee */
+  visit_fee_agorot: number | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -21,6 +23,8 @@ export interface JobType {
   name: string;
   /** standard price quoted for this kind of job, in agorot; null = none set */
   base_price_agorot: number | null;
+  /** call-out fee for this kind of fault; null falls back to the trade, then to settings */
+  visit_fee_agorot: number | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -249,6 +253,15 @@ export interface Helper {
   updated_at: string;
 }
 
+/** Money spent on one job: parts, equipment hire, parking. */
+export interface JobExpense {
+  id: string;
+  job_id: string;
+  description: string;
+  amount_agorot: number;
+  created_at: string;
+}
+
 export interface AdSpend {
   id: string;
   /** first day the spend covers */
@@ -289,6 +302,13 @@ export interface ProfitReport {
   self_net_agorot: number;
   contractor_net_agorot: number;
   net_profit_agorot: number;
+  self_expenses_agorot: number;
+  contractor_expenses_agorot: number;
+  job_expenses_agorot: number;
+  business_expenses_agorot: number;
+  tax_agorot: number;
+  tithe_agorot: number;
+  net_before_tithe_agorot: number;
 }
 
 export interface AdPerformanceRow {
@@ -343,6 +363,10 @@ export interface AppSettings {
   order_confirmation_template: string | null;
   /** the message sent once the customer has confirmed */
   order_approved_template: string | null;
+  /** מעשר is 10, חומש is 20; zero switches it off */
+  tithe_pct: number;
+  /** 'net' takes the share out of the profit, 'revenue' out of what came in */
+  tithe_basis: "net" | "revenue";
   updated_at: string;
 }
 
@@ -357,8 +381,8 @@ export interface Profile {
 // ---- Enriched / joined shapes used across the UI ----
 
 export interface JobWithRelations extends Job {
-  profession: Pick<Profession, "id" | "name" | "technician_label"> | null;
-  job_type: Pick<JobType, "id" | "name"> | null;
+  profession: Pick<Profession, "id" | "name" | "technician_label" | "visit_fee_agorot"> | null;
+  job_type: Pick<JobType, "id" | "name" | "visit_fee_agorot"> | null;
   city: Pick<City, "id" | "name"> | null;
   contractor: Pick<Contractor, "id" | "name" | "phone" | "whatsapp"> | null;
   referral_company: Pick<ReferralCompany, "id" | "name" | "phone"> | null;
@@ -521,4 +545,7 @@ export interface MoneyReport {
   tax_agorot: number;
   total_costs_agorot: number;
   net_agorot: number;
+  job_expenses_agorot: number;
+  tithe_agorot: number;
+  net_before_tithe_agorot: number;
 }

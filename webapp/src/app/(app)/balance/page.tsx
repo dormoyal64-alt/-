@@ -7,7 +7,8 @@ import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { PeriodPicker } from "@/components/ui/PeriodPicker";
 import { PageSpinner } from "@/components/ui/Misc";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
-import { formatAgorot } from "@/lib/money";
+import { formatAgorot, titheLabel } from "@/lib/money";
+import { useRefData } from "@/lib/refdata";
 import { customDateRange, getPeriodRange, isoRange, formatDateHe, todayLocalDate, type PeriodKey } from "@/lib/dates";
 import type { MoneyReport } from "@/lib/types";
 
@@ -31,6 +32,7 @@ function Row({ label, agorot, hint, tone = "plain" }: {
 }
 
 export default function BalancePage() {
+  const { settings } = useRefData();
   const supabase = useMemo(() => createClient(), []);
   const [period, setPeriod] = useState<PeriodKey>("month");
   const [customFrom, setCustomFrom] = useState(todayLocalDate());
@@ -117,6 +119,12 @@ export default function BalancePage() {
               <Row label="עמלות לחברות מפנות" agorot={r?.referral_agorot ?? 0} tone="cost" />
               <Row label="דלק" agorot={r?.fuel_agorot ?? 0} tone="cost" />
               <Row label="עובדים" agorot={r?.helper_agorot ?? 0} tone="cost" />
+              <Row
+                label="הוצאות על העבודות"
+                agorot={r?.job_expenses_agorot ?? 0}
+                tone="cost"
+                hint="חלקים, ציוד, חניה — מה שנרשם בתוך כל עבודה"
+              />
               <Row label="פרסום" agorot={r?.ad_spend_agorot ?? 0} tone="cost" hint="החלק היחסי לתקופה שנבחרה" />
               <Row
                 label="הוצאות קבועות"
@@ -130,6 +138,27 @@ export default function BalancePage() {
                 tone="cost"
                 hint={`רק על ${r?.jobs_with_receipt ?? 0} עבודות שנסגרו עם קבלה`}
               />
+
+              {!!r?.tithe_agorot && (
+                <>
+                  <div className="mt-2 flex items-center justify-between border-t border-ink-100 pt-2">
+                    <span className="font-bold text-ink-700">רווח לפני הפרשה</span>
+                    <span className="font-extrabold tabular-nums text-ink-900">
+                      {formatAgorot(r.net_before_tithe_agorot)}
+                    </span>
+                  </div>
+                  <Row
+                    label={titheLabel(settings?.tithe_pct)}
+                    agorot={r.tithe_agorot}
+                    tone="cost"
+                    hint={
+                      settings?.tithe_basis === "revenue"
+                        ? "מחושב מתוך המחזור"
+                        : "מחושב מתוך הרווח, אחרי כל ההוצאות"
+                    }
+                  />
+                </>
+              )}
 
               <div className="mt-2 flex items-center justify-between border-t border-ink-100 pt-2">
                 <span className="font-bold text-ink-700">סך ההוצאות</span>

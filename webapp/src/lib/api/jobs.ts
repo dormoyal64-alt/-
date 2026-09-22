@@ -2,8 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { JobWithRelations, PaymentReceivedBy, PerformedBy, Receipt } from "@/lib/types";
 
 export const JOB_SELECT = `*,
-  profession:professions(id,name,technician_label),
-  job_type:job_types(id,name),
+  profession:professions(id,name,technician_label,visit_fee_agorot),
+  job_type:job_types(id,name,visit_fee_agorot),
   city:cities!jobs_city_id_fkey(id,name),
   contractor:contractors(id,name,phone,whatsapp),
   helper:helpers(id,name,phone),

@@ -156,6 +156,27 @@ type ConfirmationSettings = Pick<
 const VISIT_FEE_FALLBACK = 49900;
 
 /**
+ * What this customer is quoted for the call-out.
+ *
+ * A blocked drain and a boiler are not worth the same trip, so the fault
+ * answers first, then the trade, then the standing figure. Each level is only
+ * consulted when the one before it has nothing to say, which is what lets a
+ * business set one fee for plumbing and override it for the one job type that
+ * is worth more.
+ */
+export function visitFeeForJob(
+  job: Pick<JobWithRelations, "job_type" | "profession">,
+  settings: Partial<ConfirmationSettings> | null | undefined
+): number {
+  return (
+    job.job_type?.visit_fee_agorot ??
+    job.profession?.visit_fee_agorot ??
+    settings?.visit_fee_agorot ??
+    VISIT_FEE_FALLBACK
+  );
+}
+
+/**
  * The number a customer is told to call, and the one their confirmation goes to.
  *
  * Three fallbacks deep, because the feature has to work before anything has
@@ -187,8 +208,11 @@ export function supportsOrderSettings(settings: object | null | undefined): bool
 }
 
 /** The sentence the customer sends back. It names the fee, so it stands on its own. */
-export function approvalSentence(settings: Partial<ConfirmationSettings> | null | undefined): string {
-  const fee = formatAgorotPlain(settings?.visit_fee_agorot ?? VISIT_FEE_FALLBACK);
+export function approvalSentence(
+  settings: Partial<ConfirmationSettings> | null | undefined,
+  feeAgorot?: number
+): string {
+  const fee = formatAgorotPlain(feeAgorot ?? settings?.visit_fee_agorot ?? VISIT_FEE_FALLBACK);
   return `אני מאשר/ת את פרטי ההזמנה ואת דמי הביקור והאבחון בסך ${fee}`;
 }
 
@@ -200,8 +224,11 @@ export function approvalSentence(settings: Partial<ConfirmationSettings> | null 
  * asked of them that they could get wrong, and what comes back is their own
  * message, in writing, from their own number.
  */
-export function buildConfirmReplyLink(settings: Partial<ConfirmationSettings> | null | undefined): string | null {
-  return buildWhatsappLink(contactPhone(settings), approvalSentence(settings));
+export function buildConfirmReplyLink(
+  settings: Partial<ConfirmationSettings> | null | undefined,
+  feeAgorot?: number
+): string | null {
+  return buildWhatsappLink(contactPhone(settings), approvalSentence(settings, feeAgorot));
 }
 
 /**
@@ -215,11 +242,12 @@ export function buildConfirmReplyLink(settings: Partial<ConfirmationSettings> | 
 export function buildConfirmLink(
   job: Pick<JobWithRelations, "confirm_token">,
   settings: Partial<ConfirmationSettings> | null | undefined,
-  origin?: string | null
+  origin?: string | null,
+  feeAgorot?: number
 ): string | null {
   const base = (origin ?? "").replace(/\/+$/, "");
   if (job.confirm_token && base) return `${base}/c/${job.confirm_token}`;
-  return buildConfirmReplyLink(settings);
+  return buildConfirmReplyLink(settings, feeAgorot);
 }
 
 /** The app's own address, as the browser knows it. Empty on the server. */
@@ -237,15 +265,16 @@ function fillCustomerTemplate(
     ? formatAppointmentWindowHe(job.scheduled_at, window)
     : "בהקדם — ניצור קשר לתיאום מדויק";
   const issue = [job.job_type?.name, job.notes?.trim()].filter(Boolean).join(" — ") || "לפי השיחה בטלפון";
+  const fee = visitFeeForJob(job, settings);
   return body
     .replace(/\{customer\}/g, job.customer_name)
     .replace(/\{address\}/g, job.address_full ?? job.city?.name ?? "")
     .replace(/\{issue\}/g, issue)
     .replace(/\{eta\}/g, eta)
-    .replace(/\{fee\}/g, formatAgorotPlain(settings?.visit_fee_agorot ?? VISIT_FEE_FALLBACK))
+    .replace(/\{fee\}/g, formatAgorotPlain(fee))
     .replace(/\{phone\}/g, contactPhone(settings) ?? "")
     .replace(/\{technician\}/g, job.profession?.technician_label?.trim() || "הטכנאי")
-    .replace(/\{approval\}/g, approvalSentence(settings));
+    .replace(/\{approval\}/g, approvalSentence(settings, fee));
 }
 
 /**
@@ -262,7 +291,7 @@ export function buildOrderConfirmationMessage(
 ): string {
   const body = settings?.order_confirmation_template?.trim() || DEFAULT_ORDER_CONFIRMATION;
   const filled = fillCustomerTemplate(body, job, settings);
-  const link = buildConfirmLink(job, settings, origin);
+  const link = buildConfirmLink(job, settings, origin, visitFeeForJob(job, settings));
   if (!link) return filled.replace(/\{confirm\}/g, "");
   if (/\{confirm\}/.test(body)) return filled.replace(/\{confirm\}/g, link);
   return `${filled}\n\nלאישור בלחיצה אחת:\n${link}`;

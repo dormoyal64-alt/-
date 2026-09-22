@@ -50,3 +50,17 @@ export function formatPercent(n: number | null | undefined, digits = 0): string 
   if (n === null || n === undefined || isNaN(n)) return "0%";
   return `${n.toFixed(digits)}%`;
 }
+
+/**
+ * What to call the share that is set aside.
+ *
+ * Ten percent and twenty have names of their own, and a business that gives
+ * מעשר wants to read the word, not the arithmetic. Anything else is named by
+ * its rate.
+ */
+export function titheLabel(pct: number | null | undefined): string {
+  const rate = pct ?? 0;
+  if (rate === 10) return "מעשר (10%)";
+  if (rate === 20) return "חומש (20%)";
+  return `הפרשה (${formatPercent(rate, rate % 1 === 0 ? 0 : 2)})`;
+}

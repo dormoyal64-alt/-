@@ -11,7 +11,7 @@ import { PeriodPicker } from "@/components/ui/PeriodPicker";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { Input } from "@/components/ui/Input";
 import { PageSpinner } from "@/components/ui/Misc";
-import { formatAgorot, formatPercent } from "@/lib/money";
+import { formatAgorot, formatPercent, titheLabel } from "@/lib/money";
 import { startOfDay, endOfDay, formatDateHe, last7Days, todayLocalDate, getPeriodRange, isoRange, type PeriodKey, type DateRange } from "@/lib/dates";
 import type { CityStatsRow, ContractorStatsRow, ProfessionStatsRow } from "@/lib/types";
 
@@ -27,6 +27,11 @@ export interface DailyMoneyRow {
   ad_spend_agorot: number;
   net_agorot: number;
   cost_per_lead_agorot: number;
+  expenses_agorot: number;
+  tax_agorot: number;
+  job_expenses_agorot: number;
+  tithe_agorot: number;
+  net_before_tithe_agorot: number;
 }
 
 interface ComboRow {
@@ -38,7 +43,7 @@ interface ComboRow {
 
 export default function DailySummaryPage() {
   const supabase = useMemo(() => createClient(), []);
-  const { professions, cities, contractors, jobStatuses } = useRefData();
+  const { professions, cities, contractors, jobStatuses, settings } = useRefData();
 
   const [period, setPeriod] = useState<PeriodKey>("today");
   const [date, setDate] = useState(todayLocalDate());
@@ -222,10 +227,31 @@ export default function DailySummaryPage() {
               <MoneyRow label="עמלות לחברות מפנות" value={`-${formatAgorot(money?.referral_agorot)}`} negative />
               <MoneyRow label="דלק" value={`-${formatAgorot(money?.fuel_agorot)}`} negative />
               <MoneyRow label="עובדים" value={`-${formatAgorot(money?.helper_agorot)}`} negative />
+              {!!money?.job_expenses_agorot && (
+                <MoneyRow label="הוצאות על העבודות" value={`-${formatAgorot(money.job_expenses_agorot)}`} negative />
+              )}
               <div className="border-t border-ink-100 pt-1.5">
                 <MoneyRow label="לפני פרסום" value={formatAgorot(money?.gross_agorot)} />
               </div>
               <MoneyRow label="פרסום" value={`-${formatAgorot(money?.ad_spend_agorot)}`} negative />
+              {!!money?.expenses_agorot && (
+                <MoneyRow label="הוצאות קבועות" value={`-${formatAgorot(money.expenses_agorot)}`} negative />
+              )}
+              {!!money?.tax_agorot && (
+                <MoneyRow label="מס" value={`-${formatAgorot(money.tax_agorot)}`} negative />
+              )}
+              {!!money?.tithe_agorot && (
+                <>
+                  <div className="border-t border-ink-100 pt-1.5">
+                    <MoneyRow label="רווח לפני הפרשה" value={formatAgorot(money.net_before_tithe_agorot)} />
+                  </div>
+                  <MoneyRow
+                    label={titheLabel(settings?.tithe_pct)}
+                    value={`-${formatAgorot(money.tithe_agorot)}`}
+                    negative
+                  />
+                </>
+              )}
               <div className="border-t-2 border-ink-200 pt-2">
                 <div className="flex items-center justify-between">
                   <span className="font-extrabold text-ink-900">הרווח האמיתי {periodNoun}</span>

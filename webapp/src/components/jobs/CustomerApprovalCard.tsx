@@ -10,6 +10,7 @@ import {
   buildOrderConfirmationMessage,
   buildWhatsappLink,
   siteOrigin,
+  visitFeeForJob,
   supportsOrderSettings,
 } from "@/lib/whatsapp";
 import { formatAgorot } from "@/lib/money";
@@ -57,7 +58,7 @@ export function CustomerApprovalCard({
     : buildOnTheWayMessage(job, settings?.on_the_way_template, buildCancellationNotice(settings));
   const dispatchLink = buildWhatsappLink(job.customer_phone, dispatchMessage);
 
-  const fee = formatAgorot(settings?.visit_fee_agorot ?? 49900);
+  const fee = formatAgorot(visitFeeForJob(job, settings));
 
   async function sendNow() {
     setSending(true);

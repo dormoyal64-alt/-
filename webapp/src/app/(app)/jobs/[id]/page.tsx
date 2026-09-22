@@ -38,6 +38,7 @@ import { Timeline, type TimelineEntry } from "@/components/jobs/Timeline";
 import { fetchJob, changeJobStatus, closeJob, reopenJob, reassignJob, duplicateJob, deleteJob, deleteJobBlockedReason, issueReceipt, fetchReceipt, stampConfirmationStep, type ConfirmationStep } from "@/lib/api/jobs";
 import { ReceiptCard } from "@/components/jobs/ReceiptCard";
 import { CustomerApprovalCard } from "@/components/jobs/CustomerApprovalCard";
+import { JobExpensesCard } from "@/components/jobs/JobExpensesCard";
 import type { Receipt } from "@/lib/types";
 import { buildCallLink, buildMapLink, buildNewJobWhatsappMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
 import { formatAgorot, formatPercent } from "@/lib/money";
@@ -63,6 +64,7 @@ export default function JobDetailPage() {
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [adShare, setAdShare] = useState<number | null>(null);
+  const [jobCosts, setJobCosts] = useState(0);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   // A closed job is out of the clerk's reach, so once she closes one the page
   // has nothing left to show her but the receipt she just produced.
@@ -455,12 +457,14 @@ export default function JobDetailPage() {
         )
       )}
 
+      {isOwner && <JobExpensesCard jobId={job.id} onChange={setJobCosts} />}
+
       {job.is_closed && (() => {
         // business_share already has the contractor and the referral company out
         // of it; fuel and the helper are only ever set on a job I did myself.
         const beforeAds =
           (job.business_share_agorot ?? 0) - (job.fuel_cost_agorot ?? 0) - (job.helper_pay_agorot ?? 0)
-          - (job.tax_agorot ?? 0);
+          - (job.tax_agorot ?? 0) - jobCosts;
         const ads = adShare ?? 0;
         const real = beforeAds - ads;
         return (
@@ -483,6 +487,7 @@ export default function JobDetailPage() {
                 <InfoRow label={`עובד${job.helper ? ` (${job.helper.name})` : ""}`} value={`-${formatAgorot(job.helper_pay_agorot)}`} />
               )}
               {!!job.tax_agorot && <InfoRow label="מס (נסגרה עם קבלה)" value={`-${formatAgorot(job.tax_agorot)}`} />}
+              {!!jobCosts && <InfoRow label="הוצאות על העבודה" value={`-${formatAgorot(jobCosts)}`} />}
               <InfoRow label="חלק יחסי בפרסום" value={`-${formatAgorot(ads)}`} />
               <div className="mt-1 flex items-center justify-between border-t-2 border-ink-200 pt-2">
                 <span className="font-extrabold text-ink-900">נשאר לי</span>
