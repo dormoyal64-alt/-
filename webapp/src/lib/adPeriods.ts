@@ -58,3 +58,28 @@ export function describeRange(from: string, to: string): string {
     );
   return from === to ? fmt(from) : `${fmt(from)} — ${fmt(to)}`;
 }
+
+/**
+ * A yearly amount, split into the twelve months it is really felt in.
+ *
+ * Each row covers one calendar month, so a month's report shows exactly a
+ * twelfth — not the 28/365 that spreading one row across the year would give
+ * February. The remainder is handed out an agora at a time to the earliest
+ * months, so the twelve add back to the figure that was typed.
+ */
+export function monthlyInstalments(
+  totalAgorot: number,
+  year: number
+): { from: string; to: string; amount_agorot: number }[] {
+  const base = Math.floor(totalAgorot / 12);
+  let remainder = totalAgorot - base * 12;
+  return Array.from({ length: 12 }, (_, month) => {
+    const extra = remainder > 0 ? 1 : 0;
+    remainder -= extra;
+    return {
+      from: iso(new Date(year, month, 1)),
+      to: iso(new Date(year, month + 1, 0)),
+      amount_agorot: base + extra,
+    };
+  });
+}

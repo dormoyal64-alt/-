@@ -527,6 +527,8 @@ export interface BusinessExpense {
   covers_to: string | null;
   amount_agorot: number;
   notes: string | null;
+  /** ties the twelve months of one yearly bill together; null for a single expense */
+  group_id: string | null;
   created_at: string;
 }
 
