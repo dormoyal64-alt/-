@@ -335,7 +335,7 @@ export interface AppSettings {
   send_customer_phone_to_contractor: boolean;
   /** business details printed on every receipt */
   business_name: string | null;
-  /** ח.פ. / מספר עוסק */
+  /** ע.פ — the business number printed on every receipt */
   business_number: string | null;
   business_address: string | null;
   business_phone: string | null;
@@ -367,6 +367,8 @@ export interface AppSettings {
   tithe_pct: number;
   /** 'net' takes the share out of the profit, 'revenue' out of what came in */
   tithe_basis: "net" | "revenue";
+  /** where the monthly report is sent */
+  accountant_email: string | null;
   updated_at: string;
 }
 

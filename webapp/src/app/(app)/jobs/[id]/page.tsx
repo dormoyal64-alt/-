@@ -65,6 +65,9 @@ export default function JobDetailPage() {
   const [noteText, setNoteText] = useState("");
   const [adShare, setAdShare] = useState<number | null>(null);
   const [jobCosts, setJobCosts] = useState(0);
+  // A receipt is worth nothing sitting in the system: the moment one exists,
+  // the screen offers to put it in the customer's hand.
+  const [justIssued, setJustIssued] = useState<Receipt | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   // A closed job is out of the clerk's reach, so once she closes one the page
   // has nothing left to show her but the receipt she just produced.
@@ -228,7 +231,7 @@ export default function JobDetailPage() {
         try {
           issued = await issueReceipt(supabase, job!.id);
           setReceipt(issued);
-          toast.success("העבודה נסגרה והקבלה הופקה");
+          setJustIssued(issued);
         } catch {
           toast.error("העבודה נסגרה, אבל הפקת הקבלה נכשלה. אפשר להפיק אותה מדף העבודה.");
         }
@@ -254,8 +257,9 @@ export default function JobDetailPage() {
   async function handleIssueReceipt() {
     setBusy(true);
     try {
-      setReceipt(await issueReceipt(supabase, job!.id));
-      toast.success("הקבלה הופקה");
+      const issued = await issueReceipt(supabase, job!.id);
+      setReceipt(issued);
+      setJustIssued(issued);
     } catch (e) {
       toast.error(errorMessage(e, "שגיאה בהפקת הקבלה"));
     } finally {
@@ -633,6 +637,20 @@ export default function JobDetailPage() {
       <CloseJobModal open={closeOpen} onClose={() => setCloseOpen(false)} job={job} onSubmit={handleClose} loading={busy} />
       <StatusMenu open={statusOpen} onClose={() => setStatusOpen(false)} currentStatusId={job.status_id} onSelect={handleStatusSelect} />
       <EditJobModal open={editOpen} onClose={() => setEditOpen(false)} job={job} onSubmit={handleEditSubmit} loading={busy} />
+
+      <Modal open={!!justIssued} onClose={() => setJustIssued(null)} title="הקבלה מוכנה">
+        {justIssued && (
+          <div className="space-y-3">
+            <p className="text-sm text-ink-500">
+              העבודה נסגרה והקבלה הופקה. אפשר לשלוח אותה ללקוח עכשיו — או מאוחר יותר מדף העבודה.
+            </p>
+            <ReceiptCard receipt={justIssued} />
+            <Button variant="secondary" fullWidth onClick={() => setJustIssued(null)}>
+              סגירה
+            </Button>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="מחיקת עבודה">
         {(() => {

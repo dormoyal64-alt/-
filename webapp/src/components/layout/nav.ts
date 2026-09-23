@@ -18,6 +18,7 @@ import {
   Building2,
   UserCog,
   Scale,
+  FileSpreadsheet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -47,6 +48,7 @@ export const reportsNav: NavItem[] = [
   { href: "/leaderboard", label: "דירוג קבלנים", icon: Trophy, ownerOnly: true },
   { href: "/daily-summary", label: "סיכומים", icon: CalendarRange, ownerOnly: true },
   { href: "/settlements", label: "התחשבנות", icon: Wallet, ownerOnly: true },
+  { href: "/accountant", label: "דוח לרואה חשבון", icon: FileSpreadsheet, ownerOnly: true },
 ];
 
 export const settingsNav: NavItem[] = [

@@ -283,14 +283,16 @@ export default function SettingsPage() {
         <CardBody className="space-y-3">
           <p className="text-sm text-ink-500">
             מה שימולא כאן יופיע בראש כל קבלה שתפיקו ללקוחות. שינוי כאן משפיע על קבלות
-            <b> חדשות בלבד</b> — קבלות שכבר הופקו נשארות כפי שהיו.
+            <b> חדשות בלבד</b> — קבלות שכבר הופקו נשארות כפי שהיו. המייל של רואה החשבון
+            לא מופיע בקבלה — הוא היעד של הדוח החודשי.
           </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <BusinessField label="שם העסק" field="business_name" value={settings?.business_name} onSave={saveBusinessField} disabled={savingBusiness} placeholder="ביוביות בדרום" />
-            <BusinessField label="ח.פ. / מספר עוסק" field="business_number" value={settings?.business_number} onSave={saveBusinessField} disabled={savingBusiness} placeholder="123456789" dir="ltr" />
+            <BusinessField label="ע.פ (מספר עוסק)" field="business_number" value={settings?.business_number} onSave={saveBusinessField} disabled={savingBusiness} placeholder="308241868" dir="ltr" />
             <BusinessField label="כתובת" field="business_address" value={settings?.business_address} onSave={saveBusinessField} disabled={savingBusiness} placeholder="שדרות הנשיא 22, באר שבע" />
             <BusinessField label="טלפון" field="business_phone" value={settings?.business_phone} onSave={saveBusinessField} disabled={savingBusiness} placeholder="050-1234567" dir="ltr" />
             <BusinessField label="אימייל" field="business_email" value={settings?.business_email} onSave={saveBusinessField} disabled={savingBusiness} placeholder="info@example.com" dir="ltr" />
+            <BusinessField label="מייל של רואה החשבון" field="accountant_email" value={settings?.accountant_email} onSave={saveBusinessField} disabled={savingBusiness} placeholder="accountant@example.com" dir="ltr" />
             <BusinessField label="שורת סיום בקבלה" field="receipt_footer" value={settings?.receipt_footer} onSave={saveBusinessField} disabled={savingBusiness} placeholder="תודה שבחרתם בנו!" />
           </div>
           <div className="border-t border-ink-100 pt-3">

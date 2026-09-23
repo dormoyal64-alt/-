@@ -30,7 +30,7 @@ export function receiptHtml(r: Receipt): string {
   <div class="head">
     <div class="biz">
       <div class="biz-name">${esc(r.business_name || "קבלה")}</div>
-      ${r.business_number ? `<div class="biz-line">ח.פ. / עוסק מורשה: ${esc(r.business_number)}</div>` : ""}
+      ${r.business_number ? `<div class="biz-line">ע.פ ${esc(r.business_number)}</div>` : ""}
       ${r.business_address ? `<div class="biz-line">${esc(r.business_address)}</div>` : ""}
       ${r.business_phone ? `<div class="biz-line">טלפון: ${esc(r.business_phone)}</div>` : ""}
       ${r.business_email ? `<div class="biz-line">${esc(r.business_email)}</div>` : ""}

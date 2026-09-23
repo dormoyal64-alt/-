@@ -418,7 +418,7 @@ export function CloseJobModal({
               </span>
               {issueReceipt && !settings?.business_name && (
                 <span className="mt-1 block text-[11px] font-semibold text-warning-600">
-                  עדיין לא מילאתם את פרטי העסק — הקבלה תצא בלי שם וללא ח.פ. (הגדרות ← פרטי העסק לקבלות)
+                  עדיין לא מילאתם את פרטי העסק — הקבלה תצא בלי שם וללא ע.פ (הגדרות ← פרטי העסק לקבלות)
                 </span>
               )}
             </span>
