@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronRight, ChevronLeft, Download, Mail, Copy, Receipt as ReceiptIcon, Wallet } from "lucide-react";
+import { ChevronRight, ChevronLeft, Download, Mail, Copy, Loader2, Send, CheckCircle2, Receipt as ReceiptIcon, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useToast } from "@/components/ui/Toast";
@@ -41,6 +41,11 @@ export default function AccountantPage() {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [expenses, setExpenses] = useState<ExpenseLine[]>([]);
   const [loading, setLoading] = useState(true);
+  // a real send exists only when the business connected its Gmail; until then
+  // the compose window is the best this can do
+  const [canSend, setCanSend] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,6 +97,40 @@ export default function AccountantPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    fetch("/api/accountant/send")
+      .then((r) => r.json())
+      .then((d) => setCanSend(!!d?.configured))
+      .catch(() => {});
+  }, []);
+
+  // a month that changed under the button has not been sent
+  useEffect(() => {
+    setSent(null);
+  }, [year, month]);
+
+  async function sendNow() {
+    setSending(true);
+    try {
+      const response = await fetch("/api/accountant/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ year, month }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.ok) {
+        toast.error(data?.error ?? "השליחה נכשלה");
+        return;
+      }
+      setSent(data.to);
+      toast.success(`הדוח נשלח ל${data.to} עם שני קבצי ה-CSV`);
+    } catch {
+      toast.error("אין חיבור לרשת");
+    } finally {
+      setSending(false);
+    }
+  }
 
   const income = receipts.reduce((s, r) => s + r.amount_agorot, 0);
   const outgoing = expenses.reduce((s, e) => s + e.amount_agorot, 0);
@@ -205,22 +244,51 @@ export default function AccountantPage() {
 
       <Card>
         <CardBody className="space-y-2">
+          {sent ? (
+            <p className="flex items-center justify-center gap-2 rounded-xl bg-success-50 px-3.5 py-3 text-sm font-bold text-success-700">
+              <CheckCircle2 className="h-4 w-4" /> הדוח של {range.label} נשלח ל{sent} עם הקבצים
+            </p>
+          ) : null}
+
           {gmail ? (
             <>
-              <a
-                href={gmail}
-                target="_blank"
-                rel="noreferrer"
-                className="btn-primary flex w-full items-center justify-center gap-2 py-3"
-              >
-                <Mail className="h-4 w-4" /> שליחה דרך Gmail
-              </a>
-              <a
-                href={mailto!}
-                className="block text-center text-xs font-bold text-ink-400 hover:text-ink-700"
-              >
-                או דרך תוכנת המייל שבמחשב
-              </a>
+              {canSend ? (
+                <>
+                  <button
+                    onClick={sendNow}
+                    disabled={sending || (receipts.length === 0 && expenses.length === 0)}
+                    className="btn-primary flex w-full items-center justify-center gap-2 py-3"
+                  >
+                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    {sent ? "שליחה שוב" : "שליחה לרואה החשבון עם הקבצים"}
+                  </button>
+                  <a
+                    href={gmail}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block text-center text-xs font-bold text-ink-400 hover:text-ink-700"
+                  >
+                    או לפתוח חלון כתיבה ב-Gmail ולשלוח ידנית
+                  </a>
+                </>
+              ) : (
+                <>
+                  <a
+                    href={gmail}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-primary flex w-full items-center justify-center gap-2 py-3"
+                  >
+                    <Mail className="h-4 w-4" /> שליחה דרך Gmail
+                  </a>
+                  <a
+                    href={mailto!}
+                    className="block text-center text-xs font-bold text-ink-400 hover:text-ink-700"
+                  >
+                    או דרך תוכנת המייל שבמחשב
+                  </a>
+                </>
+              )}
             </>
           ) : (
             <p className="rounded-xl bg-warning-50 px-3.5 py-3 text-sm font-semibold text-warning-700">
@@ -239,9 +307,9 @@ export default function AccountantPage() {
             </Button>
           </div>
           <p className="text-xs text-ink-400">
-            הכפתור פותח חלון כתיבה ב-Gmail שלכם, עם הכתובת, הנושא וכל הדוח כבר בפנים — נשאר
-            רק ללחוץ ״שלח״. אם אתם מחוברים לכמה חשבונות Gmail, ייפתח החשבון הפעיל. את קבצי
-            ה-CSV אפשר להוריד ולצרף להודעה, אם רואה החשבון מעדיף טבלה.
+            {canSend
+              ? "הדוח נשלח מה-Gmail שלכם ישירות לרואה החשבון, עם שני קבצי ה-CSV מצורפים — בלי לפתוח שום חלון."
+              : "הכפתור פותח חלון כתיבה ב-Gmail שלכם, עם הכתובת, הנושא וכל הדוח כבר בפנים — נשאר רק ללחוץ ״שלח״. לשליחה אוטומטית עם קבצים מצורפים צריך לחבר את ה-Gmail פעם אחת."}
           </p>
         </CardBody>
       </Card>
