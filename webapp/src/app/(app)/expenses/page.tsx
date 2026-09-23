@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Wallet, Plus, Trash2, Check } from "lucide-react";
+import { Wallet, Plus, Trash2, Check, Tags, ChevronDown, ChevronUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -13,6 +13,7 @@ import { errorMessage } from "@/lib/errors";
 import { SPEND_PERIODS, periodRange, daysInRange, describeRange, monthlyInstalments, type SpendPeriod } from "@/lib/adPeriods";
 import type { BusinessExpense, ExpenseCategory, ExpenseReceipt } from "@/lib/types";
 import { ExpenseReceipts } from "@/components/expenses/ExpenseReceipts";
+import { EditableList } from "@/components/settings/EditableList";
 import { listExpenseReceipts } from "@/lib/api/expenseReceipts";
 
 export default function ExpensesPage() {
@@ -33,6 +34,7 @@ export default function ExpensesPage() {
   const [saving, setSaving] = useState(false);
   // a yearly bill is felt monthly, and that is how the business wants to read it
   const [splitMonthly, setSplitMonthly] = useState(true);
+  const [editingCategories, setEditingCategories] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,6 +91,15 @@ export default function ExpensesPage() {
     setNotes("");
     await load();
     toast.success(asMonths ? "ההוצאה נרשמה ונפרסה על 12 חודשים" : "ההוצאה נרשמה");
+  }
+
+  async function addCategory(name: string) {
+    const { error } = await supabase
+      .from("expense_categories")
+      .insert({ name, sort_order: categories.length });
+    if (error) return toast.error(errorMessage(error, "שגיאה בהוספה (אולי כבר קיים)"));
+    await load();
+    toast.success("סוג ההוצאה נוסף");
   }
 
   async function removeGroup(groupId: string) {
@@ -260,6 +271,44 @@ export default function ExpensesPage() {
             <Plus className="h-4 w-4" /> רישום ההוצאה
           </Button>
         </CardBody>
+      </Card>
+
+      <Card>
+        <button
+          onClick={() => setEditingCategories((v) => !v)}
+          className="flex w-full items-center justify-between px-5 py-4"
+        >
+          <span className="flex items-center gap-2 font-bold text-ink-800">
+            <Tags className="h-4 w-4 text-brand-600" /> סוגי הוצאות
+          </span>
+          {editingCategories ? (
+            <ChevronUp className="h-4 w-4 text-ink-400" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-ink-400" />
+          )}
+        </button>
+        {editingCategories && (
+          <CardBody className="pt-0">
+            <p className="mb-3 text-sm text-ink-500">
+              אלה הסוגים שמופיעים ברשימת ״סוג ההוצאה״ למעלה. אפשר להוסיף כל סוג שתרצו — למשל
+              ״ציוד מגן״ או ״אחסנה״. סוג בארכיון נעלם מהרשימה, אבל הוצאות שכבר נרשמו בו נשארות.
+            </p>
+            <EditableList
+              items={categories}
+              addPlaceholder="סוג הוצאה חדש"
+              archiveNoun="סוג ההוצאה"
+              onAdd={addCategory}
+              onRename={async (id, name) => {
+                await supabase.from("expense_categories").update({ name }).eq("id", id);
+                await load();
+              }}
+              onToggleActive={async (id, is_active) => {
+                await supabase.from("expense_categories").update({ is_active }).eq("id", id);
+                await load();
+              }}
+            />
+          </CardBody>
+        )}
       </Card>
 
       {byCategory.length > 0 && (

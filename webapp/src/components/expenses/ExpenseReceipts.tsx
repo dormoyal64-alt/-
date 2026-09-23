@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Camera, Loader2, Paperclip, Trash2, X } from "lucide-react";
+import { Camera, ImagePlus, Loader2, Paperclip, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
 import { Modal } from "@/components/ui/Modal";
@@ -28,7 +28,10 @@ export function ExpenseReceipts({
 }) {
   const supabase = useMemo(() => createClient(), []);
   const toast = useToast();
-  const input = useRef<HTMLInputElement>(null);
+  // two inputs, because a phone treats them differently: one opens the camera,
+  // the other the photo library. A single input cannot offer both.
+  const camera = useRef<HTMLInputElement>(null);
+  const gallery = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const [viewing, setViewing] = useState<{ receipt: ExpenseReceipt; url: string } | null>(null);
@@ -46,7 +49,9 @@ export function ExpenseReceipts({
       toast.error(errorMessage(e, "שגיאה בהעלאת הקבלה"));
     } finally {
       setBusy(false);
-      if (input.current) input.current.value = "";
+      // clearing lets the same file be chosen twice in a row
+      if (camera.current) camera.current.value = "";
+      if (gallery.current) gallery.current.value = "";
     }
   }
 
@@ -73,10 +78,17 @@ export function ExpenseReceipts({
   return (
     <>
       <input
-        ref={input}
+        ref={camera}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => add(e.target.files)}
+      />
+      <input
+        ref={gallery}
         type="file"
         accept="image/*,application/pdf"
-        capture="environment"
         multiple
         className="hidden"
         onChange={(e) => add(e.target.files)}
@@ -84,7 +96,7 @@ export function ExpenseReceipts({
 
       <button
         type="button"
-        onClick={() => (receipts.length > 0 ? setOpen(true) : input.current?.click())}
+        onClick={() => setOpen(true)}
         disabled={busy}
         className={`flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold transition ${
           receipts.length > 0
@@ -106,7 +118,17 @@ export function ExpenseReceipts({
 
       <Modal open={open} onClose={() => setOpen(false)} title="קבלות מצורפות">
         <div className="space-y-3">
-          <div className="divide-y divide-ink-100 overflow-hidden rounded-2xl border border-ink-100">
+          {receipts.length === 0 && (
+            <p className="text-sm text-ink-500">
+              עדיין לא צורפה קבלה להוצאה הזו. אפשר לצלם אותה עכשיו, או לבחור תמונה שכבר שמורה בטלפון.
+            </p>
+          )}
+
+          <div
+            className={`divide-y divide-ink-100 overflow-hidden rounded-2xl border border-ink-100 ${
+              receipts.length === 0 ? "hidden" : ""
+            }`}
+          >
             {receipts.map((r) => (
               <div key={r.id} className="flex items-center gap-2 px-3.5 py-2.5">
                 <button
@@ -129,14 +151,25 @@ export function ExpenseReceipts({
               </div>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={() => input.current?.click()}
-            disabled={busy}
-            className="btn-secondary flex w-full items-center justify-center gap-2 py-2.5"
-          >
-            <Camera className="h-4 w-4" /> צילום קבלה נוספת
-          </button>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => camera.current?.click()}
+              disabled={busy}
+              className="btn-primary flex items-center justify-center gap-2 py-2.5"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+              צילום קבלה
+            </button>
+            <button
+              type="button"
+              onClick={() => gallery.current?.click()}
+              disabled={busy}
+              className="btn-secondary flex items-center justify-center gap-2 py-2.5"
+            >
+              <ImagePlus className="h-4 w-4" /> בחירה מהגלריה
+            </button>
+          </div>
           <p className="text-xs text-ink-400">
             הקבלות האלה נשלחות מצורפות לרואה החשבון יחד עם הדוח החודשי.
           </p>
