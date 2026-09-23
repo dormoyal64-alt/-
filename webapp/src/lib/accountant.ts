@@ -131,5 +131,54 @@ export function buildAccountantEmail(
 export function mailtoLink(to: string | null | undefined, subject: string, body: string): string | null {
   const address = to?.trim();
   if (!address) return null;
-  return `mailto:${encodeURIComponent(address)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return `mailto:${encodeURIComponent(address)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(trimForUrl(body))}`;
+}
+
+/**
+ * Gmail's own compose window, already addressed and written.
+ *
+ * The message is composed in the business's own Gmail, in their browser, and
+ * goes out from their address when they press send. Nothing here holds a
+ * Google password or a token, and a month can be re-sent or edited before it
+ * leaves — which is what a person wants from something going to their
+ * accountant.
+ */
+export function gmailComposeLink(to: string | null | undefined, subject: string, body: string): string | null {
+  const address = to?.trim();
+  if (!address) return null;
+  const params = new URLSearchParams({
+    view: "cm",
+    fs: "1",
+    to: address,
+    su: subject,
+    body: trimForUrl(body),
+  });
+  return `https://mail.google.com/mail/?${params.toString()}`;
+}
+
+/**
+ * A body short enough to survive being carried in a link.
+ *
+ * Browsers and mail clients both give up somewhere past a few thousand
+ * characters, and a busy month can pass that. Rather than let the end be cut
+ * off silently — which would send an accountant a report that stops
+ * mid-sentence — the detail is cut at a whole line and the message says how
+ * many are missing and where to find them.
+ */
+export function trimForUrl(body: string, limit = 6000): string {
+  if (body.length <= limit) return body;
+  const lines = body.split("\n");
+  const kept: string[] = [];
+  let used = 0;
+  let dropped = 0;
+  for (const line of lines) {
+    if (used + line.length + 1 > limit - 160) {
+      dropped += 1;
+      continue;
+    }
+    kept.push(line);
+    used += line.length + 1;
+  }
+  kept.push("", `— ועוד ${dropped} שורות. הפירוט המלא נמצא בקבצי ה-CSV המצורפים. —`);
+  return kept.join("\n");
 }

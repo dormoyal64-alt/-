@@ -14,6 +14,7 @@ import {
   monthRange,
   expenseLines,
   buildAccountantEmail,
+  gmailComposeLink,
   mailtoLink,
   type ExpenseLine,
 } from "@/lib/accountant";
@@ -96,7 +97,8 @@ export default function AccountantPage() {
   const outgoing = expenses.reduce((s, e) => s + e.amount_agorot, 0);
 
   const email = buildAccountantEmail(range.label, settings?.business_name ?? null, receipts, expenses);
-  const link = mailtoLink(settings?.accountant_email, email.subject, email.body);
+  const gmail = gmailComposeLink(settings?.accountant_email, email.subject, email.body);
+  const mailto = mailtoLink(settings?.accountant_email, email.subject, email.body);
 
   function step(by: number) {
     const d = new Date(year, month + by, 1);
@@ -203,10 +205,23 @@ export default function AccountantPage() {
 
       <Card>
         <CardBody className="space-y-2">
-          {link ? (
-            <a href={link} className="btn-primary flex w-full items-center justify-center gap-2 py-3">
-              <Mail className="h-4 w-4" /> שליחה לרואה החשבון
-            </a>
+          {gmail ? (
+            <>
+              <a
+                href={gmail}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-primary flex w-full items-center justify-center gap-2 py-3"
+              >
+                <Mail className="h-4 w-4" /> שליחה דרך Gmail
+              </a>
+              <a
+                href={mailto!}
+                className="block text-center text-xs font-bold text-ink-400 hover:text-ink-700"
+              >
+                או דרך תוכנת המייל שבמחשב
+              </a>
+            </>
           ) : (
             <p className="rounded-xl bg-warning-50 px-3.5 py-3 text-sm font-semibold text-warning-700">
               לא הוגדר מייל של רואה החשבון — אפשר להגדיר אותו בהגדרות כלליות.
@@ -224,8 +239,9 @@ export default function AccountantPage() {
             </Button>
           </div>
           <p className="text-xs text-ink-400">
-            השליחה פותחת את תוכנת המייל עם הדוח כתוב בגוף ההודעה. את קבצי ה-CSV אפשר להוריד
-            ולצרף, אם רואה החשבון מעדיף טבלה.
+            הכפתור פותח חלון כתיבה ב-Gmail שלכם, עם הכתובת, הנושא וכל הדוח כבר בפנים — נשאר
+            רק ללחוץ ״שלח״. אם אתם מחוברים לכמה חשבונות Gmail, ייפתח החשבון הפעיל. את קבצי
+            ה-CSV אפשר להוריד ולצרף להודעה, אם רואה החשבון מעדיף טבלה.
           </p>
         </CardBody>
       </Card>
