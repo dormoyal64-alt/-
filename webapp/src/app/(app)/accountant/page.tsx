@@ -124,7 +124,11 @@ export default function AccountantPage() {
         return;
       }
       setSent(data.to);
-      toast.success(`הדוח נשלח ל${data.to} עם שני קבצי ה-CSV`);
+      toast.success(
+        data.photos > 0
+          ? `הדוח נשלח ל${data.to} עם ${data.photos} תמונות קבלה ושני קבצי CSV`
+          : `הדוח נשלח ל${data.to} עם שני קבצי ה-CSV`
+      );
     } catch {
       toast.error("אין חיבור לרשת");
     } finally {
@@ -308,7 +312,7 @@ export default function AccountantPage() {
           </div>
           <p className="text-xs text-ink-400">
             {canSend
-              ? "הדוח נשלח מה-Gmail שלכם ישירות לרואה החשבון, עם שני קבצי ה-CSV מצורפים — בלי לפתוח שום חלון."
+              ? "הדוח נשלח מה-Gmail שלכם ישירות לרואה החשבון, עם שני קבצי ה-CSV ותמונות הקבלות שצילמתם — בלי לפתוח שום חלון."
               : "הכפתור פותח חלון כתיבה ב-Gmail שלכם, עם הכתובת, הנושא וכל הדוח כבר בפנים — נשאר רק ללחוץ ״שלח״. לשליחה אוטומטית עם קבצים מצורפים צריך לחבר את ה-Gmail פעם אחת."}
           </p>
         </CardBody>

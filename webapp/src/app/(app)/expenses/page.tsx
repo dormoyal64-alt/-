@@ -11,7 +11,9 @@ import { formatAgorot, shekelsToAgorot } from "@/lib/money";
 import { todayLocalDate } from "@/lib/dates";
 import { errorMessage } from "@/lib/errors";
 import { SPEND_PERIODS, periodRange, daysInRange, describeRange, monthlyInstalments, type SpendPeriod } from "@/lib/adPeriods";
-import type { BusinessExpense, ExpenseCategory } from "@/lib/types";
+import type { BusinessExpense, ExpenseCategory, ExpenseReceipt } from "@/lib/types";
+import { ExpenseReceipts } from "@/components/expenses/ExpenseReceipts";
+import { listExpenseReceipts } from "@/lib/api/expenseReceipts";
 
 export default function ExpensesPage() {
   const supabase = useMemo(() => createClient(), []);
@@ -19,6 +21,7 @@ export default function ExpensesPage() {
 
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [rows, setRows] = useState<BusinessExpense[]>([]);
+  const [receipts, setReceipts] = useState<ExpenseReceipt[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [period, setPeriod] = useState<SpendPeriod>("month");
@@ -38,7 +41,10 @@ export default function ExpensesPage() {
       supabase.from("business_expenses").select("*").order("spent_on", { ascending: false }).limit(120),
     ]);
     setCategories((cat.data as ExpenseCategory[]) ?? []);
-    setRows((exp.data as BusinessExpense[]) ?? []);
+    const expenses = (exp.data as BusinessExpense[]) ?? [];
+    setRows(expenses);
+    // the photographs are fetched for the whole page at once rather than per row
+    setReceipts(await listExpenseReceipts(supabase, expenses.map((e) => e.id)).catch(() => []));
     setLoading(false);
   }, [supabase]);
 
@@ -127,7 +133,8 @@ export default function ExpensesPage() {
       <div>
         <h1 className="text-2xl font-extrabold text-ink-900">הוצאות קבועות</h1>
         <p className="text-sm text-ink-500">
-          רואה חשבון, ביטוח, שכירות וכל מה שלא שייך לעבודה מסוימת — נפרס על ימי התקופה ויורד מהרווח
+          רואה חשבון, ביטוח, שכירות, ציוד וכל מה שלא שייך לעבודה מסוימת — נפרס על ימי התקופה ויורד
+          מהרווח. אפשר לצלם את הקבלה בכפתור המצלמה שליד כל שורה, והיא תישלח לרואה החשבון עם הדוח החודשי.
         </p>
       </div>
 
@@ -291,6 +298,8 @@ export default function ExpensesPage() {
                 const r = group[0];
                 const total = group.reduce((sum, x) => sum + x.amount_agorot, 0);
                 const gid = r.group_id;
+                // rows arrive newest first, so the earliest month is last
+                const receiptHolder = group[group.length - 1];
                 return (
                   <div key={key} className="flex items-center gap-3 px-4 py-2.5">
                     <span className="w-28 shrink-0 text-xs font-bold text-ink-400">
@@ -317,6 +326,14 @@ export default function ExpensesPage() {
                       {r.notes && <span className="mr-1.5 text-xs font-normal text-ink-400">{r.notes}</span>}
                     </span>
                     <span className="font-extrabold text-ink-900">{formatAgorot(total)}</span>
+                    <ExpenseReceipts
+                      /* a yearly bill is paid once, so its receipt belongs to the
+                         first of its twelve months — not to whichever one the
+                         list happens to show first */
+                      expenseId={receiptHolder.id}
+                      receipts={receipts.filter((x) => x.business_expense_id === receiptHolder.id)}
+                      onChange={load}
+                    />
                     <button
                       onClick={() => (yearly && gid ? removeGroup(gid) : remove(r.id))}
                       className="rounded-lg p-1.5 text-ink-300 hover:bg-ink-100 hover:text-danger-600"

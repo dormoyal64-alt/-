@@ -534,6 +534,17 @@ export interface BusinessExpense {
   created_at: string;
 }
 
+/** A photograph of the paper receipt behind a business expense. */
+export interface ExpenseReceipt {
+  id: string;
+  business_expense_id: string;
+  storage_path: string;
+  file_name: string | null;
+  content_type: string | null;
+  size_bytes: number | null;
+  created_at: string;
+}
+
 /** Money in, money out and what is left, over a period. */
 export interface MoneyReport {
   jobs_closed: number;

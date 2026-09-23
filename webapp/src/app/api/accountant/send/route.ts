@@ -5,7 +5,8 @@ import { toCsv } from "@/lib/csv";
 import { agorotToShekels } from "@/lib/money";
 import { formatDateHe } from "@/lib/dates";
 import { monthRange, expenseLines, buildAccountantEmail } from "@/lib/accountant";
-import type { AdSpend, AppSettings, BusinessExpense, ExpenseCategory, Receipt } from "@/lib/types";
+import type { AdSpend, AppSettings, BusinessExpense, ExpenseCategory, ExpenseReceipt, Receipt } from "@/lib/types";
+import { RECEIPTS_BUCKET } from "@/lib/api/expenseReceipts";
 
 /**
  * The month, sent — with the spreadsheets attached.
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
   const fromIso = `${range.from}T00:00:00`;
   const toIso = `${range.to}T23:59:59.999`;
 
-  const [settingsRes, rec, fixed, cats, ads, costs] = await Promise.all([
+  const [settingsRes, rec, fixed, cats, ads, costs, photos] = await Promise.all([
     supabase.from("app_settings").select("*").eq("id", true).maybeSingle(),
     supabase.from("receipts").select("*").gte("issued_at", fromIso).lte("issued_at", toIso).order("issued_at"),
     supabase.from("business_expenses").select("*").lte("spent_on", range.to),
@@ -79,6 +80,12 @@ export async function POST(request: NextRequest) {
       .select("description, amount_agorot, job:jobs!inner(job_number, closed_at)")
       .gte("job.closed_at", fromIso)
       .lte("job.closed_at", toIso),
+    // the photographed receipts behind the bills that touch this month
+    supabase
+      .from("expense_receipts")
+      .select("*, expense:business_expenses!inner(spent_on, covers_to)")
+      .lte("expense.spent_on", range.to)
+      .order("created_at"),
   ]);
 
   const settings = settingsRes.data as AppSettings | null;
@@ -154,6 +161,34 @@ export async function POST(request: NextRequest) {
     ]
   );
 
+  const attachments: { filename: string; content: string | Buffer; contentType: string }[] = [
+    { filename: `receipts-${stamp}.csv`, content: receiptsCsv, contentType: "text/csv; charset=utf-8" },
+    { filename: `expenses-${stamp}.csv`, content: expensesCsv, contentType: "text/csv; charset=utf-8" },
+  ];
+
+  const photoRows = (
+    (photos.data as unknown as (ExpenseReceipt & {
+      expense: { spent_on: string; covers_to: string | null } | null;
+    })[]) ?? []
+  ).filter((r) => {
+    const end = r.expense?.covers_to ?? r.expense?.spent_on;
+    return !!end && end >= range.from;
+  });
+
+  const { attached, skipped } = await attachPhotos(supabase, photoRows, attachments);
+
+  let body = email.body;
+  if (attached === 1) body += "\n\nמצורפת תמונה אחת של קבלת רכישה.";
+  else if (attached > 1) body += `\n\nמצורפות ${attached} תמונות של קבלות רכישה.`;
+  if (skipped > 0) {
+    // saying nothing would leave the accountant unaware there is more to ask for
+    body += attached > 0 ? " " : "\n\n";
+    body +=
+      skipped === 1
+        ? "תמונה אחת נוספת לא צורפה כדי לא לחרוג ממגבלת הגודל של המייל — אפשר לראות אותה במערכת."
+        : `${skipped} תמונות נוספות לא צורפו כדי לא לחרוג ממגבלת הגודל של המייל — אפשר לראות אותן במערכת.`;
+  }
+
   try {
     const transport = nodemailer.createTransport(smtpConfig());
 
@@ -164,17 +199,67 @@ export async function POST(request: NextRequest) {
       to,
       replyTo: settings?.business_email?.trim() || undefined,
       subject: email.subject,
-      text: email.body,
-      attachments: [
-        { filename: `receipts-${stamp}.csv`, content: receiptsCsv, contentType: "text/csv; charset=utf-8" },
-        { filename: `expenses-${stamp}.csv`, content: expensesCsv, contentType: "text/csv; charset=utf-8" },
-      ],
+      text: body,
+      attachments,
     });
   } catch (e) {
     return NextResponse.json({ ok: false, error: gmailError(e) }, { status: 502 });
   }
 
-  return NextResponse.json({ ok: true, to, receipts: receipts.length, expenses: expenses.length });
+  return NextResponse.json({
+    ok: true,
+    to,
+    receipts: receipts.length,
+    expenses: expenses.length,
+    photos: attached,
+  });
+}
+
+/** Gmail refuses anything past 25MB, so the photographs stop well short of it. */
+const PHOTO_BUDGET_BYTES = 15 * 1024 * 1024;
+
+/**
+ * The photographed receipts, as many as the message can carry.
+ *
+ * They are attached oldest first and stop at a budget rather than being
+ * silently truncated by the mail server: an email that bounces for size helps
+ * nobody, and the ones left behind are named in the body so the accountant
+ * knows to ask.
+ */
+async function attachPhotos(
+  supabase: ReturnType<typeof createClient>,
+  rows: ExpenseReceipt[],
+  attachments: { filename: string; content: string | Buffer; contentType: string }[]
+): Promise<{ attached: number; skipped: number }> {
+  let used = 0;
+  let attached = 0;
+  let skipped = 0;
+
+  for (const row of rows) {
+    if (used + (row.size_bytes ?? 0) > PHOTO_BUDGET_BYTES) {
+      skipped += 1;
+      continue;
+    }
+    const { data, error } = await supabase.storage.from(RECEIPTS_BUCKET).download(row.storage_path);
+    if (error || !data) {
+      skipped += 1;
+      continue;
+    }
+    const buffer = Buffer.from(await data.arrayBuffer());
+    if (used + buffer.length > PHOTO_BUDGET_BYTES) {
+      skipped += 1;
+      continue;
+    }
+    used += buffer.length;
+    attached += 1;
+    attachments.push({
+      filename: row.file_name || `receipt-${attached}.jpg`,
+      content: buffer,
+      contentType: row.content_type || "image/jpeg",
+    });
+  }
+
+  return { attached, skipped };
 }
 
 /**
