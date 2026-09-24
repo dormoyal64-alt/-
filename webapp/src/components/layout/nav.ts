@@ -19,6 +19,7 @@ import {
   UserCog,
   Scale,
   FileSpreadsheet,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -36,6 +37,9 @@ export const mainNav: NavItem[] = [
   { href: "/schedule", label: "לוח זמנים", icon: CalendarClock },
   { href: "/jobs/new", label: "הוספת עבודה", icon: PlusCircle },
   { href: "/contractors", label: "קבלנים", icon: Users },
+  // the assistant acts on the business's behalf and asks the owner to approve
+  // anything that moves money, so it belongs to the owner alone
+  { href: "/assistant", label: "עוזר", icon: Sparkles, ownerOnly: true },
 ];
 
 export const reportsNav: NavItem[] = [
@@ -77,6 +81,7 @@ export function sectionsForRole(isOwner: boolean) {
 
 /** Pages office staff must not land on, even by typing the address. */
 export const ownerOnlyPaths = [
+  ...mainNav.filter((i) => i.ownerOnly).map((i) => i.href),
   ...reportsNav.filter((i) => i.ownerOnly).map((i) => i.href),
   ...settingsNav.filter((i) => i.ownerOnly).map((i) => i.href),
 ];

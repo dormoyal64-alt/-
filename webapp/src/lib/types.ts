@@ -335,6 +335,10 @@ export interface AppSettings {
    * stands, and a logged fuel receipt would count the same litres twice.
    */
   fuel_from_receipts: boolean;
+  /** the assistant may be switched off entirely */
+  agent_enabled: boolean;
+  /** what the assistant may cost in a calendar month, in agorot */
+  agent_monthly_cap_agorot: number;
   fuel_price_updated_on: string | null;
   home_city_id: string | null;
   /** default for whether the contractor's message carries the customer's phone */
