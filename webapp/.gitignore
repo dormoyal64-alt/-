@@ -22,3 +22,8 @@ next-env.d.ts
 
 # logs
 npm-debug.log*
+
+# paste-ready copies of a migration, generated for running by hand in the
+# Supabase SQL editor. The migration under supabase/migrations is the source;
+# committing a second copy of the same statements only invites the two to drift.
+/*_SQL.sql
