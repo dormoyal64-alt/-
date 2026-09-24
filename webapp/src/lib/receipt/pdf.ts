@@ -1,5 +1,5 @@
-import type { Receipt } from "@/lib/types";
-import { receiptHtml, RECEIPT_CSS } from "./render";
+import type { AppSettings, Receipt } from "@/lib/types";
+import { receiptHtml, RECEIPT_CSS, type BusinessDetails } from "./render";
 
 export function receiptFileName(r: Receipt): string {
   return `קבלה-${r.receipt_number}-${r.customer_name}.pdf`.replace(/[\/\\:*?"<>|]/g, "-");
@@ -12,7 +12,10 @@ export function receiptFileName(r: Receipt): string {
  * html2canvas measures real boxes — so it is parked off the left edge instead
  * of hidden, and removed in a finally block so a failure cannot leave it behind.
  */
-export async function receiptPdfBlob(r: Receipt): Promise<Blob> {
+export async function receiptPdfBlob(
+  r: Receipt,
+  business?: BusinessDetails | AppSettings | null
+): Promise<Blob> {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import("html2canvas"),
     import("jspdf"),
@@ -21,7 +24,7 @@ export async function receiptPdfBlob(r: Receipt): Promise<Blob> {
   const host = document.createElement("div");
   host.setAttribute("dir", "rtl");
   host.style.cssText = "position:fixed;top:0;left:-10000px;width:794px;background:#fff;z-index:-1;";
-  host.innerHTML = `<style>${RECEIPT_CSS}</style>${receiptHtml(r)}`;
+  host.innerHTML = `<style>${RECEIPT_CSS}</style>${receiptHtml(r, business)}`;
   document.body.appendChild(host);
 
   try {
@@ -55,8 +58,11 @@ export type DeliveryResult = "shared" | "downloaded" | "cancelled";
  * without a paid mail or messaging service behind it. Everywhere else it saves
  * the file, and the caller opens WhatsApp with a message so it can be attached.
  */
-export async function deliverReceipt(r: Receipt): Promise<DeliveryResult> {
-  const blob = await receiptPdfBlob(r);
+export async function deliverReceipt(
+  r: Receipt,
+  business?: BusinessDetails | AppSettings | null
+): Promise<DeliveryResult> {
+  const blob = await receiptPdfBlob(r, business);
   const name = receiptFileName(r);
   const file = new File([blob], name, { type: "application/pdf" });
 

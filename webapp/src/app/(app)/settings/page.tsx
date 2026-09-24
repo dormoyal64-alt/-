@@ -282,9 +282,10 @@ export default function SettingsPage() {
         </CardHeader>
         <CardBody className="space-y-3">
           <p className="text-sm text-ink-500">
-            מה שימולא כאן יופיע בראש כל קבלה שתפיקו ללקוחות. שינוי כאן משפיע על קבלות
-            <b> חדשות בלבד</b> — קבלות שכבר הופקו נשארות כפי שהיו. המייל של רואה החשבון
-            לא מופיע בקבלה — הוא היעד של הדוח החודשי.
+            מה שימולא כאן יופיע בראש כל קבלה שתפיקו ללקוחות. קבלה ששמרה כבר פרט מסוים
+            נשארת כפי שהיא — <b>ששינוי שם או כתובת לא ישנה קבלה שלקוח כבר קיבל</b> — אבל
+            פרט שהיה <b>ריק</b> בזמן ההפקה יתמלא מכאן, כך שגם קבלות ישנות יֵצאו עם שם
+            העסק ומספר העוסק. המייל של רואה החשבון לא מופיע בקבלה — הוא היעד של הדוח החודשי.
           </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <BusinessField label="שם העסק" field="business_name" value={settings?.business_name} onSave={saveBusinessField} disabled={savingBusiness} placeholder="ביוביות בדרום" />

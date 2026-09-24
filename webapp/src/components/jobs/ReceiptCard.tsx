@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Receipt as ReceiptIcon, Share2, Download, Loader2, MessageCircle, Check } from "lucide-react";
+import Link from "next/link";
+import { Receipt as ReceiptIcon, Share2, Download, Loader2, MessageCircle, Check, AlertTriangle } from "lucide-react";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/Toast";
-import { formatAgorot } from "@/lib/money";
+import { useRefData } from "@/lib/refdata";
+import { formatAgorot, formatAgorotPlain } from "@/lib/money";
 import { formatDateTimeHe } from "@/lib/dates";
 import { buildWhatsappLink } from "@/lib/whatsapp";
 import { deliverReceipt } from "@/lib/receipt/pdf";
+import { businessOnReceipt } from "@/lib/receipt/render";
 import type { Receipt } from "@/lib/types";
 
 /** True on a device whose share sheet accepts a file — phones, essentially. */
@@ -36,13 +39,30 @@ function canShareFiles() {
  */
 export function ReceiptCard({ receipt }: { receipt: Receipt }) {
   const toast = useToast();
+  const { settings } = useRefData();
   const [busy, setBusy] = useState(false);
   const [chatOpened, setChatOpened] = useState(false);
   const shareable = canShareFiles();
 
+  // what will actually head the receipt: what it captured, and the details in
+  // force now wherever it captured nothing
+  const biz = businessOnReceipt(receipt, settings);
+  const unsigned = !biz.business_name || !biz.business_number;
+
+  // the name and number go in the message too, so the customer can see who it
+  // is from before they open anything — an unsaved number shows only digits
+  const signature = [biz.business_name, biz.business_number ? `ע.פ ${biz.business_number}` : null]
+    .filter(Boolean)
+    .join(" · ");
   const wa = buildWhatsappLink(
     receipt.customer_phone,
-    `שלום ${receipt.customer_name}, מצורפת הקבלה על סך ${formatAgorot(receipt.amount_agorot)} (קבלה מס׳ ${receipt.receipt_number}). תודה!`
+    [
+      `שלום ${receipt.customer_name}, מצורפת הקבלה על סך ${formatAgorotPlain(receipt.amount_agorot)} (קבלה מס׳ ${receipt.receipt_number}).`,
+      signature || null,
+      "תודה!",
+    ]
+      .filter(Boolean)
+      .join("\n")
   );
 
   function openChat() {
@@ -55,7 +75,7 @@ export function ReceiptCard({ receipt }: { receipt: Receipt }) {
   async function sendFile() {
     setBusy(true);
     try {
-      const how = await deliverReceipt(receipt);
+      const how = await deliverReceipt(receipt, settings);
       if (how === "downloaded") toast.success("הקבלה ירדה למכשיר — אפשר לצרף אותה לשיחה");
       else if (how === "shared") toast.success("הקבלה נשלחה");
     } catch {
@@ -77,6 +97,30 @@ export function ReceiptCard({ receipt }: { receipt: Receipt }) {
           {formatAgorot(receipt.amount_agorot)} · {receipt.customer_name} · הופקה{" "}
           {formatDateTimeHe(receipt.issued_at)}
         </p>
+
+        {unsigned ? (
+          // a receipt with no business on it is not a receipt, and nothing in
+          // the flow would otherwise say so until the customer asked
+          <Link
+            href="/settings"
+            className="flex items-start gap-2 rounded-xl bg-warning-50 px-3.5 py-3 text-xs font-semibold text-warning-700 hover:bg-warning-100"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              {!biz.business_name && !biz.business_number
+                ? "בקבלה לא מופיעים שם העסק ומספר העוסק. "
+                : !biz.business_name
+                  ? "בקבלה לא מופיע שם העסק. "
+                  : "בקבלה לא מופיע מספר העוסק. "}
+              אפשר למלא אותם בהגדרות ← ״פרטי העסק לקבלות״, והם יופיעו גם בקבלות שכבר הופקו.
+            </span>
+          </Link>
+        ) : (
+          <p className="text-xs text-ink-400">
+            הקבלה תצא על שם {biz.business_name}
+            {biz.business_number ? ` · ע.פ ${biz.business_number}` : ""}
+          </p>
+        )}
 
         {wa ? (
           <>
