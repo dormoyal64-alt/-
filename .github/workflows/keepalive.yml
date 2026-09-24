@@ -1,0 +1,59 @@
+# Keep the database awake.
+#
+# Supabase pauses a free project after seven days without a query, and what it
+# counts is queries — not dashboard visits. So the only thing that keeps the
+# business's system up is something that actually asks the database a
+# question, on a schedule, whether or not anybody is working that week.
+#
+# It runs daily rather than weekly on purpose: the window is seven days, so a
+# daily ping leaves six spare. A scheduled run that GitHub delays or drops
+# then costs nothing, where a weekly one would be the whole margin.
+#
+# It holds only the public key — the same one already in the browser — and
+# calls a function that reads no table and returns nothing but the time.
+
+name: keepalive
+
+on:
+  schedule:
+    # 03:11 UTC daily. An odd minute on purpose: GitHub queues the whole
+    # world's jobs on the hour, and a queued run is a late run.
+    - cron: "11 3 * * *"
+  # so it can be run by hand from the Actions tab to check it works
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask the database for the time
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "::error::Missing SUPABASE_URL or SUPABASE_ANON_KEY repository secret."
+            exit 1
+          fi
+
+          # a few attempts, because one refused connection is not an outage
+          for attempt in 1 2 3; do
+            code=$(curl -sS -o /tmp/out.txt -w '%{http_code}' \
+              -X POST "${SUPABASE_URL}/rest/v1/rpc/keepalive" \
+              -H "apikey: ${SUPABASE_ANON_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+              -H "Content-Type: application/json" \
+              -d '{}' || echo "000")
+
+            if [ "$code" = "200" ]; then
+              echo "Database answered at $(cat /tmp/out.txt). Project is awake."
+              exit 0
+            fi
+
+            echo "Attempt ${attempt}: HTTP ${code} — $(head -c 300 /tmp/out.txt)"
+            sleep 15
+          done
+
+          echo "::error::The database did not answer. The project may be paused — open the Supabase dashboard and restore it."
+          exit 1
