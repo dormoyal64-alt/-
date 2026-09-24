@@ -78,6 +78,15 @@ export interface CloseJobInput {
   referralPct?: number | null;
   /** a receipt was given, so the job is declared and carries tax */
   withReceipt?: boolean;
+  /**
+   * Whether this closing is answering for the worker at all.
+   *
+   * Left out, the job keeps whatever worker and wage it already carried — a
+   * closing that says nothing about a worker must not erase one.
+   */
+  setHelper?: boolean;
+  helperId?: string | null;
+  helperPayAgorot?: number | null;
 }
 
 export async function closeJob(supabase: SupabaseClient, jobId: string, input: CloseJobInput) {
@@ -92,6 +101,9 @@ export async function closeJob(supabase: SupabaseClient, jobId: string, input: C
     p_commission_pct: input.commissionPct ?? null,
     p_referral_pct: input.referralPct ?? null,
     p_with_receipt: input.withReceipt ?? false,
+    p_set_helper: input.setHelper ?? false,
+    p_helper_id: input.helperId ?? null,
+    p_helper_pay_agorot: input.helperPayAgorot ?? null,
   });
   if (error) throw error;
 }

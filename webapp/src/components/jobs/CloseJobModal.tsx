@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { useRefData } from "@/lib/refdata";
+import { HelperSelect } from "@/components/jobs/HelperSelect";
 import { previewCommission } from "@/lib/calc";
 import { formatAgorot, shekelsToAgorot } from "@/lib/money";
 import type { JobWithRelations } from "@/lib/types";
@@ -31,10 +32,13 @@ export function CloseJobModal({
     referralPct: number | null;
     issueReceipt: boolean;
     withReceipt: boolean;
+    setHelper: boolean;
+    helperId: string | null;
+    helperPayAgorot: number | null;
   }) => Promise<void>;
   loading?: boolean;
 }) {
-  const { paymentMethods, settings, isOwner } = useRefData();
+  const { paymentMethods, helpers, settings, isOwner } = useRefData();
   const [closedSuccessfully, setClosedSuccessfully] = useState(true);
   const [finalPrice, setFinalPrice] = useState(
     job.quoted_price_agorot ? String(job.quoted_price_agorot / 100) : ""
@@ -47,6 +51,26 @@ export function CloseJobModal({
   // whether this job was declared. Issuing a receipt implies it, but a job can
   // be declared without the system printing anything.
   const [withReceipt, setWithReceipt] = useState(settings?.auto_receipt ?? false);
+
+  // What the worker was actually paid on this job. A worker of ours only goes
+  // out on a job we do ourselves, and the figures are the owner's, so nobody
+  // else is asked. It starts from whatever the job already carries — the
+  // standing rate, filled in when the job was opened — and is corrected here,
+  // where the real number is finally known.
+  const asksAboutHelper = job.performed_by === "self" && isOwner;
+  const [helperId, setHelperId] = useState(job.helper_id ?? "");
+  const [helperPay, setHelperPay] = useState(
+    job.helper_pay_agorot ? String(job.helper_pay_agorot / 100) : ""
+  );
+  const helperPayAgorot = helperPay.trim() ? shekelsToAgorot(helperPay) : 0;
+
+  /** Picking a worker offers their usual rate, unless a figure is already in. */
+  function chooseHelper(id: string, created?: { default_pay_agorot: number | null }) {
+    setHelperId(id);
+    if (helperPay.trim()) return;
+    const rate = created?.default_pay_agorot ?? helpers.find((h) => h.id === id)?.default_pay_agorot;
+    if (rate) setHelperPay(String(rate / 100));
+  }
 
   // the job's usual split, and the one being applied to this closing
   const defaultPct = job.commission_pct ?? 0;
@@ -79,7 +103,8 @@ export function CloseJobModal({
         ? (finalPriceAgorot * taxRate) / (100 + taxRate)
         : (finalPriceAgorot * taxRate) / 100)
     : 0;
-  const myShare = finalPriceAgorot - referralFeeAgorot - contractorFeeAgorot - taxAgorot;
+  const helperCost = asksAboutHelper ? helperPayAgorot : 0;
+  const myShare = finalPriceAgorot - referralFeeAgorot - contractorFeeAgorot - taxAgorot - helperCost;
   const preview = useMemo(
     () => previewCommission(finalPriceAgorot, effectivePct, paymentReceivedBy),
     [finalPriceAgorot, effectivePct, paymentReceivedBy]
@@ -97,6 +122,9 @@ export function CloseJobModal({
       referralPct: hasCompany ? effectiveReferralPct : null,
       issueReceipt: closedSuccessfully && issueReceipt,
       withReceipt: closedSuccessfully && withReceipt,
+      setHelper: asksAboutHelper,
+      helperId: helperId || null,
+      helperPayAgorot: helperPayAgorot,
     });
   }
 
@@ -284,6 +312,31 @@ export function CloseJobModal({
               </div>
             )}
 
+            {asksAboutHelper && (
+              <div className="space-y-2 rounded-2xl border border-ink-100 p-3.5">
+                <HelperSelect value={helperId} onChange={chooseHelper} />
+                {helperId && (
+                  <div>
+                    <Label htmlFor="close-helper-pay">כמה שילמתם לו על העבודה הזו? (₪)</Label>
+                    <Input
+                      id="close-helper-pay"
+                      type="number"
+                      min={0}
+                      step={10}
+                      inputMode="decimal"
+                      dir="ltr"
+                      value={helperPay}
+                      onChange={(e) => setHelperPay(e.target.value)}
+                      placeholder="₪"
+                    />
+                    <p className="mt-1 text-xs text-ink-400">
+                      יורד מהרווח של העבודה ומכל הסיכומים. לא נשלח לרואה החשבון.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {isOwner && finalPriceAgorot > 0 && (
               <div className="rounded-2xl bg-ink-50 p-3.5 text-sm">
                 <p className="mb-1.5 text-xs font-bold text-ink-400">איך מתחלק הכסף</p>
@@ -305,6 +358,14 @@ export function CloseJobModal({
                       {job.contractor?.name ?? "הקבלן"} ({effectivePct}%)
                     </span>
                     <span className="font-bold text-danger-600">-{formatAgorot(contractorFeeAgorot)}</span>
+                  </div>
+                )}
+                {helperCost > 0 && (
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-ink-500">
+                      {helpers.find((h) => h.id === helperId)?.name ?? "עובד"}
+                    </span>
+                    <span className="font-bold text-danger-600">-{formatAgorot(helperCost)}</span>
                   </div>
                 )}
                 {taxAgorot > 0 && (
