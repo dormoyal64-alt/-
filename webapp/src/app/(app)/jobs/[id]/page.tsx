@@ -40,6 +40,7 @@ import { ReceiptCard } from "@/components/jobs/ReceiptCard";
 import { CustomerApprovalCard } from "@/components/jobs/CustomerApprovalCard";
 import { JobExpensesCard } from "@/components/jobs/JobExpensesCard";
 import { ContractorReceiptsCard } from "@/components/jobs/ContractorReceiptsCard";
+import { JobHelperCard } from "@/components/jobs/JobHelperCard";
 import type { Receipt } from "@/lib/types";
 import { buildCallLink, buildMapLink, buildNewJobWhatsappMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
 import { formatAgorot, formatPercent } from "@/lib/money";
@@ -463,6 +464,10 @@ export default function JobDetailPage() {
       )}
 
       {isOwner && <JobExpensesCard jobId={job.id} onChange={setJobCosts} />}
+
+      {/* the wage stays correctable after the closing: it settles nothing, and
+          a job closed before the closing asked has no other way in */}
+      <JobHelperCard job={job} onSaved={load} />
 
       {/* the contractor's own receipt: proof of a share already out of the profit */}
       {isOwner && (job.contractor_id || job.contractor_share_agorot) && (
