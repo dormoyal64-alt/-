@@ -8,6 +8,7 @@ import { useNotifications } from "@/lib/notifications";
 import { useWhatsappSender } from "@/hooks/useWhatsappSender";
 import { useToast } from "@/components/ui/Toast";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
+import { BackupCard } from "@/components/settings/BackupCard";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { EditableList } from "@/components/settings/EditableList";
@@ -273,6 +274,8 @@ export default function SettingsPage() {
           </p>
         </CardBody>
       </Card>
+
+      <BackupCard />
 
       <Card>
         <CardHeader>
