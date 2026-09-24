@@ -20,6 +20,7 @@ export default function VehicleSettingsPage() {
   const [kmPerLiter, setKmPerLiter] = useState("");
   const [homeCity, setHomeCity] = useState("");
   const [savingFuel, setSavingFuel] = useState(false);
+  const [savingSource, setSavingSource] = useState(false);
 
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -56,6 +57,27 @@ export default function VehicleSettingsPage() {
     if (error) return toast.error("שגיאה בשמירת ההגדרות");
     await refresh();
     toast.success("הגדרות הרכב והדלק נשמרו");
+  }
+
+  /**
+   * Which fuel figure the profit believes.
+   *
+   * The two cannot both be counted: the estimate is already subtracted from
+   * every report, so a tank fill logged as an expense would take the same
+   * litres off a second time. Turning this on retires the estimate from the
+   * business's totals; it stays on each job, where it answers whether that
+   * drive was worth making.
+   */
+  async function saveFuelSource(fromReceipts: boolean) {
+    setSavingSource(true);
+    const { error } = await supabase
+      .from("app_settings")
+      .update({ fuel_from_receipts: fromReceipts })
+      .eq("id", true);
+    setSavingSource(false);
+    if (error) return toast.error("שגיאה בשמירת ההגדרה");
+    await refresh();
+    toast.success(fromReceipts ? "מעכשיו הדלק נספר לפי הקבלות" : "מעכשיו הדלק מחושב לפי הקילומטרים");
   }
 
   async function addHelper() {
@@ -156,6 +178,46 @@ export default function VehicleSettingsPage() {
           <Button onClick={saveFuel} loading={savingFuel}>
             שמירת הגדרות הדלק
           </Button>
+
+          <div className="space-y-2 border-t border-ink-100 pt-4">
+            <p className="text-sm font-semibold text-ink-700">איך לספור דלק ברווח?</p>
+            <p className="text-xs text-ink-500">
+              אי אפשר לספור את שניהם — זה יוריד את אותו דלק מהרווח פעמיים.
+            </p>
+            {[
+              {
+                on: false,
+                title: "לפי החישוב שלמעלה",
+                hint: "המערכת מחשבת לבד כמה דלק עלתה כל נסיעה. אין קבלה, אז רואה החשבון לא יכול להכיר בזה.",
+              },
+              {
+                on: true,
+                title: "לפי קבלות תדלוק בפועל",
+                hint: "רושמים כל תדלוק במסך ההוצאות עם תמונה של הקבלה. זה מה שנשלח לרואה החשבון, והחישוב האוטומטי מפסיק לרדת מהרווח (ונשאר להצגה בכל עבודה).",
+              },
+            ].map((opt) => {
+              const active = !!settings?.fuel_from_receipts === opt.on;
+              return (
+                <button
+                  key={String(opt.on)}
+                  type="button"
+                  onClick={() => saveFuelSource(opt.on)}
+                  disabled={savingSource || active}
+                  className={`w-full rounded-xl border-2 p-3 text-right transition ${
+                    active
+                      ? "border-brand-500 bg-brand-50"
+                      : "border-ink-100 hover:border-ink-200 hover:bg-ink-50"
+                  }`}
+                >
+                  <span className={`block text-sm font-bold ${active ? "text-brand-700" : "text-ink-800"}`}>
+                    {active ? "✓ " : ""}
+                    {opt.title}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-ink-500">{opt.hint}</span>
+                </button>
+              );
+            })}
+          </div>
         </CardBody>
       </Card>
 

@@ -129,7 +129,9 @@ export default function ProfitPage() {
                 {r.self_referral_agorot > 0 && (
                   <Line label="לחברות שהפנו" agorot={r.self_referral_agorot} kind="cost" />
                 )}
-                <Line label="דלק" agorot={r.self_fuel_agorot} kind="cost" />
+                {!settings?.fuel_from_receipts && (
+                  <Line label="דלק" agorot={r.self_fuel_agorot} kind="cost" hint="לפי הקילומטרים בכל עבודה" />
+                )}
                 <Line label="עובדים ששילמתי להם" agorot={r.self_helper_agorot} kind="cost" />
                 {r.self_expenses_agorot > 0 && (
                   <Line label="הוצאות על העבודות" agorot={r.self_expenses_agorot} kind="cost" hint="חלקים, ציוד, חניה — מה שנרשם בתוך כל עבודה" />
@@ -180,7 +182,7 @@ export default function ProfitPage() {
               <Line label="רווח מהעבודות שלי" agorot={r.self_net_agorot} />
               <Line label="רווח מהקבלנים" agorot={r.contractor_net_agorot} />
               {r.business_expenses_agorot > 0 && (
-                <Line label="הוצאות קבועות" agorot={r.business_expenses_agorot} kind="cost" hint="רואה חשבון, ביטוח, שכירות — לפי החלק שנופל בתקופה" />
+                <Line label="הוצאות קבועות" agorot={r.business_expenses_agorot} kind="cost" hint={settings?.fuel_from_receipts ? "רואה חשבון, ביטוח, שכירות, דלק לפי קבלות — לפי החלק שנופל בתקופה" : "רואה חשבון, ביטוח, שכירות — לפי החלק שנופל בתקופה"} />
               )}
               {r.tax_agorot > 0 && (
                 <Line label="מס (עבודות שנסגרו עם קבלה)" agorot={r.tax_agorot} kind="cost" />
@@ -193,9 +195,11 @@ export default function ProfitPage() {
               )}
               <Line label="רווח נקי" agorot={r.net_profit_agorot} kind="total" />
               <div className="mt-3 flex flex-wrap gap-4 border-t border-ink-100 pt-3 text-xs text-ink-400">
-                <span className="flex items-center gap-1.5">
-                  <Fuel className="h-3.5 w-3.5" /> דלק {formatAgorot(r.self_fuel_agorot)}
-                </span>
+                {!settings?.fuel_from_receipts && (
+                  <span className="flex items-center gap-1.5">
+                    <Fuel className="h-3.5 w-3.5" /> דלק {formatAgorot(r.self_fuel_agorot)}
+                  </span>
+                )}
                 <span className="flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5" /> עובדים {formatAgorot(r.self_helper_agorot)}
                 </span>

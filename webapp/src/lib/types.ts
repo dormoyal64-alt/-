@@ -329,6 +329,12 @@ export interface AppSettings {
   /** fuel price you keep current yourself — nothing fetches it */
   fuel_price_per_liter_agorot: number;
   km_per_liter: number;
+  /**
+   * On: fuel is whatever the tank-fill receipts say, and the per-job estimate
+   * stops being subtracted from the business's profit. Off: the estimate
+   * stands, and a logged fuel receipt would count the same litres twice.
+   */
+  fuel_from_receipts: boolean;
   fuel_price_updated_on: string | null;
   home_city_id: string | null;
   /** default for whether the contractor's message carries the customer's phone */

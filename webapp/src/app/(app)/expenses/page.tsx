@@ -4,21 +4,24 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Wallet, Plus, Trash2, Check, Tags, ChevronDown, ChevronUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
+import { useRefData } from "@/lib/refdata";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 import { formatAgorot, shekelsToAgorot } from "@/lib/money";
-import { todayLocalDate } from "@/lib/dates";
+import { formatDateHe, todayLocalDate } from "@/lib/dates";
 import { errorMessage } from "@/lib/errors";
 import { SPEND_PERIODS, periodRange, daysInRange, describeRange, monthlyInstalments, type SpendPeriod } from "@/lib/adPeriods";
 import type { BusinessExpense, ExpenseCategory, ExpenseReceipt } from "@/lib/types";
 import { ReceiptFiles } from "@/components/receipts/ReceiptFiles";
+import { FuelUpCard } from "@/components/expenses/FuelUpCard";
 import { EditableList } from "@/components/settings/EditableList";
 import { listExpenseReceipts } from "@/lib/api/expenseReceipts";
 
 export default function ExpensesPage() {
   const supabase = useMemo(() => createClient(), []);
   const toast = useToast();
+  const { settings } = useRefData();
 
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [rows, setRows] = useState<BusinessExpense[]>([]);
@@ -148,6 +151,16 @@ export default function ExpensesPage() {
           מהרווח. אפשר לצלם את הקבלה בכפתור המצלמה שליד כל שורה, והיא תישלח לרואה החשבון עם הדוח החודשי.
         </p>
       </div>
+
+      {/* the tank fill has its own way in: it is entered at the pump, and the
+          photograph is the whole point of it */}
+      <FuelUpCard
+        categories={categories}
+        rows={rows}
+        receipts={receipts}
+        fuelFromReceipts={!!settings?.fuel_from_receipts}
+        onChange={load}
+      />
 
       <Card>
         <CardHeader>
@@ -351,14 +364,14 @@ export default function ExpensesPage() {
                 const receiptHolder = group[group.length - 1];
                 return (
                   <div key={key} className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="w-28 shrink-0 text-xs font-bold text-ink-400">
+                    <span className="w-24 shrink-0 text-xs font-bold text-ink-400">
                       {yearly
                         ? `שנתי ${new Date(r.spent_on + "T00:00:00").getFullYear()}`
                         : r.covers_to && r.covers_to !== r.spent_on
-                          ? `${r.spent_on} → ${r.covers_to}`
-                          : r.spent_on}
+                          ? `${formatDateHe(r.spent_on)} → ${formatDateHe(r.covers_to)}`
+                          : formatDateHe(r.spent_on)}
                     </span>
-                    <span className="flex-1 text-sm font-semibold text-ink-800">
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-800">
                       {catName(r.category_id)}
                       {yearly ? (
                         <span className="mr-1.5 text-xs font-normal text-brand-600">
@@ -374,7 +387,7 @@ export default function ExpensesPage() {
                       )}
                       {r.notes && <span className="mr-1.5 text-xs font-normal text-ink-400">{r.notes}</span>}
                     </span>
-                    <span className="font-extrabold text-ink-900">{formatAgorot(total)}</span>
+                    <span className="shrink-0 font-extrabold text-ink-900">{formatAgorot(total)}</span>
                     <ReceiptFiles
                       /* a yearly bill is paid once, so its receipt belongs to the
                          first of its twelve months — not to whichever one the

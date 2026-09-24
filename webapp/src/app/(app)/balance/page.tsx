@@ -117,7 +117,11 @@ export default function BalancePage() {
               <p className="mb-1 mt-4 text-xs font-bold uppercase tracking-wide text-ink-400">יצא</p>
               <Row label="שולם לקבלנים" agorot={r?.contractor_paid_agorot ?? 0} tone="cost" />
               <Row label="עמלות לחברות מפנות" agorot={r?.referral_agorot ?? 0} tone="cost" />
-              <Row label="דלק" agorot={r?.fuel_agorot ?? 0} tone="cost" />
+              {/* counted by receipt, fuel sits inside the fixed expenses below;
+                  a zero row here would just look like fuel had gone missing */}
+              {!settings?.fuel_from_receipts && (
+                <Row label="דלק" agorot={r?.fuel_agorot ?? 0} tone="cost" hint="לפי הקילומטרים בכל עבודה" />
+              )}
               <Row label="עובדים" agorot={r?.helper_agorot ?? 0} tone="cost" />
               <Row
                 label="הוצאות על העבודות"
@@ -130,7 +134,7 @@ export default function BalancePage() {
                 label="הוצאות קבועות"
                 agorot={r?.business_expenses_agorot ?? 0}
                 tone="cost"
-                hint="רואה חשבון, ביטוח, שכירות וכו׳"
+                hint={settings?.fuel_from_receipts ? "רואה חשבון, ביטוח, שכירות, דלק לפי קבלות" : "רואה חשבון, ביטוח, שכירות וכו׳"}
               />
               <Row
                 label="מס"

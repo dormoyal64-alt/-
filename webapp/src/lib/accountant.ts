@@ -35,6 +35,9 @@ export function shareInRange(
   return Math.round((row.amount_agorot / covered) * inside);
 }
 
+/** The category a tank fill is filed under; it reads as its own kind. */
+export const FUEL_CATEGORY = "דלק";
+
 export interface ExpenseLine {
   date: string;
   kind: string;
@@ -66,10 +69,13 @@ export function expenseLines(
   for (const row of fixed) {
     const share = shareInRange(row, from, to);
     if (share > 0) {
+      const category = categoryName(row.category_id);
       lines.push({
         date: row.spent_on > from ? row.spent_on : from,
-        kind: "הוצאה קבועה",
-        description: [categoryName(row.category_id), row.notes].filter(Boolean).join(" — "),
+        // a tank fill is a purchase on a day, not a standing monthly cost, and
+        // an accountant sorting the month by kind wants it on its own
+        kind: category === FUEL_CATEGORY ? FUEL_CATEGORY : "הוצאה קבועה",
+        description: [category, row.notes].filter(Boolean).join(" — "),
         amount_agorot: share,
       });
     }
