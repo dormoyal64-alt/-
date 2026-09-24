@@ -12,7 +12,7 @@ import { todayLocalDate } from "@/lib/dates";
 import { errorMessage } from "@/lib/errors";
 import { SPEND_PERIODS, periodRange, daysInRange, describeRange, monthlyInstalments, type SpendPeriod } from "@/lib/adPeriods";
 import type { BusinessExpense, ExpenseCategory, ExpenseReceipt } from "@/lib/types";
-import { ExpenseReceipts } from "@/components/expenses/ExpenseReceipts";
+import { ReceiptFiles } from "@/components/receipts/ReceiptFiles";
 import { EditableList } from "@/components/settings/EditableList";
 import { listExpenseReceipts } from "@/lib/api/expenseReceipts";
 
@@ -375,11 +375,11 @@ export default function ExpensesPage() {
                       {r.notes && <span className="mr-1.5 text-xs font-normal text-ink-400">{r.notes}</span>}
                     </span>
                     <span className="font-extrabold text-ink-900">{formatAgorot(total)}</span>
-                    <ExpenseReceipts
+                    <ReceiptFiles
                       /* a yearly bill is paid once, so its receipt belongs to the
                          first of its twelve months — not to whichever one the
                          list happens to show first */
-                      expenseId={receiptHolder.id}
+                      parent={{ kind: "expense", id: receiptHolder.id }}
                       receipts={receipts.filter((x) => x.business_expense_id === receiptHolder.id)}
                       onChange={load}
                     />

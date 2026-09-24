@@ -4,6 +4,29 @@ import type { ExpenseReceipt } from "@/lib/types";
 
 export const RECEIPTS_BUCKET = "receipts";
 
+/**
+ * Which record the paper belongs to.
+ *
+ * Two kinds of document end up in the same bucket — a purchase the business
+ * made, and a receipt a contractor handed over — and the row records exactly
+ * one of them. Naming the parent once here keeps the upload, the folder and
+ * the column from being decided separately and drifting apart.
+ */
+export type ReceiptParent =
+  | { kind: "expense"; id: string }
+  | { kind: "contractor"; id: string };
+
+/** The folder a parent's files live in, so deleting it takes them along. */
+function folder(parent: ReceiptParent): string {
+  return parent.kind === "expense" ? parent.id : `contractor-receipts/${parent.id}`;
+}
+
+function parentColumn(parent: ReceiptParent): Record<string, string> {
+  return parent.kind === "expense"
+    ? { business_expense_id: parent.id }
+    : { contractor_receipt_id: parent.id };
+}
+
 /** Every photograph filed against one expense, oldest first. */
 export async function listExpenseReceipts(
   supabase: SupabaseClient,
@@ -20,21 +43,21 @@ export async function listExpenseReceipts(
 }
 
 /**
- * Put one photograph on one expense.
+ * Put one photograph on whatever it is proof of.
  *
- * The file is shrunk before it leaves the phone, then stored under the
- * expense's own folder so removing the expense takes its paperwork with it.
- * The row is written only once the upload has landed: a record pointing at a
- * file that is not there is worse than no record.
+ * The file is shrunk before it leaves the phone, then stored under its
+ * parent's own folder so removing the parent takes its paperwork with it. The
+ * row is written only once the upload has landed: a record pointing at a file
+ * that is not there is worse than no record.
  */
-export async function uploadExpenseReceipt(
+export async function uploadReceiptFile(
   supabase: SupabaseClient,
-  expenseId: string,
+  parent: ReceiptParent,
   original: File
 ): Promise<ExpenseReceipt> {
   const file = await shrinkImage(original);
   const extension = file.name.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase() ?? "jpg";
-  const path = `${expenseId}/${crypto.randomUUID()}.${extension}`;
+  const path = `${folder(parent)}/${crypto.randomUUID()}.${extension}`;
 
   const { error: uploadError } = await supabase.storage
     .from(RECEIPTS_BUCKET)
@@ -44,7 +67,7 @@ export async function uploadExpenseReceipt(
   const { data, error } = await supabase
     .from("expense_receipts")
     .insert({
-      business_expense_id: expenseId,
+      ...parentColumn(parent),
       storage_path: path,
       file_name: original.name,
       content_type: file.type || "image/jpeg",
@@ -61,8 +84,8 @@ export async function uploadExpenseReceipt(
   return data as ExpenseReceipt;
 }
 
-/** Take a photograph off an expense, file and record together. */
-export async function deleteExpenseReceipt(supabase: SupabaseClient, receipt: ExpenseReceipt) {
+/** Take a photograph off whatever it was proof of, file and record together. */
+export async function deleteReceiptFile(supabase: SupabaseClient, receipt: ExpenseReceipt) {
   const { error } = await supabase.from("expense_receipts").delete().eq("id", receipt.id);
   if (error) throw error;
   await supabase.storage.from(RECEIPTS_BUCKET).remove([receipt.storage_path]);

@@ -18,6 +18,7 @@ import {
   mailtoLink,
   type ExpenseLine,
 } from "@/lib/accountant";
+import { contractorReceiptLines } from "@/lib/api/contractorReceipts";
 import type { AdSpend, BusinessExpense, ExpenseCategory, Receipt } from "@/lib/types";
 
 /**
@@ -52,7 +53,7 @@ export default function AccountantPage() {
     const fromIso = `${range.from}T00:00:00`;
     const toIso = `${range.to}T23:59:59.999`;
 
-    const [rec, fixed, cats, ads, costs] = await Promise.all([
+    const [rec, fixed, cats, ads, costs, contractorPaid] = await Promise.all([
       supabase.from("receipts").select("*").gte("issued_at", fromIso).lte("issued_at", toIso).order("issued_at"),
       supabase.from("business_expenses").select("*").lte("spent_on", range.to),
       supabase.from("expense_categories").select("*"),
@@ -62,6 +63,7 @@ export default function AccountantPage() {
         .select("description, amount_agorot, job:jobs!inner(job_number, closed_at, is_closed)")
         .gte("job.closed_at", fromIso)
         .lte("job.closed_at", toIso),
+      contractorReceiptLines(supabase, range.from, range.to),
     ]);
 
     const categories = (cats.data as ExpenseCategory[]) ?? [];
@@ -88,7 +90,8 @@ export default function AccountantPage() {
         (fixed.data as BusinessExpense[]) ?? [],
         categoryName,
         (ads.data as AdSpend[]) ?? [],
-        jobCosts
+        jobCosts,
+        contractorPaid
       )
     );
     setLoading(false);

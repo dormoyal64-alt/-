@@ -534,14 +534,43 @@ export interface BusinessExpense {
   created_at: string;
 }
 
-/** A photograph of the paper receipt behind a business expense. */
+/**
+ * A scan of paper kept in the private receipts bucket.
+ *
+ * Exactly one of the two parents is set: a purchase the business made, or a
+ * receipt a contractor handed over for a job.
+ */
 export interface ExpenseReceipt {
   id: string;
-  business_expense_id: string;
+  business_expense_id: string | null;
+  /** set instead of business_expense_id when this is a contractor's receipt */
+  contractor_receipt_id: string | null;
   storage_path: string;
   file_name: string | null;
   content_type: string | null;
   size_bytes: number | null;
+  created_at: string;
+}
+
+/**
+ * A receipt received from a contractor for one job.
+ *
+ * Proof for the accountant of a payment the reports already subtract — the
+ * contractor's share is deducted from profit when the job closes, so this
+ * records what is documented, never a second deduction.
+ */
+export interface ContractorReceipt {
+  id: string;
+  job_id: string;
+  contractor_id: string | null;
+  /** the name as it was on the day, so a rename cannot rewrite a sent report */
+  contractor_name: string;
+  amount_agorot: number;
+  /** the date on the contractor's own receipt; what the month is keyed by */
+  issued_on: string;
+  /** their receipt or invoice number, when the paper carries one */
+  reference: string | null;
+  notes: string | null;
   created_at: string;
 }
 

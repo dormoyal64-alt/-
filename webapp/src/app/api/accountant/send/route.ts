@@ -7,6 +7,7 @@ import { formatDateHe } from "@/lib/dates";
 import { monthRange, expenseLines, buildAccountantEmail } from "@/lib/accountant";
 import type { AdSpend, AppSettings, BusinessExpense, ExpenseCategory, ExpenseReceipt, Receipt } from "@/lib/types";
 import { RECEIPTS_BUCKET } from "@/lib/api/expenseReceipts";
+import { contractorReceiptLines, contractorReceiptFilesInMonth } from "@/lib/api/contractorReceipts";
 
 /**
  * The month, sent — with the spreadsheets attached.
@@ -69,24 +70,27 @@ export async function POST(request: NextRequest) {
   const fromIso = `${range.from}T00:00:00`;
   const toIso = `${range.to}T23:59:59.999`;
 
-  const [settingsRes, rec, fixed, cats, ads, costs, photos] = await Promise.all([
-    supabase.from("app_settings").select("*").eq("id", true).maybeSingle(),
-    supabase.from("receipts").select("*").gte("issued_at", fromIso).lte("issued_at", toIso).order("issued_at"),
-    supabase.from("business_expenses").select("*").lte("spent_on", range.to),
-    supabase.from("expense_categories").select("*"),
-    supabase.from("ad_spend").select("*").lte("spent_on", range.to),
-    supabase
-      .from("job_expenses")
-      .select("description, amount_agorot, job:jobs!inner(job_number, closed_at)")
-      .gte("job.closed_at", fromIso)
-      .lte("job.closed_at", toIso),
-    // the photographed receipts behind the bills that touch this month
-    supabase
-      .from("expense_receipts")
-      .select("*, expense:business_expenses!inner(spent_on, covers_to)")
-      .lte("expense.spent_on", range.to)
-      .order("created_at"),
-  ]);
+  const [settingsRes, rec, fixed, cats, ads, costs, photos, contractorPaid, contractorPaper] =
+    await Promise.all([
+      supabase.from("app_settings").select("*").eq("id", true).maybeSingle(),
+      supabase.from("receipts").select("*").gte("issued_at", fromIso).lte("issued_at", toIso).order("issued_at"),
+      supabase.from("business_expenses").select("*").lte("spent_on", range.to),
+      supabase.from("expense_categories").select("*"),
+      supabase.from("ad_spend").select("*").lte("spent_on", range.to),
+      supabase
+        .from("job_expenses")
+        .select("description, amount_agorot, job:jobs!inner(job_number, closed_at)")
+        .gte("job.closed_at", fromIso)
+        .lte("job.closed_at", toIso),
+      // the photographed receipts behind the bills that touch this month
+      supabase
+        .from("expense_receipts")
+        .select("*, expense:business_expenses!inner(spent_on, covers_to)")
+        .lte("expense.spent_on", range.to)
+        .order("created_at"),
+      contractorReceiptLines(supabase, range.from, range.to),
+      contractorReceiptFilesInMonth(supabase, range.from, range.to),
+    ]);
 
   const settings = settingsRes.data as AppSettings | null;
   const to = settings?.accountant_email?.trim();
@@ -118,7 +122,8 @@ export async function POST(request: NextRequest) {
     (fixed.data as BusinessExpense[]) ?? [],
     categoryName,
     (ads.data as AdSpend[]) ?? [],
-    jobCosts
+    jobCosts,
+    contractorPaid
   );
 
   if (receipts.length === 0 && expenses.length === 0) {
@@ -166,7 +171,7 @@ export async function POST(request: NextRequest) {
     { filename: `expenses-${stamp}.csv`, content: expensesCsv, contentType: "text/csv; charset=utf-8" },
   ];
 
-  const photoRows = (
+  const purchasePaper = (
     (photos.data as unknown as (ExpenseReceipt & {
       expense: { spent_on: string; covers_to: string | null } | null;
     })[]) ?? []
@@ -175,11 +180,15 @@ export async function POST(request: NextRequest) {
     return !!end && end >= range.from;
   });
 
+  // both kinds of paper go out together: what the business bought, and what the
+  // contractors it paid handed over
+  const photoRows: ExpenseReceipt[] = [...purchasePaper, ...contractorPaper];
+
   const { attached, skipped } = await attachPhotos(supabase, photoRows, attachments);
 
   let body = email.body;
-  if (attached === 1) body += "\n\nמצורפת תמונה אחת של קבלת רכישה.";
-  else if (attached > 1) body += `\n\nמצורפות ${attached} תמונות של קבלות רכישה.`;
+  if (attached === 1) body += "\n\nמצורפת תמונה אחת של קבלה (רכישה או קבלן).";
+  else if (attached > 1) body += `\n\nמצורפות ${attached} תמונות של קבלות רכישה וקבלות מקבלנים.`;
   if (skipped > 0) {
     // saying nothing would leave the accountant unaware there is more to ask for
     body += attached > 0 ? " " : "\n\n";

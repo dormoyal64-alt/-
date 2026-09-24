@@ -7,24 +7,34 @@ import { useToast } from "@/components/ui/Toast";
 import { Modal } from "@/components/ui/Modal";
 import { formatBytes } from "@/lib/images";
 import { errorMessage } from "@/lib/errors";
-import { uploadExpenseReceipt, deleteExpenseReceipt, receiptUrl } from "@/lib/api/expenseReceipts";
+import { uploadReceiptFile, deleteReceiptFile, receiptUrl, type ReceiptParent } from "@/lib/api/expenseReceipts";
 import type { ExpenseReceipt } from "@/lib/types";
 
 /**
- * The paper receipt, photographed and kept with the expense it paid for.
+ * The paper, photographed and kept with the record it proves.
  *
- * Meant to be used at the counter: the button opens the camera on a phone and
- * the file picker on a desktop, and what comes back is shrunk before it is
- * uploaded. Each photograph can be opened full size or removed.
+ * Meant to be used where the paper is handed over: the button opens the camera
+ * on a phone and the file picker on a desktop, and what comes back is shrunk
+ * before it is uploaded. Each photograph can be opened full size or removed.
+ *
+ * It serves a purchase the business made and a receipt a contractor handed
+ * over alike — the two differ only in which record they hang off and what the
+ * empty state should call them, so both go through here rather than through
+ * two screens that would drift apart.
  */
-export function ExpenseReceipts({
-  expenseId,
+export function ReceiptFiles({
+  parent,
   receipts,
   onChange,
+  open: openProp,
+  onOpenChange,
 }: {
-  expenseId: string;
+  parent: ReceiptParent;
   receipts: ExpenseReceipt[];
   onChange: () => void | Promise<void>;
+  /** leave unset to let the button manage the dialog; set it to open it from outside */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const toast = useToast();
@@ -33,7 +43,14 @@ export function ExpenseReceipts({
   const camera = useRef<HTMLInputElement>(null);
   const gallery = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
+  // a caller can drive the dialog — a record created for a receipt someone is
+  // holding should ask for it at once, rather than waiting to be clicked again
+  const [openSelf, setOpenSelf] = useState(false);
+  const open = openProp ?? openSelf;
+  const setOpen = (next: boolean) => {
+    setOpenSelf(next);
+    onOpenChange?.(next);
+  };
   const [viewing, setViewing] = useState<{ receipt: ExpenseReceipt; url: string } | null>(null);
 
   async function add(files: FileList | null) {
@@ -41,7 +58,7 @@ export function ExpenseReceipts({
     setBusy(true);
     try {
       for (const file of Array.from(files)) {
-        await uploadExpenseReceipt(supabase, expenseId, file);
+        await uploadReceiptFile(supabase, parent, file);
       }
       await onChange();
       toast.success(files.length > 1 ? `${files.length} קבלות צורפו` : "הקבלה צורפה");
@@ -64,7 +81,7 @@ export function ExpenseReceipts({
   async function remove(receipt: ExpenseReceipt) {
     setBusy(true);
     try {
-      await deleteExpenseReceipt(supabase, receipt);
+      await deleteReceiptFile(supabase, receipt);
       setViewing(null);
       await onChange();
       toast.success("הקבלה נמחקה");
@@ -120,7 +137,9 @@ export function ExpenseReceipts({
         <div className="space-y-3">
           {receipts.length === 0 && (
             <p className="text-sm text-ink-500">
-              עדיין לא צורפה קבלה להוצאה הזו. אפשר לצלם אותה עכשיו, או לבחור תמונה שכבר שמורה בטלפון.
+              {parent.kind === "contractor"
+                ? "עדיין לא צורפה הקבלה מהקבלן. אפשר לצלם אותה עכשיו, או לבחור תמונה שכבר שמורה בטלפון."
+                : "עדיין לא צורפה קבלה להוצאה הזו. אפשר לצלם אותה עכשיו, או לבחור תמונה שכבר שמורה בטלפון."}
             </p>
           )}
 

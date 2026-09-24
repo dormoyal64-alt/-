@@ -39,6 +39,7 @@ import { fetchJob, changeJobStatus, closeJob, reopenJob, reassignJob, duplicateJ
 import { ReceiptCard } from "@/components/jobs/ReceiptCard";
 import { CustomerApprovalCard } from "@/components/jobs/CustomerApprovalCard";
 import { JobExpensesCard } from "@/components/jobs/JobExpensesCard";
+import { ContractorReceiptsCard } from "@/components/jobs/ContractorReceiptsCard";
 import type { Receipt } from "@/lib/types";
 import { buildCallLink, buildMapLink, buildNewJobWhatsappMessage, buildWhatsappLink, sendsCustomerPhone } from "@/lib/whatsapp";
 import { formatAgorot, formatPercent } from "@/lib/money";
@@ -462,6 +463,17 @@ export default function JobDetailPage() {
       )}
 
       {isOwner && <JobExpensesCard jobId={job.id} onChange={setJobCosts} />}
+
+      {/* the contractor's own receipt: proof of a share already out of the profit */}
+      {isOwner && (job.contractor_id || job.contractor_share_agorot) && (
+        <ContractorReceiptsCard
+          jobId={job.id}
+          contractorId={job.contractor?.id ?? null}
+          contractorName={job.contractor?.name ?? null}
+          shareAgorot={job.contractor_share_agorot}
+          closedAt={job.closed_at}
+        />
+      )}
 
       {job.is_closed && (() => {
         // business_share already has the contractor and the referral company out

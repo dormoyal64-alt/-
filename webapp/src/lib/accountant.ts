@@ -42,6 +42,15 @@ export interface ExpenseLine {
   amount_agorot: number;
 }
 
+/** A receipt a contractor handed over, as the month's report needs to read it. */
+export interface ContractorReceiptLine {
+  issued_on: string;
+  contractor_name: string;
+  reference: string | null;
+  amount_agorot: number;
+  job_number: string | null;
+}
+
 /** Everything that left the business in one month, in the order an accountant reads it. */
 export function expenseLines(
   from: string,
@@ -49,7 +58,8 @@ export function expenseLines(
   fixed: BusinessExpense[],
   categoryName: (id: string | null) => string,
   ads: AdSpend[],
-  jobCosts: { closed_at: string; job_number: string; description: string; amount_agorot: number }[]
+  jobCosts: { closed_at: string; job_number: string; description: string; amount_agorot: number }[],
+  contractorReceipts: ContractorReceiptLine[] = []
 ): ExpenseLine[] {
   const lines: ExpenseLine[] = [];
 
@@ -82,6 +92,20 @@ export function expenseLines(
       date: row.closed_at.slice(0, 10),
       kind: "הוצאה על עבודה",
       description: `${row.job_number} — ${row.description}`,
+      amount_agorot: row.amount_agorot,
+    });
+  }
+
+  // Paid to a contractor and documented by their own receipt. The share is
+  // already out of the business's profit; this is the line that lets the
+  // accountant deduct it, which they cannot do on a figure with no paper.
+  for (const row of contractorReceipts) {
+    lines.push({
+      date: row.issued_on,
+      kind: "קבלה מקבלן",
+      description: [row.contractor_name, row.reference ? `קבלה ${row.reference}` : null, row.job_number]
+        .filter(Boolean)
+        .join(" — "),
       amount_agorot: row.amount_agorot,
     });
   }
