@@ -90,7 +90,7 @@ export interface CloseJobInput {
 }
 
 export async function closeJob(supabase: SupabaseClient, jobId: string, input: CloseJobInput) {
-  const { error } = await supabase.rpc("close_job", {
+  const base = {
     p_job_id: jobId,
     p_closed_successfully: input.closedSuccessfully,
     p_final_price_agorot: input.finalPriceAgorot,
@@ -101,11 +101,37 @@ export async function closeJob(supabase: SupabaseClient, jobId: string, input: C
     p_commission_pct: input.commissionPct ?? null,
     p_referral_pct: input.referralPct ?? null,
     p_with_receipt: input.withReceipt ?? false,
+  };
+
+  const { error } = await supabase.rpc("close_job", {
+    ...base,
     p_set_helper: input.setHelper ?? false,
     p_helper_id: input.helperId ?? null,
     p_helper_pay_agorot: input.helperPayAgorot ?? null,
   });
-  if (error) throw error;
+  if (!error) return;
+
+  // The worker's wage was added to this function's arguments, and a browser
+  // updates the moment it is deployed while a database waits to be told. In
+  // between, the new call describes a function the old database does not have
+  // — and closing a job is the one thing that must not depend on that gap.
+  //
+  // So the old shape is tried, and the wage written straight onto the row
+  // afterwards. Nothing is lost: the same two columns end up holding the same
+  // two values, by the door that is open.
+  if (!isMissingFunction(error)) throw error;
+
+  const { error: legacyError } = await supabase.rpc("close_job", base);
+  if (legacyError) throw legacyError;
+
+  if (input.setHelper) {
+    const { error: helperError } = await supabase
+      .from("jobs")
+      .update({ helper_id: input.helperId ?? null, helper_pay_agorot: input.helperPayAgorot ?? 0 })
+      .eq("id", jobId);
+    // the job is closed either way; a wage that did not save is worth saying
+    if (helperError) throw helperError;
+  }
 }
 
 /**
