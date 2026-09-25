@@ -1,0 +1,68 @@
+# Write down what yesterday's advertising cost.
+#
+# The business asked for midnight. This runs a little after it, and records the
+# day that just ended rather than the one just starting — because a day that
+# has not happened yet has not spent anything, and Google keeps adjusting a
+# day's figures for a while after it closes. Just after midnight, yesterday is
+# both finished and settled.
+#
+# The scheduler holds no Google credential and no database key. All it knows is
+# a password to ring the doorbell on the business's own server, which is where
+# the real secrets already live. If this file leaked entirely, the worst
+# anybody could do with it is ask for the advertising figure to be re-read.
+#
+# 22:30 UTC is 01:30 in Israel in summer and 00:30 in winter — after midnight
+# either way, so "yesterday" never means two different days.
+
+name: ads-daily
+
+on:
+  schedule:
+    - cron: "30 22 * * *"
+  workflow_dispatch:
+    inputs:
+      day:
+        description: "A day to fill in, as YYYY-MM-DD. Leave empty for yesterday."
+        required: false
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask the server to read yesterday's spend
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DAY: ${{ github.event.inputs.day }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::Missing APP_URL or CRON_SECRET repository secret."
+            exit 1
+          fi
+
+          url="${APP_URL%/}/api/ads/sync"
+          [ -n "${DAY:-}" ] && url="${url}?day=${DAY}"
+
+          # a few attempts: one cold start or dropped connection is not a failure
+          for attempt in 1 2 3; do
+            code=$(curl -sS -o /tmp/out.json -w '%{http_code}' --max-time 60 \
+              -X POST "$url" -H "x-cron-secret: ${CRON_SECRET}" || echo "000")
+
+            if [ "$code" = "200" ]; then
+              echo "Recorded: $(cat /tmp/out.json)"
+              exit 0
+            fi
+
+            # a refusal or a missing setting will not fix itself by retrying
+            if [ "$code" = "401" ] || [ "$code" = "503" ]; then
+              echo "::error::HTTP ${code} — $(head -c 300 /tmp/out.json)"
+              exit 1
+            fi
+
+            echo "Attempt ${attempt}: HTTP ${code} — $(head -c 300 /tmp/out.json)"
+            sleep 20
+          done
+
+          echo "::error::Could not record yesterday's advertising spend. Enter it by hand on the expenses screen."
+          exit 1
