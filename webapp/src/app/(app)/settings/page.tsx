@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon, Percent, AlertTriangle, Users, FileCheck, Zap, CheckCircle2, HandCoins } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -431,7 +432,7 @@ export default function SettingsPage() {
           {(settings?.cancellation_notice ?? true) && (
             <>
               <div className="sm:max-w-[220px]">
-                <Label>סכום החיוב (₪)</Label>
+                <Label>סכום ברירת המחדל (₪)</Label>
                 <Input
                   type="number"
                   min={0}
@@ -446,6 +447,14 @@ export default function SettingsPage() {
                     }
                   }}
                 />
+                <p className="mt-1 text-xs text-ink-400">
+                  זה הסכום שנשלח כשלסוג העבודה אין סכום משלו. אפשר לקבוע דמי ביטול שונים לכל סוג
+                  עבודה (למשל ביובית לעומת פתיחת סתימה) במסך{" "}
+                  <Link href="/settings/professions" className="font-bold text-brand-600 underline">
+                    תחומים וסוגי עבודות
+                  </Link>
+                  , והמערכת תבחר לבד את הסכום המתאים לכל עבודה שתיפתח.
+                </p>
               </div>
               <div>
                 <Label>נוסח ההודעה</Label>

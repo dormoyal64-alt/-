@@ -9,6 +9,7 @@ import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EditableList } from "@/components/settings/EditableList";
 import { Input } from "@/components/ui/Input";
 import { agorotToShekels, shekelsToAgorot } from "@/lib/money";
+import { CANCELLATION_FEE_FALLBACK } from "@/lib/whatsapp";
 import { errorMessage } from "@/lib/errors";
 
 /** A money box on a list row, in shekels. Saves when it loses focus. */
@@ -111,6 +112,21 @@ export default function ProfessionsSettingsPage() {
     toast.success(agorot === null ? "דמי הביקור חזרו לברירת המחדל" : "דמי הביקור עודכנו");
   }
 
+  async function saveCancellationFee(table: "job_types" | "professions", id: string, shekels: string) {
+    const agorot = shekels.trim() === "" ? null : shekelsToAgorot(shekels);
+    const { error } = await supabase.from(table).update({ cancellation_fee_agorot: agorot }).eq("id", id);
+    if (error) return toast.error(errorMessage(error, "שגיאה בשמירת דמי הביטול"));
+    await refresh();
+    toast.success(agorot === null ? "דמי הביטול חזרו לברירת המחדל" : "דמי הביטול עודכנו");
+  }
+
+  // The box is only offered once the database actually has the column: a browser
+  // that deployed ahead of the database would otherwise show an editor that can
+  // only fail. PostgREST returns the column even when its value is null, so its
+  // presence in the row is the honest test.
+  const hasCancellationFee = professions.length === 0 || "cancellation_fee_agorot" in professions[0];
+  const defaultCancellationFee = settings?.cancellation_fee_agorot ?? CANCELLATION_FEE_FALLBACK;
+
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <div>
@@ -170,19 +186,35 @@ export default function ProfessionsSettingsPage() {
                   </div>
                   <div className="mb-4 rounded-2xl border border-ink-100 bg-ink-50/60 p-3.5">
                     <p className="mb-2 text-xs font-bold text-ink-500">
-                      דמי ביקור ואבחון לכל התחום — אלא אם לסוג תקלה מסוים יש סכום משלו
+                      דמי ביקור ודמי ביטול לכל התחום — אלא אם לסוג תקלה מסוים יש סכום משלו
                     </p>
-                    <MoneyInput
-                      label="דמי ביקור לתחום"
-                      key={`${profession.id}-fee-${profession.visit_fee_agorot ?? "none"}`}
-                      agorot={profession.visit_fee_agorot ?? null}
-                      onSave={(v) => saveVisitFee("professions", profession.id, v)}
-                      placeholder={String(agorotToShekels(settings?.visit_fee_agorot ?? 49900))}
-                    />
+                    <div className="flex flex-wrap items-center gap-4">
+                      <MoneyInput
+                        label="דמי ביקור לתחום"
+                        key={`${profession.id}-fee-${profession.visit_fee_agorot ?? "none"}`}
+                        agorot={profession.visit_fee_agorot ?? null}
+                        onSave={(v) => saveVisitFee("professions", profession.id, v)}
+                        placeholder={String(agorotToShekels(settings?.visit_fee_agorot ?? 49900))}
+                      />
+                      {hasCancellationFee && (
+                        <MoneyInput
+                          label="דמי ביטול לתחום"
+                          key={`${profession.id}-cancel-${profession.cancellation_fee_agorot ?? "none"}`}
+                          agorot={profession.cancellation_fee_agorot ?? null}
+                          onSave={(v) => saveCancellationFee("professions", profession.id, v)}
+                          placeholder={String(agorotToShekels(defaultCancellationFee))}
+                        />
+                      )}
+                    </div>
                   </div>
                   <p className="mb-2 text-xs font-bold text-ink-500">
                     המחיר הקבוע הוא מה שתגידו ללקוח בטלפון — הוא ימולא לבד בפתיחת עבודה.
                     דמי הביקור הם מה שהלקוח מאשר בהודעה לפני שיוצאים אליו.
+                    {hasCancellationFee
+                      ? " דמי הביטול הם מה שייכתב בהודעה ללקוח אם יבטל אחרי שיצאנו — סכום נפרד לכל סוג עבודה, והמערכת בוחרת אותו לבד."
+                      : ""}
+                    {" "}
+                    תיבה ריקה = הסכום של התחום, ואם גם שם ריק — ברירת המחדל שבהגדרות.
                   </p>
                   <EditableList
                     items={types}
@@ -210,6 +242,17 @@ export default function ProfessionsSettingsPage() {
                               agorotToShekels(profession.visit_fee_agorot ?? settings?.visit_fee_agorot ?? 49900)
                             )}
                           />
+                          {hasCancellationFee && (
+                            <MoneyInput
+                              label="דמי ביטול"
+                              key={`${item.id}-cancel-${jt?.cancellation_fee_agorot ?? "none"}`}
+                              agorot={jt?.cancellation_fee_agorot ?? null}
+                              onSave={(v) => saveCancellationFee("job_types", item.id, v)}
+                              placeholder={String(
+                                agorotToShekels(profession.cancellation_fee_agorot ?? defaultCancellationFee)
+                              )}
+                            />
+                          )}
                         </>
                       );
                     }}

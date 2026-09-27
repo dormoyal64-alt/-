@@ -11,6 +11,8 @@ export interface Profession {
   technician_label: string;
   /** call-out fee for this trade; null falls back to the standing fee */
   visit_fee_agorot: number | null;
+  /** late-cancellation fee for this trade; null falls back to the standing fee */
+  cancellation_fee_agorot: number | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -25,6 +27,8 @@ export interface JobType {
   base_price_agorot: number | null;
   /** call-out fee for this kind of fault; null falls back to the trade, then to settings */
   visit_fee_agorot: number | null;
+  /** late-cancellation fee for this kind of fault; null falls back to the trade, then to settings */
+  cancellation_fee_agorot: number | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;

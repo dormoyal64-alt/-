@@ -1,4 +1,4 @@
-import type { AppSettings, JobWithRelations } from "@/lib/types";
+import type { AppSettings, JobType, JobWithRelations, Profession } from "@/lib/types";
 import { formatAgorotPlain } from "@/lib/money";
 import { formatAppointmentHe, formatAppointmentWindowHe } from "@/lib/dates";
 
@@ -88,22 +88,71 @@ export function buildOnTheWayMessage(
   return cancellationNotice ? withAddress + "\n\n" + cancellationNotice : withAddress;
 }
 
+/** what the standing cancellation fee is before anything has been configured */
+export const CANCELLATION_FEE_FALLBACK = 50000;
+
+/**
+ * The two rows a job's own fee is read from.
+ *
+ * Deliberately not the job's embedded relations: those are fetched with an
+ * explicit column list, and naming a column the database has not been given yet
+ * fails the whole jobs query rather than one field. The caller hands over the
+ * rows it already has in hand — on every screen that is the reference data,
+ * loaded with select * — so a browser that deployed ahead of the database simply
+ * finds nothing here and falls back to the standing figure.
+ */
+export interface JobFeeSource {
+  jobType?: Partial<Pick<JobType, "cancellation_fee_agorot">> | null;
+  profession?: Partial<Pick<Profession, "cancellation_fee_agorot">> | null;
+}
+
+/**
+ * What a late cancellation costs this customer.
+ *
+ * Decided in advance, on the kind of work — not in the moment the customer
+ * calls to cancel. A blocked drain and a tanker that drove out with a crew are
+ * not worth the same cancellation, so the fault answers first, then the trade,
+ * then the standing figure. Each level is only consulted when the one before it
+ * has nothing to say, which is what lets one figure cover a whole trade while a
+ * single job type overrides it.
+ *
+ * The same ladder as the call-out fee, deliberately: one thing to learn, and a
+ * job that has just been opened already knows both numbers without being asked.
+ */
+export function cancellationFeeForJob(
+  source: JobFeeSource | null | undefined,
+  settings: Pick<AppSettings, "cancellation_fee_agorot"> | null | undefined
+): number {
+  return (
+    source?.jobType?.cancellation_fee_agorot ??
+    source?.profession?.cancellation_fee_agorot ??
+    settings?.cancellation_fee_agorot ??
+    CANCELLATION_FEE_FALLBACK
+  );
+}
+
 /**
  * The late-cancellation notice, in the business's own words.
  *
- * {fee} stands in for the amount so the sentence survives a change of price.
- * Returns null when the notice is switched off, which is what keeps the
- * callers from having to know about the setting.
+ * {fee} stands in for the amount so the sentence survives a change of price —
+ * and so the same wording can carry a different figure for a tanker than for a
+ * drain. Pass the job and it fills in that job's own fee; leave it out and the
+ * sentence falls back to the standing figure, which is what a preview with no
+ * job in front of it should show.
+ *
+ * Returns null when the notice is switched off, which is what keeps the callers
+ * from having to know about the setting.
  */
 export function buildCancellationNotice(
   settings:
     | Pick<AppSettings, "cancellation_notice" | "cancellation_fee_agorot" | "cancellation_notice_template">
     | null
-    | undefined
+    | undefined,
+  source?: JobFeeSource | null
 ): string | null {
   if (!settings || settings.cancellation_notice === false) return null;
   const body = settings.cancellation_notice_template?.trim() || DEFAULT_CANCELLATION_NOTICE;
-  return body.replace(/\{fee\}/g, formatAgorotPlain(settings.cancellation_fee_agorot ?? 0));
+  return body.replace(/\{fee\}/g, formatAgorotPlain(cancellationFeeForJob(source, settings)));
 }
 
 // ---------------------------------------------------------------------------

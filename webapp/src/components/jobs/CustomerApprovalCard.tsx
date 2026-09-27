@@ -5,6 +5,7 @@ import { CheckCircle2, ChevronDown, Loader2, MessageCircle, Send, Undo2, Zap } f
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import {
   buildCancellationNotice,
+  cancellationFeeForJob,
   buildOnTheWayMessage,
   buildOrderApprovedMessage,
   buildOrderConfirmationMessage,
@@ -18,6 +19,7 @@ import { formatDateTimeHe } from "@/lib/dates";
 import type { AppSettings, JobWithRelations } from "@/lib/types";
 import type { ConfirmationStep } from "@/lib/api/jobs";
 import { useWhatsappSender } from "@/hooks/useWhatsappSender";
+import { useRefData } from "@/lib/refdata";
 
 /**
  * Getting the call-out fee agreed, in the three steps it actually takes.
@@ -46,6 +48,14 @@ export function CustomerApprovalCard({
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
+  // the job's own cancellation fee is set on the kind of work, and those rows are
+  // the reference data this screen already has loaded — see JobFeeSource
+  const { jobTypes, professions } = useRefData();
+  const feeSource = {
+    jobType: jobTypes.find((t) => t.id === job.job_type_id) ?? null,
+    profession: professions.find((p) => p.id === job.profession_id) ?? null,
+  };
+
   const technician = job.profession?.technician_label?.trim() || "הטכנאי";
   const confirmed = remembers ? !!job.customer_confirmed_at : confirmedHere;
 
@@ -55,10 +65,16 @@ export function CustomerApprovalCard({
   // it is the plain "on the way", which promises nothing about money
   const dispatchMessage = confirmed
     ? buildOrderApprovedMessage(job, settings)
-    : buildOnTheWayMessage(job, settings?.on_the_way_template, buildCancellationNotice(settings));
+    : buildOnTheWayMessage(job, settings?.on_the_way_template, buildCancellationNotice(settings, feeSource));
   const dispatchLink = buildWhatsappLink(job.customer_phone, dispatchMessage);
 
   const fee = formatAgorot(visitFeeForJob(job, settings));
+  // the cancellation figure this job carries, so the number is visible here
+  // rather than only inside the message that is about to go out
+  const cancellationFee =
+    settings && settings.cancellation_notice !== false
+      ? formatAgorot(cancellationFeeForJob(feeSource, settings))
+      : null;
 
   async function sendNow() {
     setSending(true);
@@ -140,7 +156,9 @@ export function CustomerApprovalCard({
           note={
             confirmed
               ? `ההודעה תציין שדמי הביקור שאושרו הם ${fee}`
-              : "הלקוח עדיין לא אישר — תישלח ההודעה הקצרה, בלי אישור דמי הביקור"
+              : cancellationFee
+                ? `הלקוח עדיין לא אישר — תישלח ההודעה הקצרה, עם דמי ביטול ${cancellationFee} לעבודה הזו`
+                : "הלקוח עדיין לא אישר — תישלח ההודעה הקצרה, בלי אישור דמי הביקור"
           }
           doneAt={remembers ? job.dispatch_sent_at : null}
           doneLabel={
