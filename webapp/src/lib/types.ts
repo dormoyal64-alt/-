@@ -357,7 +357,9 @@ export interface AppSettings {
   receipt_footer: string | null;
   /** whether the receipt switch on the close-job dialog starts on */
   auto_receipt: boolean;
-  /** VAT rate; kept here because it changes by legislation */
+  /** 'exempt' = עוסק פטור, charges no VAT at all; 'licensed' = עוסק מורשה */
+  vat_status: "exempt" | "licensed";
+  /** VAT rate; kept here because it changes by legislation. Ignored when exempt. */
   tax_rate_pct: number;
   /** true when quoted prices already contain the tax, as they normally do in Israel */
   prices_include_tax: boolean;

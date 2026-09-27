@@ -58,6 +58,29 @@ export default function SettingsPage() {
     toast.success("נשמר");
   }
 
+  /**
+   * The status and the rate move together, because one without the other is a
+   * wrong number rather than a half-finished setting: an exempt business with
+   * 18 sitting in the field is one careless tap from taxing itself again, and a
+   * newly licensed one with 0 would quietly under-report.
+   */
+  async function saveVatStatus(next: "exempt" | "licensed") {
+    setSavingBusiness(true);
+    const { error } = await supabase
+      .from("app_settings")
+      .update({
+        vat_status: next,
+        // switching to licensed with nothing in the field gets the statutory
+        // rate; a rate already set by hand is left alone
+        tax_rate_pct: next === "exempt" ? 0 : taxRate > 0 ? taxRate : 18,
+      })
+      .eq("id", true);
+    setSavingBusiness(false);
+    if (error) return toast.error("שגיאה בשמירה");
+    await refresh();
+    toast.success(next === "exempt" ? "נשמר — לא יחושב מע״מ" : "נשמר");
+  }
+
   async function saveSendPhonePolicy(next: boolean) {
     setSavingPhonePolicy(true);
     const { error } = await supabase
@@ -174,6 +197,10 @@ export default function SettingsPage() {
   const sendPhonePolicy = settings?.send_customer_phone_to_contractor ?? true;
   const taxRate = settings?.tax_rate_pct ?? 18;
   const includesTax = settings?.prices_include_tax ?? true;
+  // an עוסק פטור charges no VAT and reclaims none; the column arrives with a
+  // migration, and until it does the old behaviour is what the screen shows
+  const vatStatus = settings?.vat_status ?? "licensed";
+  const exempt = vatStatus === "exempt";
   const appointmentLead = settings?.appointment_lead_minutes ?? 15;
   const visitFee = settings?.visit_fee_agorot ?? 49900;
   // the messages work on a database that has not been updated yet; only
@@ -264,10 +291,47 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Percent className="h-5 w-5 text-ink-400" /> מס על עבודות שנסגרו עם קבלה
+            <Percent className="h-5 w-5 text-ink-400" /> מע״מ וסוג העוסק
           </CardTitle>
         </CardHeader>
         <CardBody className="space-y-3">
+          <div>
+            <Label required>סוג העוסק</Label>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  { key: "exempt", label: "עוסק פטור" },
+                  { key: "licensed", label: "עוסק מורשה" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => saveVatStatus(opt.key)}
+                  disabled={savingBusiness}
+                  className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
+                    vatStatus === opt.key
+                      ? "border-brand-600 bg-brand-600 text-white"
+                      : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-ink-400">
+              {exempt
+                ? "עוסק פטור לא גובה מע״מ מהלקוחות ולא מקזז מע״מ על קניות — ולכן המערכת לא מורידה מע״מ מהרווח. תקרת המחזור לעוסק פטור ב-2026 היא 122,833 ₪ בשנה; מעליה חובה לעבור לעוסק מורשה."
+                : "עוסק מורשה גובה מע״מ מהלקוחות ומדווח עליו. המערכת תחשב אותו לפי האחוז כאן."}
+            </p>
+          </div>
+
+          {exempt ? (
+            <p className="rounded-xl border border-dashed border-ink-200 bg-ink-50 px-3.5 py-3 text-sm text-ink-600">
+              אין מע״מ לחשב. כל מה שנכנס מעבודה הוא שלכם — עדיין חייבים עליו מס הכנסה וביטוח
+              לאומי לפי הרווח, אבל זה לא מחושב כאן.
+            </p>
+          ) : (
+          <>
           <p className="text-sm text-ink-500">
             רק עבודה שנסגרה <b>עם קבלה</b> נושאת מס. המס מחושב ברגע הסגירה ונשמר על העבודה,
             כך ששינוי האחוז כאן <b>לא משנה עבודות שכבר נסגרו</b>.
@@ -315,6 +379,8 @@ export default function SettingsPage() {
               </p>
             </div>
           </div>
+          </>
+          )}
           <p className="text-xs text-ink-400">
             זה חישוב לניהול פנימי שלכם, לא דיווח רשמי. התייעצו עם רואה החשבון לגבי החבות בפועל.
           </p>
