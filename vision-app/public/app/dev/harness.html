@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dev harness</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="harness.css">
+</head>
+<body>
+  <!-- DEV ONLY: mounts a single view module in isolation. Never served in production. -->
+  <header class="harness-bar">
+    <span id="harness-label" class="harness-label"></span>
+    <button type="button" id="harness-abort" data-testid="harness-abort">Abort</button>
+  </header>
+  <main id="stage" data-testid="harness-stage"></main>
+  <pre id="result" data-testid="harness-result" data-status="idle"></pre>
+  <script type="module" src="harness.js"></script>
+</body>
+</html>

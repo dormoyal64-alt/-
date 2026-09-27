@@ -1,0 +1,34 @@
+{
+  "name": "vision-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal vision-adaptive screen PWA with self-administered eye tests and subscriptions.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "NODE_ENV=production node --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test --test-reporter=spec \"test/unit/**/*.test.js\"",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc -p jsconfig.json && tsc -p jsconfig.server.json",
+    "lint": "eslint .",
+    "check": "npm run lint && npm run typecheck && npm test",
+    "postinstall": "node scripts/vendor.js",
+    "static": "node scripts/static-server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "@mediapipe/tasks-vision": "^1.0.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.56.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.20.4",
+    "eslint": "^9.39.5",
+    "globals": "^17.12.0",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,4 @@
+.harness-bar { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 10px; background: #222; color: #eee; font: 12px/1.4 monospace; }
+.harness-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; }
+#result { direction: ltr; text-align: left; font: 12px/1.4 monospace; white-space: pre-wrap; padding: 8px; margin: 0; background: #111; color: #9f9; max-height: 40vh; overflow: auto; }
+#result:empty { display: none; }

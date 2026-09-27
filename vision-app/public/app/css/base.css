@@ -1,0 +1,195 @@
+/*
+ * BASE DESIGN SYSTEM — tokens + shared component classes (contract with core/ui.js).
+ * Owned by the manager. The UX agent may restyle via app.css but must keep class names and tokens.
+ * Profile-driven adaptation sets --va-font-scale, --va-font-weight, --va-line-height,
+ * --va-letter-spacing, --va-word-spacing on :root (see render/apply-ui.js).
+ */
+:root {
+  color-scheme: light dark;
+  --va-font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif;
+  --va-font-scale: 1;
+  --va-font-weight: 400;
+  --va-line-height: 1.5;
+  --va-letter-spacing: 0em;
+  --va-word-spacing: 0em;
+  --va-base-font: calc(16px * var(--va-font-scale));
+
+  --va-bg: #f5f8fb;
+  --va-surface: #ffffff;
+  --va-surface-2: #eef3f8;
+  --va-text: #0f1b2d;
+  --va-text-muted: #4a5a70;
+  --va-border: #cfd9e5;
+  --va-primary: #0a6b66;         /* white text on it: 6.4:1 */
+  --va-primary-strong: #07524e;
+  --va-primary-contrast: #ffffff;
+  --va-accent: #f2a93b;
+  --va-danger: #b42318;
+  --va-success: #127a3a;
+  --va-warning: #8a5a00;
+  --va-focus: #1d6fe0;
+  --va-radius: 14px;
+  --va-radius-sm: 10px;
+  --va-shadow: 0 1px 2px rgb(15 27 45 / 0.06), 0 4px 16px rgb(15 27 45 / 0.08);
+  --va-gap: 16px;
+  --va-tap: 48px;                /* minimum touch target (WCAG 2.5.5 AAA / platform guidelines) */
+  --va-max-width: 720px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --va-bg: #0b1220;
+    --va-surface: #121c2e;
+    --va-surface-2: #1a2740;
+    --va-text: #e8eef6;
+    --va-text-muted: #a9b6c8;
+    --va-border: #2b3a55;
+    --va-primary: #3cc7bd;
+    --va-primary-strong: #6fdad2;
+    --va-primary-contrast: #06201e;
+    --va-danger: #ff8a80;
+    --va-success: #5fd48a;
+    --va-warning: #ffcc66;
+    --va-focus: #7fb2ff;
+    --va-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px rgb(0 0 0 / 0.35);
+  }
+}
+:root[data-theme="dark"] {
+  --va-bg: #0b1220;
+  --va-surface: #121c2e;
+  --va-surface-2: #1a2740;
+  --va-text: #e8eef6;
+  --va-text-muted: #a9b6c8;
+  --va-border: #2b3a55;
+  --va-primary: #3cc7bd;
+  --va-primary-strong: #6fdad2;
+  --va-primary-contrast: #06201e;
+  --va-danger: #ff8a80;
+  --va-success: #5fd48a;
+  --va-warning: #ffcc66;
+  --va-focus: #7fb2ff;
+  --va-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px rgb(0 0 0 / 0.35);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  font-size: var(--va-base-font);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--va-bg);
+  color: var(--va-text);
+  font-family: var(--va-font-family);
+  font-weight: var(--va-font-weight);
+  line-height: var(--va-line-height);
+  letter-spacing: var(--va-letter-spacing);
+  word-spacing: var(--va-word-spacing);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible { outline: 3px solid var(--va-focus); outline-offset: 2px; }
+
+.va-visually-hidden {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ---------- Layout ---------- */
+.va-screen {
+  display: flex; flex-direction: column; gap: var(--va-gap);
+  width: 100%; max-width: var(--va-max-width); margin-inline: auto;
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+}
+.va-screen__body { display: flex; flex-direction: column; gap: 12px; }
+.va-title { font-size: 1.5rem; line-height: 1.25; margin: 0; font-weight: 700; }
+.va-title:focus { outline: none; }
+.va-text { margin: 0; font-size: 1rem; }
+.va-hint { margin: 0; font-size: 0.875rem; color: var(--va-text-muted); }
+.va-stack { display: flex; flex-direction: column; gap: 12px; }
+.va-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.va-center { display: flex; align-items: center; justify-content: center; }
+.va-card {
+  background: var(--va-surface); border: 1px solid var(--va-border); border-radius: var(--va-radius);
+  padding: 16px; box-shadow: var(--va-shadow);
+}
+.va-illustration { display: flex; justify-content: center; padding: 8px 0; color: var(--va-text); }
+
+/* ---------- Buttons ---------- */
+.va-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.va-btn {
+  appearance: none; border: 2px solid transparent; border-radius: var(--va-radius-sm);
+  min-height: var(--va-tap); padding: 10px 18px; font: inherit; font-weight: 600; font-size: 1rem;
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  text-decoration: none; transition: background-color .15s, border-color .15s, transform .05s;
+  touch-action: manipulation;
+}
+.va-btn:active { transform: scale(0.98); }
+.va-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+.va-btn--primary { background: var(--va-primary); color: var(--va-primary-contrast); }
+.va-btn--primary:hover { background: var(--va-primary-strong); }
+.va-btn--secondary { background: var(--va-surface); color: var(--va-text); border-color: var(--va-border); }
+.va-btn--ghost { background: transparent; color: var(--va-primary); }
+.va-btn--danger { background: var(--va-danger); color: #fff; }
+
+/* ---------- Inputs ---------- */
+.va-field { display: flex; flex-direction: column; gap: 6px; }
+.va-label { font-weight: 600; }
+.va-input, .va-select {
+  font: inherit; min-height: var(--va-tap); padding: 10px 12px; border-radius: var(--va-radius-sm);
+  border: 2px solid var(--va-border); background: var(--va-surface); color: var(--va-text);
+}
+.va-input:focus, .va-select:focus { border-color: var(--va-focus); outline: none; }
+.va-range { width: 100%; min-height: var(--va-tap); accent-color: var(--va-primary); }
+
+/* ---------- Progress ---------- */
+.va-progress { height: 8px; background: var(--va-surface-2); border-radius: 999px; overflow: hidden; }
+.va-progress__fill { height: 100%; width: 0; background: var(--va-primary); transition: width .25s ease; }
+
+/* ---------- Test surface: always max-contrast black on white, independent of theme ---------- */
+.va-test-surface {
+  background: #ffffff; color: #000000;
+  border-radius: var(--va-radius); display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.va-canvas { display: block; }
+
+/* ---------- Direction pad (never mirrored in RTL) ---------- */
+.va-pad {
+  direction: ltr;
+  display: grid; grid-template-columns: repeat(3, var(--va-pad-size, 64px)); grid-template-rows: repeat(3, var(--va-pad-size, 64px));
+  gap: 8px; justify-content: center; align-content: center; margin-inline: auto;
+}
+.va-pad__btn {
+  appearance: none; border: 2px solid var(--va-border); background: var(--va-surface); color: var(--va-text);
+  border-radius: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  touch-action: manipulation;
+}
+.va-pad__btn:active { background: var(--va-surface-2); }
+.va-pad__btn--up { grid-column: 2; grid-row: 1; }
+.va-pad__btn--left { grid-column: 1; grid-row: 2; }
+.va-pad__btn--right { grid-column: 3; grid-row: 2; }
+.va-pad__btn--down { grid-column: 2; grid-row: 3; }
+.va-pad__unsure { grid-column: 1 / span 3; grid-row: 4; }
+.va-pad.is-disabled { opacity: 0.5; pointer-events: none; }
+
+/* ---------- Eye-cover illustration ---------- */
+.va-ill-face { fill: var(--va-surface-2); stroke: var(--va-text); stroke-width: 3; }
+.va-ill-eye { fill: #fff; stroke: var(--va-text); stroke-width: 2; }
+.va-ill-pupil { fill: var(--va-text); }
+.va-ill-mouth { fill: none; stroke: var(--va-text); stroke-width: 3; stroke-linecap: round; }
+.va-ill-hand { fill: var(--va-accent); stroke: var(--va-text); stroke-width: 2; }
+
+/* ---------- Notices ---------- */
+.va-notice { border-radius: var(--va-radius-sm); padding: 12px 14px; border: 1px solid var(--va-border); background: var(--va-surface-2); }
+.va-notice--warning { border-color: var(--va-warning); }
+.va-notice--danger { border-color: var(--va-danger); }
+.va-notice--success { border-color: var(--va-success); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}

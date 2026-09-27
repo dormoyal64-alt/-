@@ -1,0 +1,10 @@
+node_modules/
+public/app/vendor/
+data/
+*.sqlite
+*.sqlite-journal
+.env
+test-results/
+playwright-report/
+coverage/
+.DS_Store
