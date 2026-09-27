@@ -27,6 +27,9 @@ export default function SettingsPage() {
   const toast = useToast();
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [resetCounts, setResetCounts] = useState<
+    { jobs: number; contractors: number; settlements: number; receipts: number } | null
+  >(null);
   const [newStatusName, setNewStatusName] = useState("");
   const [savingReminder, setSavingReminder] = useState(false);
   const [savingPhonePolicy, setSavingPhonePolicy] = useState(false);
@@ -108,7 +111,48 @@ export default function SettingsPage() {
     await refresh();
   }
 
+  /**
+   * What is actually in there, before anything is offered.
+   *
+   * This button was written for the first hour of a new system, when the only
+   * rows are the samples it shipped with. It does not know that; it deletes
+   * every job, contractor and settlement there has ever been, and the database
+   * takes the receipts, the timeline and the expenses along by cascade. Eight
+   * months in, with no backup anywhere, that is the end of the business's
+   * records — behind a button labelled "delete the sample data".
+   *
+   * So it counts first, says the real numbers, and refuses outright once a
+   * receipt has been issued. A receipt is the moment a system stopped being a
+   * demonstration: somebody was handed a numbered tax document. After that
+   * there is no reading of "sample data" that includes this.
+   */
+  async function loadResetCounts() {
+    const [jobs, contractors, settlements, receipts] = await Promise.all([
+      supabase.from("jobs").select("id", { count: "exact", head: true }),
+      supabase.from("contractors").select("id", { count: "exact", head: true }),
+      supabase.from("settlements").select("id", { count: "exact", head: true }),
+      supabase.from("receipts").select("id", { count: "exact", head: true }),
+    ]);
+    setResetCounts({
+      jobs: jobs.count ?? 0,
+      contractors: contractors.count ?? 0,
+      settlements: settlements.count ?? 0,
+      receipts: receipts.count ?? 0,
+    });
+    setConfirmReset(true);
+  }
+
+  // a receipt has been issued, so nothing here is sample data any more
+  const resetBlocked = !!resetCounts && resetCounts.receipts > 0;
+
   async function handleResetDemoData() {
+    // the guard is re-checked here, not only in the dialog: a count read a
+    // minute ago is not a permission
+    if (!resetCounts || resetCounts.receipts > 0) {
+      toast.error("יש קבלות במערכת — המחיקה חסומה.");
+      setConfirmReset(false);
+      return;
+    }
     setResetting(true);
     try {
       await supabase.from("jobs").delete().neq("id", "00000000-0000-0000-0000-000000000000");
@@ -121,6 +165,7 @@ export default function SettingsPage() {
     } finally {
       setResetting(false);
       setConfirmReset(false);
+      setResetCounts(null);
     }
   }
 
@@ -823,19 +868,34 @@ export default function SettingsPage() {
             <Info className="mt-0.5 h-4 w-4 shrink-0" />
             המערכת מגיעה עם נתוני דוגמה (קבלנים ועבודות) כדי שתוכלו לראות איך היא עובדת. לפני תחילת עבודה אמיתית מומלץ למחוק אותם.
           </div>
-          <Button variant="danger" onClick={() => setConfirmReset(true)}>
-            <Trash2 className="h-4 w-4" /> מחיקת כל נתוני הדוגמה (עבודות וקבלנים)
+          <Button variant="danger" onClick={loadResetCounts}>
+            <Trash2 className="h-4 w-4" /> מחיקת כל העבודות, הקבלנים וההתחשבנויות
           </Button>
         </CardBody>
       </Card>
 
       <ConfirmDialog
         open={confirmReset}
-        onClose={() => setConfirmReset(false)}
-        onConfirm={handleResetDemoData}
-        title="למחוק את כל העבודות והקבלנים?"
-        description="פעולה זו תמחק לצמיתות את כל העבודות, ההתחשבנויות והקבלנים במערכת. תחומים, סוגי עבודה, ערים וסטטוסים יישארו. לא ניתן לבטל פעולה זו."
-        confirmLabel="כן, מחיקה לצמיתות"
+        onClose={() => {
+          setConfirmReset(false);
+          setResetCounts(null);
+        }}
+        // a business that has issued a receipt is not a demonstration, so the
+        // dialog stops offering and starts refusing: there is nothing to
+        // confirm, and the one button left just closes it
+        onConfirm={resetBlocked ? () => setConfirmReset(false) : handleResetDemoData}
+        danger={!resetBlocked}
+        title={
+          resetBlocked
+            ? "המחיקה חסומה — יש כאן נתונים אמיתיים"
+            : "למחוק את כל העבודות והקבלנים?"
+        }
+        description={
+          resetBlocked
+            ? `במערכת הופקו ${resetCounts.receipts} קבלות, ויש בה ${resetCounts.jobs} עבודות. זה כבר לא נתוני דוגמה — זה העסק שלכם, ואין לו גיבוי אוטומטי. הכפתור הזה נועד לניקוי הדוגמאות ביום הראשון בלבד, ולכן הוא חסום. אם באמת צריך למחוק — תגידו לי ונעשה את זה יחד, אחרי גיבוי.`
+            : `יימחקו לצמיתות ${resetCounts?.jobs ?? 0} עבודות, ${resetCounts?.contractors ?? 0} קבלנים ו-${resetCounts?.settlements ?? 0} התחשבנויות — וגם ציר הזמן, ההוצאות והקבלות שתלויים בהן. תחומים, סוגי עבודה, ערים וסטטוסים יישארו. אי אפשר לבטל.`
+        }
+        confirmLabel={resetBlocked ? "הבנתי" : "כן, מחיקה לצמיתות"}
         loading={resetting}
       />
     </div>
