@@ -11,7 +11,9 @@ import { Input, Label } from "@/components/ui/Input";
 import { formatAgorot, shekelsToAgorot } from "@/lib/money";
 import { SPEND_PERIODS, periodRange, daysInRange, describeRange, type SpendPeriod } from "@/lib/adPeriods";
 import { todayLocalDate } from "@/lib/dates";
-import type { AdSpend } from "@/lib/types";
+import type { AdSpend, ExpenseReceipt } from "@/lib/types";
+import { ReceiptFiles } from "@/components/receipts/ReceiptFiles";
+import { deleteAdSpend, listAdSpendReceipts } from "@/lib/api/expenseReceipts";
 
 const today = () => todayLocalDate();
 
@@ -21,6 +23,13 @@ export default function AdvertisingPage() {
   const toast = useToast();
 
   const [rows, setRows] = useState<AdSpend[]>([]);
+  const [receipts, setReceipts] = useState<ExpenseReceipt[]>([]);
+  // the column arrives with a migration; until it does, offering a camera that
+  // can only fail is worse than not offering one
+  const [canAttach, setCanAttach] = useState(true);
+  // the spend whose file dialog should open — set the moment one is recorded,
+  // because that is when the invoice is in front of the person
+  const [askingFor, setAskingFor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [period, setPeriod] = useState<SpendPeriod>("day");
@@ -38,7 +47,17 @@ export default function AdvertisingPage() {
       .select("*")
       .order("spent_on", { ascending: false })
       .limit(120);
-    setRows((data as AdSpend[]) ?? []);
+    const list = (data as AdSpend[]) ?? [];
+    setRows(list);
+    // ask the database whether it has the column at all, rather than inferring
+    // it from a list that may simply be empty: the first spend recorded must
+    // not be offered a camera that cannot work
+    const probe = await supabase.from("expense_receipts").select("ad_spend_id").limit(1);
+    const supported = !probe.error;
+    setCanAttach(supported);
+    setReceipts(
+      supported ? await listAdSpendReceipts(supabase, list.map((r) => r.id)).catch(() => []) : []
+    );
     setLoading(false);
   }, [supabase]);
 
@@ -66,23 +85,33 @@ export default function AdvertisingPage() {
     const agorot = shekelsToAgorot(amount || "0");
     if (!Number.isFinite(agorot) || agorot <= 0) return toast.error("נא להזין סכום גדול מאפס");
     setSaving(true);
-    const { error } = await supabase.from("ad_spend").insert({
-      spent_on: range.from,
-      covers_to: range.to,
-      lead_source_id: sourceId || null,
-      amount_agorot: agorot,
-      notes: notes.trim() || null,
-    });
+    const { data, error } = await supabase
+      .from("ad_spend")
+      .insert({
+        spent_on: range.from,
+        covers_to: range.to,
+        lead_source_id: sourceId || null,
+        amount_agorot: agorot,
+        notes: notes.trim() || null,
+      })
+      .select("id")
+      .single();
     setSaving(false);
     if (error) return toast.error("שגיאה בשמירת ההוצאה");
     setAmount("");
     setNotes("");
     await load();
+    // ask for the invoice while it is still on the screen in front of them
+    if (canAttach && data?.id) setAskingFor(data.id as string);
     toast.success("ההוצאה נרשמה");
   }
 
   async function remove(id: string) {
-    await supabase.from("ad_spend").delete().eq("id", id);
+    try {
+      await deleteAdSpend(supabase, id);
+    } catch {
+      return toast.error("שגיאה במחיקת ההוצאה");
+    }
     await load();
     toast.success("ההוצאה נמחקה");
   }
@@ -92,7 +121,8 @@ export default function AdvertisingPage() {
       <div>
         <h1 className="text-2xl font-extrabold text-ink-900">הוצאות פרסום</h1>
         <p className="text-sm text-ink-500">
-          כמה הלך היום על פרסום ובאיזה ערוץ — זה מה שיורד מהרווח במסך ״רווח נקי״
+          כמה הלך היום על פרסום ובאיזה ערוץ — זה מה שיורד מהרווח במסך ״רווח נקי״.
+          {canAttach ? " אפשר לצרף לכל שורה קבלה או חשבונית, והיא תישלח לרואה החשבון עם הדוח החודשי." : ""}
         </p>
       </div>
 
@@ -221,20 +251,35 @@ export default function AdvertisingPage() {
           ) : (
             <div className="divide-y divide-ink-50">
               {rows.map((r) => (
-                <div key={r.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="w-28 shrink-0 text-xs font-bold text-ink-400">
-                    {r.covers_to && r.covers_to !== r.spent_on ? `${r.spent_on} → ${r.covers_to}` : r.spent_on}
-                  </span>
-                  <span className="flex-1 text-sm font-semibold text-ink-800">
-                    {sourceName(r.lead_source_id)}
-                    {r.covers_to && r.covers_to !== r.spent_on && (
-                      <span className="mr-1.5 text-xs font-normal text-brand-600">
-                        {formatAgorot(Math.round(r.amount_agorot / daysInRange(r.spent_on, r.covers_to)))} ליום
-                      </span>
-                    )}
-                    {r.notes && <span className="mr-1.5 text-xs font-normal text-ink-400">{r.notes}</span>}
-                  </span>
-                  <span className="font-extrabold text-ink-900">{formatAgorot(r.amount_agorot)}</span>
+                <div key={r.id} className="flex items-center gap-2 px-4 py-2.5">
+                  {/* two lines rather than one long row: on a phone the channel,
+                      the dates and a note cannot share a line and stay readable */}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-ink-800">
+                      {sourceName(r.lead_source_id)}
+                      {r.covers_to && r.covers_to !== r.spent_on && (
+                        <span className="mr-1.5 text-xs font-normal text-brand-600">
+                          {formatAgorot(Math.round(r.amount_agorot / daysInRange(r.spent_on, r.covers_to)))} ליום
+                        </span>
+                      )}
+                    </p>
+                    <p className="truncate text-xs text-ink-400">
+                      {r.covers_to && r.covers_to !== r.spent_on ? `${r.spent_on} → ${r.covers_to}` : r.spent_on}
+                      {r.notes ? ` · ${r.notes}` : ""}
+                    </p>
+                  </div>
+                  <span className="shrink-0 font-extrabold text-ink-900">{formatAgorot(r.amount_agorot)}</span>
+                  {canAttach && (
+                    <ReceiptFiles
+                      parent={{ kind: "ad", id: r.id }}
+                      receipts={receipts.filter((x) => x.ad_spend_id === r.id)}
+                      onChange={load}
+                      open={askingFor === r.id ? true : undefined}
+                      onOpenChange={(next) => {
+                        if (!next && askingFor === r.id) setAskingFor(null);
+                      }}
+                    />
+                  )}
                   <button
                     onClick={() => remove(r.id)}
                     className="rounded-lg p-1.5 text-ink-300 hover:bg-ink-100 hover:text-danger-600"

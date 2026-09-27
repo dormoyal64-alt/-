@@ -17,10 +17,10 @@ import type { ExpenseReceipt } from "@/lib/types";
  * on a phone and the file picker on a desktop, and what comes back is shrunk
  * before it is uploaded. Each photograph can be opened full size or removed.
  *
- * It serves a purchase the business made and a receipt a contractor handed
- * over alike — the two differ only in which record they hang off and what the
- * empty state should call them, so both go through here rather than through
- * two screens that would drift apart.
+ * It serves a purchase the business made, a receipt a contractor handed over
+ * and an advertising invoice alike — they differ only in which record they
+ * hang off and what the empty state should call them, so all three go through
+ * here rather than through screens that would drift apart.
  */
 export function ReceiptFiles({
   parent,
@@ -120,7 +120,13 @@ export function ReceiptFiles({
             ? "bg-brand-50 text-brand-700 hover:bg-brand-100"
             : "text-ink-300 hover:bg-ink-100 hover:text-ink-700"
         }`}
-        aria-label={receipts.length > 0 ? `${receipts.length} קבלות מצורפות` : "צילום קבלה"}
+        aria-label={
+          receipts.length > 0
+            ? `${receipts.length} קבלות מצורפות`
+            : parent.kind === "ad"
+              ? "צילום קבלה או חשבונית"
+              : "צילום קבלה"
+        }
       >
         {busy ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -139,7 +145,9 @@ export function ReceiptFiles({
             <p className="text-sm text-ink-500">
               {parent.kind === "contractor"
                 ? "עדיין לא צורפה הקבלה מהקבלן. אפשר לצלם אותה עכשיו, או לבחור תמונה שכבר שמורה בטלפון."
-                : "עדיין לא צורפה קבלה להוצאה הזו. אפשר לצלם אותה עכשיו, או לבחור תמונה שכבר שמורה בטלפון."}
+                : parent.kind === "ad"
+                  ? "עדיין לא צורפה קבלה או חשבונית להוצאת הפרסום הזו. אפשר לצלם אותה עכשיו, או לבחור קובץ ששמור בטלפון (גם PDF של גוגל)."
+                  : "עדיין לא צורפה קבלה להוצאה הזו. אפשר לצלם אותה עכשיו, או לבחור תמונה שכבר שמורה בטלפון."}
             </p>
           )}
 

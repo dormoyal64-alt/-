@@ -559,6 +559,8 @@ export interface ExpenseReceipt {
   business_expense_id: string | null;
   /** set instead of business_expense_id when this is a contractor's receipt */
   contractor_receipt_id: string | null;
+  /** set instead of the other two when this is the invoice behind an advertising spend */
+  ad_spend_id: string | null;
   storage_path: string;
   file_name: string | null;
   content_type: string | null;

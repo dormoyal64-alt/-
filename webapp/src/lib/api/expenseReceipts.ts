@@ -7,24 +7,28 @@ export const RECEIPTS_BUCKET = "receipts";
 /**
  * Which record the paper belongs to.
  *
- * Two kinds of document end up in the same bucket — a purchase the business
- * made, and a receipt a contractor handed over — and the row records exactly
- * one of them. Naming the parent once here keeps the upload, the folder and
- * the column from being decided separately and drifting apart.
+ * Three kinds of document end up in the same bucket — a purchase the business
+ * made, a receipt a contractor handed over, and the invoice behind an
+ * advertising spend — and the row records exactly one of them. Naming the
+ * parent once here keeps the upload, the folder and the column from being
+ * decided separately and drifting apart.
  */
 export type ReceiptParent =
   | { kind: "expense"; id: string }
-  | { kind: "contractor"; id: string };
+  | { kind: "contractor"; id: string }
+  | { kind: "ad"; id: string };
 
 /** The folder a parent's files live in, so deleting it takes them along. */
 function folder(parent: ReceiptParent): string {
-  return parent.kind === "expense" ? parent.id : `contractor-receipts/${parent.id}`;
+  if (parent.kind === "expense") return parent.id;
+  if (parent.kind === "contractor") return `contractor-receipts/${parent.id}`;
+  return `ad-spend/${parent.id}`;
 }
 
 function parentColumn(parent: ReceiptParent): Record<string, string> {
-  return parent.kind === "expense"
-    ? { business_expense_id: parent.id }
-    : { contractor_receipt_id: parent.id };
+  if (parent.kind === "expense") return { business_expense_id: parent.id };
+  if (parent.kind === "contractor") return { contractor_receipt_id: parent.id };
+  return { ad_spend_id: parent.id };
 }
 
 /** Every photograph filed against one expense, oldest first. */
@@ -95,4 +99,68 @@ export async function deleteReceiptFile(supabase: SupabaseClient, receipt: Expen
 export async function receiptUrl(supabase: SupabaseClient, path: string): Promise<string | null> {
   const { data } = await supabase.storage.from(RECEIPTS_BUCKET).createSignedUrl(path, 60 * 60);
   return data?.signedUrl ?? null;
+}
+
+/**
+ * Every document filed against a set of advertising spends, oldest first.
+ *
+ * Throws rather than returning nothing when the column is missing, so the
+ * caller can tell "no receipts yet" apart from "the database has not been
+ * updated yet" and hide the camera instead of offering one that cannot work.
+ */
+export async function listAdSpendReceipts(
+  supabase: SupabaseClient,
+  adSpendIds: string[]
+): Promise<ExpenseReceipt[]> {
+  if (adSpendIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("expense_receipts")
+    .select("*")
+    .in("ad_spend_id", adSpendIds)
+    .order("created_at");
+  if (error) throw error;
+  return (data ?? []) as ExpenseReceipt[];
+}
+
+/**
+ * The documents behind the advertising that touches one month.
+ *
+ * A spend can cover a range — a campaign paid once for thirty days — so the
+ * invoice belongs to every month that range reaches into, the same way the
+ * figure itself is spread. Returns nothing rather than failing when the column
+ * is not there yet: a month simply has no advertising paper until it is.
+ */
+export async function adSpendReceiptFilesInMonth(
+  supabase: SupabaseClient,
+  from: string,
+  to: string
+): Promise<ExpenseReceipt[]> {
+  const { data, error } = await supabase
+    .from("expense_receipts")
+    .select("*, spend:ad_spend!inner(spent_on, covers_to)")
+    .lte("spend.spent_on", to)
+    .order("created_at");
+  if (error) return [];
+  return ((data ?? []) as (ExpenseReceipt & {
+    spend: { spent_on: string; covers_to: string | null } | null;
+  })[]).filter((r) => {
+    const end = r.spend?.covers_to ?? r.spend?.spent_on;
+    return !!end && end >= from;
+  });
+}
+
+/**
+ * Remove an advertising spend, paperwork and all.
+ *
+ * The rows go by way of the cascade, but storage keeps no foreign keys, so the
+ * files have to be named before the row that points at them is gone — or they
+ * stay in the bucket forever with nothing left to find them by.
+ */
+export async function deleteAdSpend(supabase: SupabaseClient, id: string) {
+  const files = await listAdSpendReceipts(supabase, [id]).catch(() => [] as ExpenseReceipt[]);
+  const { error } = await supabase.from("ad_spend").delete().eq("id", id);
+  if (error) throw error;
+  if (files.length > 0) {
+    await supabase.storage.from(RECEIPTS_BUCKET).remove(files.map((f) => f.storage_path));
+  }
 }
