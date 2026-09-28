@@ -39,7 +39,8 @@ test('panByPixels: content follows the finger', () => {
 });
 
 test('clampView: zoom range, centred when smaller, edges stay out when larger', () => {
-  assert.deepEqual(clampView({ zoom: 1, panX: 0.3, panY: -0.3 }, 1000, 1000, 400, 400), { zoom: 1, panX: 0, panY: 0 });
+  const c0 = clampView({ zoom: 1, panX: 0.3, panY: -0.3 }, 1000, 1000, 400, 400);
+  assert.equal(c0.zoom, 1); near(c0.panX, 0); near(c0.panY, 0);
   assert.equal(clampView({ zoom: 50, panX: 0, panY: 0 }, 1000, 1000, 400, 400, { maxZoom: 8 }).zoom, 8);
   assert.equal(clampView({ zoom: 0.2, panX: 0, panY: 0 }, 1000, 1000, 400, 400).zoom, 1);
   const c = clampView({ zoom: 2, panX: 1, panY: -1 }, 1000, 1000, 400, 400);

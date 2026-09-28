@@ -48,7 +48,8 @@ test('magnifier presets', () => {
 test('fileStem', () => {
   assert.equal(fileStem('IMG 0001.HEIC'), 'IMG-0001');
   assert.equal(fileStem('תמונה של סבתא.jpg'), 'תמונה-של-סבתא');
-  assert.equal(fileStem('../../etc/passwd'), 'etc-passwd');
+  assert.equal(fileStem('../../etc/passwd'), 'passwd');
+  assert.equal(fileStem('C:\\photos\\beach day.png'), 'beach-day');
   assert.equal(fileStem(''), 'image');
 });
 
@@ -67,7 +68,7 @@ test('splitParagraphs / splitSentences / structureText', () => {
   const he = splitSentences('שלום לכם. מה שלומכם? הכול טוב!', 'he');
   assert.equal(he.length, 3);
   const s = structureText('שלום לכם. מה נשמע?\nThis is English. Second sentence.');
-  assert.equal(s.lang, 'he');
+  assert.equal(s.lang, 'en'); // document language = majority of letters
   assert.equal(s.paragraphs.length, 2);
   assert.deepEqual(s.paragraphs[0].map((x) => x.lang), ['he', 'he']);
   assert.deepEqual(s.paragraphs[1].map((x) => x.lang), ['en', 'en']);

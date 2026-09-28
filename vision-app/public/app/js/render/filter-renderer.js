@@ -746,8 +746,13 @@ export function createFilterRenderer(canvas, options = {}) {
     if (destroyed) return;
     const dpr = win.devicePixelRatio || 1;
     const cssW = canvas.clientWidth; const cssH = canvas.clientHeight;
-    let w = observedDevice ? observedDevice.w : Math.round(cssW * dpr);
-    let h = observedDevice ? observedDevice.h : Math.round(cssH * dpr);
+    let w = Math.round(cssW * dpr);
+    let h = Math.round(cssH * dpr);
+    // Exact device-pixel size from ResizeObserver, when it agrees with CSS size × dpr (pixel snapping only).
+    if (observedDevice && Math.abs(observedDevice.w - w) <= 2 && Math.abs(observedDevice.h - h) <= 2) {
+      w = observedDevice.w;
+      h = observedDevice.h;
+    }
     if (!(w > 0 && h > 0)) return;
     const maxDim = res ? Math.min(res.maxTex, res.maxViewport) : 8192;
     let k = Math.min(1, Math.sqrt(opts.maxPixels / (w * h)), maxDim / w, maxDim / h);

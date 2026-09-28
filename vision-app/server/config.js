@@ -7,7 +7,6 @@
 import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 import { buildPlans } from './billing/plans.js';
-import { renewalFor } from './billing/pricing.js';
 
 export class ConfigError extends Error {
   /** @param {string[]} problems */
@@ -154,7 +153,6 @@ export function loadConfig(env = process.env) {
     IL: { region: /** @type {'IL'} */ ('IL'), currency, plans },
     INTL: { region: /** @type {'INTL'} */ ('INTL'), currency: intlCurrency, plans: buildPlans({ prices: intlPrices, currency: intlCurrency }) },
   };
-  void renewalFor; // (imported for the JSDoc types of RegionPricing consumers)
 
   const pastDueGraceDays = int('PAST_DUE_GRACE_DAYS', 7, 0, 60);
   const refundWindowDays = int('REFUND_WINDOW_DAYS', 14, 0, 365);

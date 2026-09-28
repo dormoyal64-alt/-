@@ -83,6 +83,7 @@ export function magnifierPreset(mode, profileMedia) {
  * @param {string} [fallback]
  */
 export function fileStem(name, fallback = 'image') {
-  const stem = String(name || '').replace(/\.[^.]*$/, '').replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+  const base = String(name || '').split(/[\\/]/).pop() || '';
+  const stem = base.replace(/\.[^.]*$/, '').replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 60);
   return stem || fallback;
 }

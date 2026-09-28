@@ -224,7 +224,7 @@ export function applyPixel(r, g, b, params) {
   const p = sanitizeParams(params);
   const tmp = [0, 0, 0];
   colorStage(r, g, b, p, tmp);
-  return toneStage(tmp[0], tmp[1], tmp[2], p, [0, 0, 0]);
+  return /** @type {number[]} */ (toneStage(tmp[0], tmp[1], tmp[2], p, [0, 0, 0]));
 }
 
 /**
@@ -347,6 +347,7 @@ export function processImageData(data, width, height, params, sigmaDevicePx) {
     a[i * 3 + 2] = linearToSrgb(clamp(m[6] * lr + m[7] * lg + m[8] * lb, 0, 1));
   }
   // Stage B
+  /** @type {Float32Array} */
   let v = a;
   if (p.sharpenAmount > 0) {
     const sigma = sigmaDevicePx === undefined ? p.sharpenSigmaPx : Math.min(sigmaDevicePx, MAX_SIGMA_DEVICE_PX);

@@ -6,8 +6,10 @@
  */
 
 export const DAY_MS = 86_400_000;
-/** Access kept after a failed renewal payment while the provider retries. */
-export const PAST_DUE_GRACE_DAYS = 3;
+/** Default access kept after a failed renewal payment while it is retried (config PAST_DUE_GRACE_DAYS). */
+export const PAST_DUE_GRACE_DAYS = 7;
+/** Default: a fixed-term plan can be renewed from this many days before its end until this many days after. */
+export const RENEW_WINDOW_DAYS = 30;
 
 /**
  * @typedef {'trial'|'active'|'canceled'|'past_due'|'expired'} EntitlementStatus
@@ -19,6 +21,8 @@ export const PAST_DUE_GRACE_DAYS = 3;
  * @property {boolean} cancelAtPeriodEnd
  * @property {number} daysLeft                whole days of access left, rounded up (0 when no access)
  * @property {boolean} hasAccess
+ * @property {null|'auto'|'manual'} renewal   'manual' = fixed term that ends unless renewed with consent
+ * @property {boolean} canRenew               POST /api/billing/renew is available now
  */
 
 /**
@@ -34,6 +38,8 @@ export const PAST_DUE_GRACE_DAYS = 3;
  * @property {number|string|Date|null} [current_period_end]
  * @property {boolean|number} [cancelAtPeriodEnd]
  * @property {boolean|number} [cancel_at_period_end]
+ * @property {'auto'|'manual'|string|null} [renewal]
+ * @property {string|null} [ended_reason]   e.g. 'refunded': ended early, not renewable
  */
 
 /** @param {unknown} v @returns {number|null} */
@@ -60,38 +66,41 @@ const planOf = (p) => (p === 'monthly' || p === 'quarterly' || p === 'yearly' ? 
  * @param {EntitlementUser|null} user
  * @param {EntitlementSubscription|null} subscription  the user's most recent subscription, if any
  * @param {number|string|Date} [now]
+ * @param {{graceDays?: number, renewWindowDays?: number}} [opts]
  * @returns {Entitlement}
  */
-export function computeEntitlement(user, subscription, now = Date.now()) {
+export function computeEntitlement(user, subscription, now = Date.now(), opts = {}) {
   const nowMs = toMs(now) ?? Date.now();
+  const graceMs = (opts.graceDays ?? PAST_DUE_GRACE_DAYS) * DAY_MS;
+  const windowMs = (opts.renewWindowDays ?? RENEW_WINDOW_DAYS) * DAY_MS;
   const trialEnd = toMs(user?.trialEndsAt ?? user?.trial_ends_at ?? null);
+  const periodEnd = subscription ? toMs(subscription.currentPeriodEnd ?? subscription.current_period_end ?? null) : null;
+  const renewal = subscription ? (subscription.renewal === 'manual' ? 'manual' : 'auto') : null;
+  const canRenew = Boolean(subscription && renewal === 'manual' && periodEnd !== null && subscription.status !== 'past_due'
+    && !subscription.ended_reason && nowMs >= periodEnd - windowMs && nowMs < periodEnd + windowMs);
 
-  if (subscription && subscription.status && subscription.status !== 'expired') {
-    const periodEnd = toMs(subscription.currentPeriodEnd ?? subscription.current_period_end ?? null);
+  if (subscription && subscription.status && subscription.status !== 'expired' && periodEnd !== null) {
     const cancelFlag = Boolean(subscription.cancelAtPeriodEnd ?? subscription.cancel_at_period_end ?? false);
-    const plan = planOf(subscription.plan);
-    const base = { plan, trialEndsAt: iso(trialEnd), currentPeriodEnd: iso(periodEnd) };
-
-    if (periodEnd !== null) {
-      const graceEnd = periodEnd + PAST_DUE_GRACE_DAYS * DAY_MS;
-      const canceled = subscription.status === 'canceled' || (subscription.status === 'active' && cancelFlag);
-      if (canceled) {
-        // Paid until the end of the period, will not renew.
-        if (nowMs < periodEnd) {
-          return { status: 'canceled', ...base, cancelAtPeriodEnd: true, daysLeft: daysUntil(periodEnd, nowMs), hasAccess: true };
-        }
-      } else if (subscription.status === 'active') {
-        if (nowMs < periodEnd) {
-          return { status: 'active', ...base, cancelAtPeriodEnd: false, daysLeft: daysUntil(periodEnd, nowMs), hasAccess: true };
-        }
-        // Period over but no renewal/failure reported yet (late webhook): same grace as past_due.
-        if (nowMs < graceEnd) {
-          return { status: 'past_due', ...base, cancelAtPeriodEnd: false, daysLeft: daysUntil(graceEnd, nowMs), hasAccess: true };
-        }
-      } else if (subscription.status === 'past_due') {
-        if (nowMs < graceEnd) {
-          return { status: 'past_due', ...base, cancelAtPeriodEnd: false, daysLeft: daysUntil(graceEnd, nowMs), hasAccess: true };
-        }
+    const base = { plan: planOf(subscription.plan), trialEndsAt: iso(trialEnd), currentPeriodEnd: iso(periodEnd), renewal, canRenew };
+    const graceEnd = periodEnd + graceMs;
+    const canceled = subscription.status === 'canceled' || (subscription.status === 'active' && cancelFlag);
+    if (canceled) {
+      // Paid until the end of the period, will not renew.
+      if (nowMs < periodEnd) {
+        return { status: 'canceled', ...base, cancelAtPeriodEnd: true, daysLeft: daysUntil(periodEnd, nowMs), hasAccess: true };
+      }
+    } else if (subscription.status === 'active') {
+      if (nowMs < periodEnd) {
+        return { status: 'active', ...base, cancelAtPeriodEnd: false, daysLeft: daysUntil(periodEnd, nowMs), hasAccess: true };
+      }
+      // Auto-renewing period over but no renewal/failure recorded yet (late webhook or charge run):
+      // same grace as past_due. A fixed-term (manual) plan simply ends.
+      if (renewal === 'auto' && nowMs < graceEnd) {
+        return { status: 'past_due', ...base, cancelAtPeriodEnd: false, daysLeft: daysUntil(graceEnd, nowMs), hasAccess: true };
+      }
+    } else if (subscription.status === 'past_due') {
+      if (nowMs < graceEnd) {
+        return { status: 'past_due', ...base, cancelAtPeriodEnd: false, daysLeft: daysUntil(graceEnd, nowMs), hasAccess: true };
       }
     }
     // Subscription no longer grants access: fall through (an unused trial may still apply).
@@ -100,14 +109,13 @@ export function computeEntitlement(user, subscription, now = Date.now()) {
   if (trialEnd !== null && nowMs < trialEnd) {
     return {
       status: 'trial', plan: null, trialEndsAt: iso(trialEnd), currentPeriodEnd: null,
-      cancelAtPeriodEnd: false, daysLeft: daysUntil(trialEnd, nowMs), hasAccess: true,
+      cancelAtPeriodEnd: false, daysLeft: daysUntil(trialEnd, nowMs), hasAccess: true, renewal: null, canRenew,
     };
   }
 
-  const lastPeriodEnd = subscription ? toMs(subscription.currentPeriodEnd ?? subscription.current_period_end ?? null) : null;
   return {
-    status: 'expired', plan: null, trialEndsAt: iso(trialEnd), currentPeriodEnd: iso(lastPeriodEnd),
-    cancelAtPeriodEnd: false, daysLeft: 0, hasAccess: false,
+    status: 'expired', plan: null, trialEndsAt: iso(trialEnd), currentPeriodEnd: iso(periodEnd),
+    cancelAtPeriodEnd: false, daysLeft: 0, hasAccess: false, renewal: null, canRenew,
   };
 }
 

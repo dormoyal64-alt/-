@@ -115,6 +115,48 @@ export const MIGRATIONS = [
   );
   CREATE INDEX audit_log_user ON audit_log(user_id);
   `,
+  // 2: regional pricing, Israeli renewal semantics, token renewals, reminders
+  `
+  ALTER TABLE subscriptions ADD COLUMN region TEXT NOT NULL DEFAULT 'IL';
+  ALTER TABLE subscriptions ADD COLUMN renewal TEXT NOT NULL DEFAULT 'auto';
+  ALTER TABLE subscriptions ADD COLUMN amount INTEGER;
+  ALTER TABLE subscriptions ADD COLUMN currency TEXT;
+  ALTER TABLE subscriptions ADD COLUMN provider_token_ref TEXT;
+  ALTER TABLE subscriptions ADD COLUMN next_attempt_at INTEGER;
+  ALTER TABLE subscriptions ADD COLUMN ended_reason TEXT;
+
+  ALTER TABLE checkout_sessions ADD COLUMN region TEXT;
+  ALTER TABLE checkout_sessions ADD COLUMN renewal TEXT;
+  ALTER TABLE checkout_sessions ADD COLUMN amount INTEGER;
+  ALTER TABLE checkout_sessions ADD COLUMN currency TEXT;
+  ALTER TABLE checkout_sessions ADD COLUMN kind TEXT NOT NULL DEFAULT 'new';
+  ALTER TABLE checkout_sessions ADD COLUMN subscription_id TEXT;
+
+  ALTER TABLE invoices ADD COLUMN provider_subscription_id TEXT;
+  CREATE INDEX invoices_sub ON invoices(provider, provider_subscription_id);
+
+  -- One row per token charge attempt made by our renewal scheduler. A 'pending' row that never
+  -- resolved (crash / timeout) blocks further automatic charges for that period: reconcile manually.
+  CREATE TABLE renewal_attempts (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    subscription_id TEXT NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
+    period_end      INTEGER NOT NULL,
+    attempted_at    INTEGER NOT NULL,
+    status          TEXT NOT NULL CHECK (status IN ('pending','succeeded','failed')),
+    provider_tx_id  TEXT,
+    error           TEXT
+  );
+  CREATE INDEX renewal_attempts_sub ON renewal_attempts(subscription_id, period_end);
+
+  -- Reminder / notice e-mails already sent (each at most once per subscription period).
+  CREATE TABLE notices (
+    subscription_id TEXT NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
+    kind            TEXT NOT NULL,
+    period_end      INTEGER NOT NULL,
+    sent_at         INTEGER NOT NULL,
+    PRIMARY KEY (subscription_id, kind, period_end)
+  );
+  `,
 ];
 
 /**

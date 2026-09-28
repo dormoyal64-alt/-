@@ -132,7 +132,7 @@ function syncRootFilter(doc) {
  */
 function installFilter(doc, prims) {
   const key = JSON.stringify(prims);
-  let svg = /** @type {SVGSVGElement|null} */ (doc.getElementById(UI_FILTER_SVG_ID));
+  let svg = /** @type {SVGSVGElement|null} */ (/** @type {unknown} */ (doc.getElementById(UI_FILTER_SVG_ID)));
   if (!svg) {
     svg = /** @type {SVGSVGElement} */ (doc.createElementNS(SVG_NS, 'svg'));
     svg.setAttribute('id', UI_FILTER_SVG_ID);

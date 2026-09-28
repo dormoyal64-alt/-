@@ -131,6 +131,7 @@ test('unsharp combine: out = orig + amount * (orig - blurred)', () => {
   assert.equal(data[0], 64);
   assert.equal(data[15 * 4], 192);
   const flat = new Uint8ClampedArray(9 * 4).fill(100);
+  for (let i = 3; i < flat.length; i += 4) flat[i] = 255;
   processImageData(flat, 3, 3, { sharpenAmount: 2, sharpenSigmaPx: 1 });
   assert.equal(flat[0], 100);
 });

@@ -15,25 +15,48 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { newToken, hmacHex, safeEqual, sha256Hex } from '../../auth/tokens.js';
 import { WebhookVerificationError } from './errors.js';
 import { EVENT_TYPES } from '../service.js';
-import { findPlan, addMonthsUtc, formatPrice } from '../plans.js';
+import { findPlan, formatPrice } from '../plans.js';
 import { hasPaidAccess } from '../entitlement.js';
 import { escapeHtml } from '../../mail/templates.js';
 
 /**
+ * Test hooks: set `nextCharge` to 'declined' or 'error' to make the next chargeToken() decline or throw;
+ * `charges` and `refunds` record calls.
  * @param {{webhookSecret: string, now: () => number}} opts
- * @returns {import('./index.js').PaymentProvider & {signWebhook: (body: string|Buffer) => string}}
  */
 export function createMockProvider({ webhookSecret }) {
   const sign = (/** @type {string|Buffer} */ body) => createHmac('sha256', webhookSecret).update(body).digest('hex');
-  return {
+  /** @type {Array<{tokenRef: string, amount: number, currency: string, idempotencyKey: string}>} */
+  const charges = [];
+  /** @type {Array<{providerTxId: string, amount: number}>} */
+  const refunds = [];
+  /** @type {import('./index.js').PaymentProvider & {signWebhook: (body: string|Buffer) => string, nextCharge: null|'declined'|'error', charges: typeof charges, refunds: typeof refunds}} */
+  const provider = {
     id: 'mock',
+    region: null,
     cspFormActionOrigins: [],
+    capabilities: { managesRenewals: false, tokenCharges: true, refunds: true, signedWebhooks: true },
+    nextCharge: null,
+    charges,
+    refunds,
     async createCheckout({ baseUrl }) {
       const providerRef = `mock_cs_${newToken()}`;
       return { url: `${baseUrl}/api/billing/mock/checkout/${providerRef}`, providerRef };
     },
     async cancelSubscription() { /* nothing to call */ },
     async resumeSubscription() { /* nothing to call */ },
+    async chargeToken(req) {
+      const outcome = provider.nextCharge;
+      provider.nextCharge = null;
+      if (outcome === 'error') throw new Error('mock: charge outcome unknown (simulated timeout)');
+      charges.push({ tokenRef: req.tokenRef, amount: req.amount, currency: req.currency, idempotencyKey: req.idempotencyKey });
+      if (outcome === 'declined' || req.tokenRef.includes('decline')) return { status: 'declined', error: 'mock decline' };
+      return { status: 'succeeded', providerTxId: `mock_tx_${newToken().slice(0, 24)}`, invoiceUrl: null };
+    },
+    async refund(req) {
+      refunds.push({ providerTxId: req.providerTxId, amount: req.amount });
+      return { refundId: `mock_rf_${newToken().slice(0, 16)}`, status: 'refunded' };
+    },
     signWebhook: sign,
     verifyAndParseWebhook(rawBody, headers) {
       const sigHeader = headers['x-mock-signature'];
@@ -61,6 +84,7 @@ export function createMockProvider({ webhookSecret }) {
           currentPeriodEnd: e.currentPeriodEnd,
           occurredAt: e.occurredAt,
           checkoutRef: e.checkoutRef,
+          providerTokenRef: e.tokenRef,
           invoice: e.invoice && typeof e.invoice === 'object' ? {
             providerInvoiceId: String(e.invoice.id ?? e.invoice.providerInvoiceId ?? ''),
             amount: Number(e.invoice.amount),
@@ -74,6 +98,7 @@ export function createMockProvider({ webhookSecret }) {
       });
     },
   };
+  return provider;
 }
 
 const PAGE_STRINGS = {
@@ -124,7 +149,7 @@ function page(lang, title, bodyHtml) {
 export function mockCheckoutRouter({ config, billing, db, now, baseUrlOf, returnUrls }) {
   const router = express.Router();
   router.use((req, res, next) => {
-    if (config.isProduction || config.paymentProvider !== 'mock') {
+    if (config.isProduction) {
       res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Not found' } });
       return;
     }
@@ -138,6 +163,12 @@ export function mockCheckoutRouter({ config, billing, db, now, baseUrlOf, return
     const q = req.query.lang;
     if (q === 'he' || q === 'en') return q;
     return user?.lang === 'en' ? 'en' : 'he';
+  };
+  /** @param {any} checkout @returns {import('../plans.js').Plan} */
+  const planOf = (checkout) => {
+    const region = checkout.region === 'INTL' ? 'INTL' : 'IL';
+    const base = /** @type {import('../plans.js').Plan} */ (findPlan(config.pricing[region].plans, checkout.plan));
+    return { ...base, price: checkout.amount ?? base.price, currency: checkout.currency ?? base.currency };
   };
   /** @param {string} ref @param {string} userId */
   const csrfFor = (ref, userId) => hmacHex(config.sessionSecret, `mock-checkout:${ref}:${userId}`);
@@ -175,7 +206,7 @@ export function mockCheckoutRouter({ config, billing, db, now, baseUrlOf, return
     if (!ctx) return;
     const { user, checkout, lang } = ctx;
     const s = PAGE_STRINGS[lang];
-    const plan = /** @type {import('../plans.js').Plan} */ (findPlan(config.plans, checkout.plan));
+    const plan = planOf(checkout);
     const ref = encodeURIComponent(checkout.provider_ref);
     const csrf = csrfFor(checkout.provider_ref, user.id);
     const langQ = req.query.lang === 'he' || req.query.lang === 'en' ? `?lang=${req.query.lang}` : '';
@@ -204,21 +235,23 @@ export function mockCheckoutRouter({ config, billing, db, now, baseUrlOf, return
     }
     const { user, checkout } = ctx;
     const urls = returnUrls(baseUrlOf(req));
-    if (hasPaidAccess(billing.entitlementFor(user))) {
+    if (checkout.kind !== 'renew' && hasPaidAccess(billing.entitlementFor(user))) {
       db.run("UPDATE checkout_sessions SET status = 'canceled', updated_at = ? WHERE id = ?", now(), checkout.id);
       res.redirect(303, urls.cancelUrl);
       return;
     }
-    const plan = /** @type {import('../plans.js').Plan} */ (findPlan(config.plans, checkout.plan));
+    const plan = planOf(checkout);
     const t = now();
-    // The paid period starts when the free trial ends, so subscribing early never loses trial days.
-    const periodStart = Math.max(t, user.trial_ends_at);
-    const subscriptionId = `mock_sub_${newToken().slice(0, 24)}`;
+    const renewing = checkout.kind === 'renew' && checkout.subscription_id;
+    const existing = renewing ? db.one('SELECT provider_subscription_id FROM subscriptions WHERE id = ?', checkout.subscription_id) : null;
+    const subscriptionId = existing?.provider_subscription_id ?? `mock_sub_${newToken().slice(0, 24)}`;
+    // The paid period (computed by the billing service) starts when the free trial ends, so subscribing
+    // early never loses trial days; a renewal extends the current period.
     billing.applyEvents('mock', [
       {
-        eventId: `mock_evt_${newToken()}`, type: 'subscription.activated', userId: user.id,
+        eventId: `mock_evt_${newToken()}`, type: renewing ? 'subscription.renewed' : 'subscription.activated', userId: user.id,
         providerSubscriptionId: subscriptionId, providerCustomerId: `mock_cus_${sha256Hex(user.id).slice(0, 16)}`,
-        plan: plan.id, currentPeriodEnd: addMonthsUtc(periodStart, plan.months), occurredAt: t, checkoutRef: checkout.provider_ref,
+        providerTokenRef: `mock_tok_${newToken().slice(0, 24)}`, plan: plan.id, occurredAt: t, checkoutRef: checkout.provider_ref,
       },
       {
         eventId: `mock_evt_${newToken()}`, type: 'invoice.issued', userId: user.id, providerSubscriptionId: subscriptionId,
