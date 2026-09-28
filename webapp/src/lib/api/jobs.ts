@@ -351,13 +351,74 @@ export async function issueReceipt(supabase: SupabaseClient, jobId: string) {
   return (Array.isArray(data) ? data[0] : data) as Receipt;
 }
 
+/**
+ * The receipt this job stands on — the live one, or the cancelled one if that
+ * is all there is.
+ *
+ * A job can carry more than one over its life: a receipt cancelled and another
+ * issued in its place. The live one is what the customer holds and what the
+ * accountant is sent, so it comes first; a cancelled one is still shown, rather
+ * than vanishing, because "this job once had receipt 0001 and it was
+ * cancelled" is the part somebody will need to explain later.
+ */
 export async function fetchReceipt(supabase: SupabaseClient, jobId: string) {
   const { data } = await supabase
     .from("receipts")
     .select("*")
     .eq("job_id", jobId)
-    .order("issued_at")
-    .limit(1)
-    .maybeSingle();
-  return (data as Receipt) ?? null;
+    .order("issued_at", { ascending: false })
+    .limit(10);
+  const rows = (data as Receipt[]) ?? [];
+  // a database without the column answers undefined, which reads as live —
+  // exactly the behaviour there was before it existed
+  return rows.find((r) => !r.cancelled_at) ?? rows[0] ?? null;
+}
+
+/**
+ * Take a closed job back out of "closed with a receipt".
+ *
+ * An issued receipt is a numbered tax document, so it is never cancelled as a
+ * side effect: the database refuses unless cancelIssued says so outright, and
+ * the screen asks before it does.
+ */
+export async function markJobWithoutReceipt(
+  supabase: SupabaseClient,
+  jobId: string,
+  options: { cancelIssued?: boolean; reason?: string | null } = {}
+) {
+  const { error } = await supabase.rpc("mark_job_without_receipt", {
+    p_job_id: jobId,
+    p_cancel_issued: options.cancelIssued ?? false,
+    p_reason: options.reason?.trim() || null,
+  });
+  if (error) throw error;
+}
+
+/** The other direction: the tick that was missed rather than wrongly made. */
+export async function markJobWithReceipt(supabase: SupabaseClient, jobId: string) {
+  const { error } = await supabase.rpc("mark_job_with_receipt", { p_job_id: jobId });
+  if (error) throw error;
+}
+
+/**
+ * The receipts a month's report is built from — the live ones only.
+ *
+ * A cancelled receipt keeps its number and its row, so it has to be filtered
+ * out here rather than deleted there. The filter is attempted first and dropped
+ * if the database has not been given the column yet: a browser that deploys
+ * ahead of the database then behaves exactly as it did before, instead of
+ * failing to produce a report at all.
+ */
+export async function fetchLiveReceipts(
+  supabase: SupabaseClient,
+  fromIso: string,
+  toIso: string
+): Promise<Receipt[]> {
+  const range = () =>
+    supabase.from("receipts").select("*").gte("issued_at", fromIso).lte("issued_at", toIso).order("issued_at");
+  const live = await range().is("cancelled_at", null);
+  if (!live.error) return (live.data as Receipt[]) ?? [];
+  const all = await range();
+  if (all.error) throw all.error;
+  return (all.data as Receipt[]) ?? [];
 }

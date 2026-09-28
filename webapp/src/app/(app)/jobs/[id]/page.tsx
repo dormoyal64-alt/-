@@ -37,6 +37,7 @@ import { EditJobModal, type EditJobValues } from "@/components/jobs/EditJobModal
 import { Timeline, type TimelineEntry } from "@/components/jobs/Timeline";
 import { fetchJob, changeJobStatus, closeJob, reopenJob, reassignJob, duplicateJob, deleteJob, deleteJobBlockedReason, issueReceipt, fetchReceipt, stampConfirmationStep, type ConfirmationStep } from "@/lib/api/jobs";
 import { ReceiptCard } from "@/components/jobs/ReceiptCard";
+import { ReceiptStatusCard } from "@/components/jobs/ReceiptStatusCard";
 import { CustomerApprovalCard } from "@/components/jobs/CustomerApprovalCard";
 import { JobExpensesCard } from "@/components/jobs/JobExpensesCard";
 import { ContractorReceiptsCard } from "@/components/jobs/ContractorReceiptsCard";
@@ -448,7 +449,7 @@ export default function JobDetailPage() {
       )}
 
       {job.is_closed && !!job.final_price_agorot && (
-        receipt ? (
+        receipt && !receipt.cancelled_at ? (
           <ReceiptCard receipt={receipt} />
         ) : (
           <button
@@ -458,9 +459,15 @@ export default function JobDetailPage() {
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-ink-200 py-3 text-sm font-semibold text-ink-500 transition hover:bg-ink-50 disabled:opacity-60"
           >
             <ReceiptIcon className="h-4 w-4" />
-            הפקת קבלה ללקוח
+            {receipt?.cancelled_at ? "הפקת קבלה חדשה ללקוח" : "הפקת קבלה ללקוח"}
           </button>
         )
+      )}
+
+      {/* whether this job counts as declared income — correctable after the fact,
+          because the tick at closing time is sometimes simply wrong */}
+      {isOwner && job.is_closed && (
+        <ReceiptStatusCard job={job} receipt={receipt} onChanged={load} />
       )}
 
       {isOwner && <JobExpensesCard jobId={job.id} onChange={setJobCosts} />}

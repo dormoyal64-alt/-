@@ -527,6 +527,9 @@ export interface Receipt {
   business_phone: string | null;
   business_email: string | null;
   footer: string | null;
+  /** set when the receipt was cancelled; its number stays in the sequence */
+  cancelled_at: string | null;
+  cancel_reason: string | null;
   created_at: string;
 }
 

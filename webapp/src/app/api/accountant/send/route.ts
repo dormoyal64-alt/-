@@ -7,6 +7,7 @@ import { formatDateHe } from "@/lib/dates";
 import { monthRange, expenseLines, buildAccountantEmail } from "@/lib/accountant";
 import type { AdSpend, AppSettings, BusinessExpense, ExpenseCategory, ExpenseReceipt, Receipt } from "@/lib/types";
 import { RECEIPTS_BUCKET, adSpendReceiptFilesInMonth } from "@/lib/api/expenseReceipts";
+import { fetchLiveReceipts } from "@/lib/api/jobs";
 import { contractorReceiptLines, contractorReceiptFilesInMonth } from "@/lib/api/contractorReceipts";
 
 /**
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
   const [settingsRes, rec, fixed, cats, ads, costs, photos, contractorPaid, contractorPaper, adPaper] =
     await Promise.all([
       supabase.from("app_settings").select("*").eq("id", true).maybeSingle(),
-      supabase.from("receipts").select("*").gte("issued_at", fromIso).lte("issued_at", toIso).order("issued_at"),
+      fetchLiveReceipts(supabase, fromIso, toIso),
       supabase.from("business_expenses").select("*").lte("spent_on", range.to),
       supabase.from("expense_categories").select("*"),
       supabase.from("ad_spend").select("*").lte("spent_on", range.to),
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
       amount_agorot: r.amount_agorot,
     }));
 
-  const receipts = (rec.data as Receipt[]) ?? [];
+  const receipts = rec;
   const expenses = expenseLines(
     range.from,
     range.to,

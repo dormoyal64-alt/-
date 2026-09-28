@@ -19,6 +19,7 @@ import {
   type ExpenseLine,
 } from "@/lib/accountant";
 import { contractorReceiptLines } from "@/lib/api/contractorReceipts";
+import { fetchLiveReceipts } from "@/lib/api/jobs";
 import type { AdSpend, BusinessExpense, ExpenseCategory, Receipt } from "@/lib/types";
 
 /**
@@ -54,7 +55,7 @@ export default function AccountantPage() {
     const toIso = `${range.to}T23:59:59.999`;
 
     const [rec, fixed, cats, ads, costs, contractorPaid] = await Promise.all([
-      supabase.from("receipts").select("*").gte("issued_at", fromIso).lte("issued_at", toIso).order("issued_at"),
+      fetchLiveReceipts(supabase, fromIso, toIso),
       supabase.from("business_expenses").select("*").lte("spent_on", range.to),
       supabase.from("expense_categories").select("*"),
       supabase.from("ad_spend").select("*").lte("spent_on", range.to),
@@ -82,7 +83,7 @@ export default function AccountantPage() {
         amount_agorot: r.amount_agorot,
       })));
 
-    setReceipts((rec.data as Receipt[]) ?? []);
+    setReceipts(rec);
     setExpenses(
       expenseLines(
         range.from,
