@@ -50,7 +50,7 @@ describe('API (NODE_ENV=test, mock payments)', () => {
     const wasm = await c.get('/app/vendor/mediapipe/wasm/vision_wasm_internal.wasm');
     if (wasm.status === 200) {
       assert.equal(wasm.headers.get('content-type'), 'application/wasm');
-      assert.equal(wasm.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+      assert.equal(wasm.headers.get('cache-control'), 'public, max-age=86400');
     }
     const nf = await c.get('/api/nope');
     assert.equal(nf.status, 404);

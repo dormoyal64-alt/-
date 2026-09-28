@@ -16,7 +16,7 @@ const MIME_OVERRIDES = {
 };
 
 export const CACHE_NO_CACHE = 'no-cache';
-export const CACHE_IMMUTABLE = 'public, max-age=86400'; // vendor paths are not versioned: 1 day + ETag revalidation
+export const CACHE_VENDOR = 'public, max-age=86400'; // vendor paths are not versioned: 1 day + ETag revalidation
 export const CACHE_SHORT = 'public, max-age=300';
 
 /** @param {string} p */
@@ -61,7 +61,7 @@ export function staticRoutes({ publicDir, isProduction }) {
       if (ext === '.html' || ext === '.webmanifest' || rel === 'app/sw.js') {
         res.setHeader('Cache-Control', CACHE_NO_CACHE);
       } else if (rel.startsWith('app/vendor/')) {
-        res.setHeader('Cache-Control', CACHE_IMMUTABLE);
+        res.setHeader('Cache-Control', CACHE_VENDOR);
       } else {
         res.setHeader('Cache-Control', CACHE_SHORT);
       }
