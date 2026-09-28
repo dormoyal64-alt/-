@@ -300,6 +300,7 @@ export function mountLiveMagnifier(container, options = {}) {
     stage.hidden = true;
     controls.hidden = true;
     errorBox.hidden = false;
+    say('');
     root.dataset.error = kind;
     const retry = iconButton({ icon: 'retry', label: t('retry'), showLabel: true, variant: 'primary', testId: 'magnifier-retry', onClick: () => { void start(); } });
     const steps = kind === 'denied' ? h('ol', null, h('li', null, t('denied_step1')), h('li', null, t('denied_step2')), h('li', null, t('denied_step3'))) : null;

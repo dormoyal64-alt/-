@@ -63,8 +63,11 @@ describe('API (NODE_ENV=test, mock payments)', () => {
     assert.equal(r.data.trialDays, 30);
     assert.equal(r.data.currency, 'ILS');
     assert.deepEqual(r.data.plans.map((p) => p.id), ['monthly', 'quarterly', 'yearly']);
+    assert.deepEqual(r.data.plans.map((p) => [p.price, p.renewal]), [[2490, 'auto'], [5990, 'manual'], [17990, 'manual']]);
+    assert.equal(r.data.region, 'IL');
     for (const p of r.data.plans) {
-      assert.deepEqual(Object.keys(p).sort(), ['currency', 'id', 'months', 'price', 'pricePerMonth', 'savingsPercent']);
+      assert.deepEqual(Object.keys(p).sort(), ['currency', 'id', 'months', 'price', 'pricePerMonth', 'provider', 'renewal', 'savingsPercent']);
+      assert.equal(p.provider, 'mock');
     }
   });
 
@@ -238,7 +241,7 @@ describe('API (NODE_ENV=test, mock payments)', () => {
     const inv = await client.get('/api/billing/invoices');
     assert.equal(inv.status, 200);
     assert.equal(inv.data.invoices.length, 1);
-    assert.deepEqual([inv.data.invoices[0].amount, inv.data.invoices[0].currency, inv.data.invoices[0].plan], [7990, 'ILS', 'quarterly']);
+    assert.deepEqual([inv.data.invoices[0].amount, inv.data.invoices[0].currency, inv.data.invoices[0].plan], [5990, 'ILS', 'quarterly']);
 
     // paying the same checkout twice is impossible
     const again = await client.req('POST', `${checkoutUrl.pathname}/pay`, { body: 'csrf=x', headers: { 'content-type': 'application/x-www-form-urlencoded' } });
@@ -439,7 +442,7 @@ describe('API (NODE_ENV=test, mock payments)', () => {
     assert.equal(db.one('SELECT COUNT(*) AS n FROM audit_log WHERE user_id = ?', user.id).n, 0);
     assert.equal(db.one('SELECT COUNT(*) AS n FROM webhook_events WHERE user_id = ?', user.id).n, 0);
     const kept = db.all("SELECT user_id, amount FROM invoices WHERE provider = 'mock' AND user_id IS NULL");
-    assert.ok(kept.some((i) => i.amount === 2990), 'invoice kept, anonymised');
+    assert.ok(kept.some((i) => i.amount === 2490), 'invoice kept, anonymised');
 
     const re = await t.client().post('/api/auth/register', { email, password: PASSWORD, lang: 'he', acceptTerms: true });
     assert.equal(re.status, 201);

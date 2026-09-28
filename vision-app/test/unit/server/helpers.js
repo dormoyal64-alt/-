@@ -9,7 +9,7 @@ import { createApp } from '../../../server/app.js';
 export const SILENT = { info() {}, warn() {}, error() {} };
 
 /**
- * @param {{env?: Record<string,string>, configOverrides?: object, provider?: object, now?: () => number}} [opts]
+ * @param {{env?: Record<string,string>, configOverrides?: object, provider?: object, fetchImpl?: Function, now?: () => number}} [opts]
  */
 export async function startTestServer(opts = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'va-server-test-'));
@@ -23,7 +23,7 @@ export async function startTestServer(opts = {}) {
   const mailer = { id: 'capture', async send(msg) { mail.push(msg); } };
   const clock = { t: Date.now() };
   const now = opts.now ?? (() => clock.t);
-  const app = createApp(config, { mailer, logger: SILENT, now, provider: opts.provider, maintenanceTimer: false });
+  const app = createApp(config, { mailer, logger: SILENT, now, provider: opts.provider, fetchImpl: opts.fetchImpl, maintenanceTimer: false });
   const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   const base = `http://127.0.0.1:${server.address().port}`;
   const origin = config.publicBaseUrl ?? base;
@@ -113,4 +113,28 @@ export async function payWithMock(client, planId) {
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
   });
   return { checkoutUrl: url, page, paid };
+}
+
+/**
+ * A fetch stand-in for provider APIs: `routes` maps "METHOD path-suffix" to (body, init) => [status, json].
+ * Every call is recorded in `calls`.
+ */
+export function mockFetch(routes) {
+  const calls = [];
+  const fn = async (url, init = {}) => {
+    const method = init.method ?? 'GET';
+    const body = init.body ? JSON.parse(init.body) : undefined;
+    calls.push({ url: String(url), method, headers: init.headers ?? {}, body });
+    const key = Object.keys(routes).find((k) => {
+      const [m, suffix] = k.split(' ');
+      return m === method && String(url).endsWith(suffix);
+    });
+    if (!key) return new Response(JSON.stringify({ error: 'no route' }), { status: 404 });
+    const out = await routes[key](body, init);
+    if (out instanceof Error) throw out;
+    const [status, json] = out;
+    return new Response(JSON.stringify(json), { status, headers: { 'content-type': 'application/json' } });
+  };
+  fn.calls = calls;
+  return fn;
 }

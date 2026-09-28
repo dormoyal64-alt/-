@@ -147,7 +147,7 @@ export function mountVideoViewer(container, options = {}) {
       h('div', { class: 'va-viewer__row va-viewer__row--media' }, h('div', { class: 'va-viewer__grow' }, seek)),
       h('div', { class: 'va-viewer__row va-viewer__row--media' }, playBtn, timeEl, h('span', { class: 'va-viewer__grow' }), muteBtn, fsBtn),
       h('div', { class: 'va-viewer__row' }, strengthField.el),
-      h('div', { class: 'va-viewer__row' }, compareBtn, zoomOutBtn, zoomInBtn, fitBtn)),
+      h('div', { class: 'va-viewer__row' }, compareBtn, h('div', { class: 'va-viewer__group' }, zoomOutBtn, zoomInBtn, fitBtn))),
     status);
   clear(container);
   container.appendChild(root);

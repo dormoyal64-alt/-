@@ -85,7 +85,7 @@ Call `ctx.onProgress?.(fraction)` as the test advances.
 | `engine/profile.js` | pure: `computeProfile(input: ProfileInput, opts?: {id?, name?, now?}) => VisionProfile`, `recomputeProfile(profile) => VisionProfile` |
 | `engine/system-guide.js` | pure: `detectPlatform(userAgent, maxTouchPoints?) => Platform`, `buildSystemGuide(target: SystemSettingsTarget, platform, lang) => GuideSection[]` |
 | `render/filter-renderer.js` | `createFilterRenderer(canvas, opts?) => {supported, setSource(src), setParams(FilterParams), setView({zoom, panX, panY}), render(), resize(), destroy()}` (WebGL, 2D-canvas fallback) |
-| `render/apply-ui.js` | `applyProfileToDocument(profile|null, doc?)` — sets `--va-*` CSS variables + SVG colour filter on the app UI |
+| `render/apply-ui.js` | `applyProfileToDocument(profile|null, doc?)` — sets `--va-*` CSS variables + SVG colour filter on the app UI; `suspendUiFilter()` returns a release function (ref-counted; media viewers use it to avoid double filtering). Re-call `applyProfileToDocument` after any theme change. |
 | `viewers/photo-viewer.js` | `mountPhotoViewer(container, {lang, profile, file?}) => {destroy()}` |
 | `viewers/video-viewer.js` | `mountVideoViewer(container, {lang, profile, file?}) => {destroy()}` |
 | `viewers/live-magnifier.js` | `mountLiveMagnifier(container, {lang, profile}) => {destroy()}` |
@@ -113,10 +113,16 @@ and come from the same origin (server checks `Origin`). Errors: `{ "error": { "c
 | `GET /api/billing/invoices` | – | `{invoices:[...]}` |
 | `POST /api/webhooks/:provider` | raw provider payload | 200 after signature verification |
 
-`GET /api/plans` also returns per plan `renewal: 'auto'|'manual'` and `provider`.
+`GET /api/plans` also returns top-level `region` and `provider`, per plan `renewal: 'auto'|'manual'` and `provider`, and accepts `?country=`/`?currency=`.
+`POST /api/billing/checkout` accepts optional `country`/`currency`. Cancel responses include `refund:{status,amount,currency}` when a refund happens.
+Password-reset e-mails link to `/app/#/reset-password?token=…`. Bodyless POSTs (logout, cancel, resume) may omit Content-Type.
+Error codes — auth: INVALID_EMAIL, PASSWORD_TOO_SHORT, PASSWORD_TOO_LONG, PASSWORD_TOO_COMMON, TERMS_NOT_ACCEPTED, EMAIL_TAKEN,
+INVALID_CREDENTIALS, UNAUTHENTICATED, INVALID_TOKEN, INVALID_PASSWORD (403 on DELETE /api/me); billing: INVALID_PLAN,
+ALREADY_SUBSCRIBED, NO_ACTIVE_SUBSCRIPTION, NOT_RESUMABLE, NOT_RENEWABLE, CONSENT_REQUIRED, INVALID_MODE, REFUND_WINDOW_PASSED,
+PROVIDER_ERROR; generic: RATE_LIMITED (+Retry-After), BAD_ORIGIN, JSON_REQUIRED, INVALID_JSON, PAYLOAD_TOO_LARGE.
 
 `entitlement = {status:'trial'|'active'|'canceled'|'past_due'|'expired', plan:null|'monthly'|'quarterly'|'yearly',
-trialEndsAt, currentPeriodEnd, cancelAtPeriodEnd, daysLeft, hasAccess}`.
+trialEndsAt, currentPeriodEnd, cancelAtPeriodEnd, daysLeft, hasAccess, renewal:'auto'|'manual'|null, canRenew}`.
 
 ## Conventions
 - **Security:** never use `innerHTML`/`insertAdjacentHTML`/`document.write` with dynamic data; build DOM with `h()`.

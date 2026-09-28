@@ -9,6 +9,8 @@
   padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
   color: var(--va-text);
 }
+/* Author display rules (e.g. .va-btn, panels) must not defeat the hidden attribute. */
+.va-viewer [hidden] { display: none !important; }
 .va-viewer__bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .va-viewer__title { font-size: 1.25rem; line-height: 1.25; margin: 0; font-weight: 700; flex: 1 1 auto; }
 .va-viewer__bar .va-btn { flex: 1 1 auto; }
@@ -34,6 +36,7 @@
   position: absolute; top: 10px; inset-inline-end: 10px; pointer-events: none;
   background: rgb(0 0 0 / 0.75); color: #fff; border: 1px solid rgb(255 255 255 / 0.5);
   border-radius: 999px; padding: 2px 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+  direction: ltr; unicode-bidi: isolate;
 }
 .va-viewer__badge[hidden] { display: none; }
 
@@ -46,7 +49,8 @@
 .va-viewer__grow { flex: 1 1 auto; }
 .va-viewer__field { display: flex; flex-direction: column; gap: 2px; flex: 1 1 220px; min-width: 0; }
 .va-viewer__field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.va-viewer__value { font-weight: 700; font-variant-numeric: tabular-nums; }
+.va-viewer__value { font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+.va-viewer__group { display: flex; gap: 8px; flex: none; }
 .va-viewer__time { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; padding-inline: 4px; }
 .va-viewer__status { margin: 0; min-height: 1.5em; color: var(--va-text-muted); font-size: 0.9375rem; }
 .va-viewer__note { margin: 0; color: var(--va-text-muted); font-size: 0.875rem; }
@@ -55,7 +59,7 @@
 .va-vbtn--icon { padding-inline: 10px; }
 .va-vicon { width: 24px; height: 24px; flex: none; }
 .va-vbtn[aria-pressed="true"] { background: var(--va-primary); color: var(--va-primary-contrast); border-color: var(--va-primary); }
-.va-vbtn--hold { flex: 1 1 auto; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; touch-action: none; }
+.va-vbtn--hold { flex: 1 1 9rem; white-space: normal; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; touch-action: none; }
 
 /* Radio "segmented" choices (magnifier colour modes) */
 .va-choices { border: 0; margin: 0; padding: 0; min-width: 0; }
@@ -82,6 +86,7 @@
 /* Error / permission screen */
 .va-viewer__error { display: flex; flex-direction: column; gap: 12px; }
 .va-viewer__error h2 { margin: 0; font-size: 1.375rem; line-height: 1.3; }
+.va-viewer__error h2:focus { outline: none; }
 .va-viewer__error p { margin: 0; }
 .va-viewer__error ol { margin: 0; padding-inline-start: 1.4em; display: flex; flex-direction: column; gap: 8px; }
 

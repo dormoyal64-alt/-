@@ -21,7 +21,7 @@ import { WebhookVerificationError, ProviderError } from './errors.js';
  * @param {string} secret
  * @param {number} nowMs
  * @param {number} toleranceSec
- * @returns {{ok: true}|{ok: false, reason: string}}
+ * @returns {{ok: boolean, reason?: string}}
  */
 export function verifyPaddleSignature(rawBody, header, secret, nowMs, toleranceSec = 5) {
   if (typeof header !== 'string' || !header) return { ok: false, reason: 'missing Paddle-Signature header' };
@@ -143,6 +143,7 @@ export function createPaddleProvider(opts) {
     } catch (err) {
       throw new ProviderError(`Paddle ${method} ${path}: ${err instanceof Error ? err.message : 'network error'}`);
     }
+    /** @type {any} */
     let json = null;
     try { json = await res.json(); } catch { /* empty */ }
     if (!res.ok) {

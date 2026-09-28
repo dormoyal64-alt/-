@@ -119,11 +119,14 @@ function stateFor(doc) {
 function syncRootFilter(doc) {
   const st = stateFor(doc);
   const style = doc.documentElement.style;
+  // Browsers serialise url(#id) as url("#id"): match on the id, not the exact string.
+  const ours = style.filter.includes(`#${UI_FILTER_ID}`);
   if (st.want && st.suspended === 0) {
-    if (style.filter !== FILTER_VALUE) style.filter = FILTER_VALUE;
-  } else if (style.filter === FILTER_VALUE) {
+    if (!ours) style.filter = FILTER_VALUE;
+  } else if (ours) {
     style.removeProperty('filter');
   }
+  if (!style.length) doc.documentElement.removeAttribute('style');
 }
 
 /**

@@ -38,6 +38,7 @@ server.keepAliveTimeout = 65_000; // longer than typical load-balancer idle time
 server.headersTimeout = 66_000;
 
 server.on('listening', () => {
+  app.locals.services.renewals.start(config.renewalIntervalMinutes * 60_000);
   const addr = server.address();
   const port = addr && typeof addr === 'object' ? addr.port : config.port;
   console.log(`[server] ${config.nodeEnv} listening on http://${config.host}:${port} (payments: ${config.paymentProvider}, data: ${config.dataDir})`);

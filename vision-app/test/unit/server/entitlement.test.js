@@ -60,21 +60,36 @@ test('active with cancel_at_period_end flag is reported as canceled', () => {
   assert.equal(e.hasAccess, true);
 });
 
-test('past_due keeps access for a 3-day grace after period end', () => {
+test('past_due keeps access for a 7-day grace after period end (configurable)', () => {
   const s = sub({ status: 'past_due', current_period_end: NOW - DAY_MS });
   const e = computeEntitlement({}, s, NOW);
-  assert.equal(PAST_DUE_GRACE_DAYS, 3);
-  assert.deepEqual([e.status, e.hasAccess, e.daysLeft], ['past_due', true, 2]);
-  const last = computeEntitlement({}, s, NOW + 2 * DAY_MS - 1);
+  assert.equal(PAST_DUE_GRACE_DAYS, 7);
+  assert.deepEqual([e.status, e.hasAccess, e.daysLeft], ['past_due', true, 6]);
+  const last = computeEntitlement({}, s, NOW + 6 * DAY_MS - 1);
   assert.deepEqual([last.status, last.hasAccess, last.daysLeft], ['past_due', true, 1]);
-  const after = computeEntitlement({}, s, NOW + 2 * DAY_MS);
+  const after = computeEntitlement({}, s, NOW + 6 * DAY_MS);
   assert.deepEqual([after.status, after.hasAccess], ['expired', false]);
+  assert.equal(computeEntitlement({}, s, NOW + 2 * DAY_MS, { graceDays: 3 }).status, 'expired');
+});
+
+test('fixed-term (manual) plan ends exactly at period end, no grace; renewable within the window', () => {
+  const s = sub({ plan: 'yearly', renewal: 'manual', current_period_end: NOW + 5 * DAY_MS });
+  const e = computeEntitlement({}, s, NOW);
+  assert.deepEqual([e.status, e.renewal, e.canRenew, e.cancelAtPeriodEnd], ['active', 'manual', true, false]);
+  const early = computeEntitlement({}, sub({ plan: 'yearly', renewal: 'manual', current_period_end: NOW + 40 * DAY_MS }), NOW);
+  assert.equal(early.canRenew, false);
+  const ended = computeEntitlement({}, s, NOW + 5 * DAY_MS);
+  assert.deepEqual([ended.status, ended.hasAccess, ended.canRenew], ['expired', false, true]);
+  assert.equal(computeEntitlement({}, s, NOW + 36 * DAY_MS).canRenew, false);
+  assert.equal(computeEntitlement({}, { ...s, ended_reason: 'refunded' }, NOW).canRenew, false);
+  const auto = computeEntitlement({}, sub(), NOW);
+  assert.deepEqual([auto.renewal, auto.canRenew], ['auto', false]);
 });
 
 test('active subscription whose period ended without a renewal event gets the same grace', () => {
   const s = sub({ current_period_end: NOW - 1000 });
   assert.equal(computeEntitlement({}, s, NOW).status, 'past_due');
-  assert.equal(computeEntitlement({}, s, NOW + 3 * DAY_MS).status, 'expired');
+  assert.equal(computeEntitlement({}, s, NOW + 7 * DAY_MS).status, 'expired');
 });
 
 test('expired subscription falls back to an unused trial', () => {

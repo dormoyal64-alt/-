@@ -18,7 +18,11 @@ test('development defaults', () => {
   assert.equal(c.mailProvider, 'console');
   assert.equal(c.trustProxy, false);
   assert.equal(c.sessionSecretGenerated, true);
-  assert.deepEqual(c.plans.map((p) => [p.id, p.months, p.price]), [['monthly', 1, 2990], ['quarterly', 3, 7990], ['yearly', 12, 24900]]);
+  assert.equal(c.termsVersion, '2026-09-28');
+  assert.equal(c.pastDueGraceDays, 7);
+  assert.equal(c.refundWindowDays, 14);
+  assert.deepEqual(c.pricing.INTL.plans.map((p) => [p.price, p.currency]), [[599, 'USD'], [1499, 'USD'], [4499, 'USD']]);
+  assert.deepEqual(c.plans.map((p) => [p.id, p.months, p.price]), [['monthly', 1, 2490], ['quarterly', 3, 5990], ['yearly', 12, 17990]]);
 });
 
 test('production requires SESSION_SECRET (>= 32 chars), PUBLIC_BASE_URL (https) and a real provider', () => {

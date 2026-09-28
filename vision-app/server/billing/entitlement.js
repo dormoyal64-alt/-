@@ -75,6 +75,7 @@ export function computeEntitlement(user, subscription, now = Date.now(), opts = 
   const windowMs = (opts.renewWindowDays ?? RENEW_WINDOW_DAYS) * DAY_MS;
   const trialEnd = toMs(user?.trialEndsAt ?? user?.trial_ends_at ?? null);
   const periodEnd = subscription ? toMs(subscription.currentPeriodEnd ?? subscription.current_period_end ?? null) : null;
+  /** @type {null|'auto'|'manual'} */
   const renewal = subscription ? (subscription.renewal === 'manual' ? 'manual' : 'auto') : null;
   const canRenew = Boolean(subscription && renewal === 'manual' && periodEnd !== null && subscription.status !== 'past_due'
     && !subscription.ended_reason && nowMs >= periodEnd - windowMs && nowMs < periodEnd + windowMs);

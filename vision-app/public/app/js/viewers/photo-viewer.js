@@ -32,7 +32,7 @@ const STRINGS = {
     zoomIn: 'הגדלה',
     zoomOut: 'הקטנה',
     zoomFit: 'התאמה למסך',
-    zoomLevel: 'הגדלה ×{z}',
+    zoomLevel: 'הגדלה פי {z}',
     save: 'שמירה או שיתוף',
     saving: 'מכינים את התמונה…',
     saved: 'התמונה המותאמת נשמרה בהורדות.',
@@ -132,7 +132,7 @@ export function mountPhotoViewer(container, options = {}) {
     h('p', { id: hintId, class: 'va-visually-hidden' }, t('stageHint')),
     h('div', { class: 'va-viewer__panel' },
       h('div', { class: 'va-viewer__row' }, strengthField.el),
-      h('div', { class: 'va-viewer__row' }, compareBtn, zoomOutBtn, zoomInBtn, fitBtn)),
+      h('div', { class: 'va-viewer__row' }, compareBtn, h('div', { class: 'va-viewer__group' }, zoomOutBtn, zoomInBtn, fitBtn))),
     status);
   clear(container);
   container.appendChild(root);

@@ -74,6 +74,7 @@ export function createPayPlusProvider(opts) {
     } catch (err) {
       throw new ProviderError(`PayPlus ${path}: ${err instanceof Error ? err.message : 'network error'}`);
     }
+    /** @type {any} */
     let json = null;
     try { json = await res.json(); } catch { /* not JSON */ }
     if (res.status >= 500 || !json) throw new ProviderError(`PayPlus ${path}: HTTP ${res.status}`, { status: res.status });

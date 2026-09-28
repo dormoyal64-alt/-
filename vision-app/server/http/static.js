@@ -2,7 +2,7 @@
 /**
  * Static files from public/: landing (/), /legal/*, the PWA (/app/*).
  * Caching: HTML, sw.js and the manifest are `no-cache` (always revalidated); /app/vendor/** is
- * immutable for a year; everything else gets a short max-age plus ETag revalidation.
+ * cached for a day (ETag-revalidated); everything else gets a short max-age plus ETag revalidation.
  */
 import express from 'express';
 import { extname, posix, relative, sep } from 'node:path';
@@ -16,7 +16,7 @@ const MIME_OVERRIDES = {
 };
 
 export const CACHE_NO_CACHE = 'no-cache';
-export const CACHE_IMMUTABLE = 'public, max-age=31536000, immutable';
+export const CACHE_IMMUTABLE = 'public, max-age=86400'; // vendor paths are not versioned: 1 day + ETag revalidation
 export const CACHE_SHORT = 'public, max-age=300';
 
 /** @param {string} p */

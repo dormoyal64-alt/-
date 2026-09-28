@@ -147,6 +147,7 @@
  * @property {number} zoom            1 = no magnification.
  * @property {boolean} invert         Polarity reversal (light-on-dark).
  * @property {number} warmth          0..1, reduces short-wavelength (blue) light.
+ * @property {number[]} [tint]        Optional renderer-only RGB multiplier (e.g. yellow-on-black presets). Omitted = none.
  */
 
 /**
