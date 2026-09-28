@@ -439,7 +439,7 @@ These rules are [D].
 - **Self-test, 4AFC/24 trials:** expect about ±0.15–0.20 logMAR (95% limits of agreement), i.e. about 1.5–2 lines.
 - Therefore:
   - Never present differences under 0.2 logMAR as real changes.
-  - Present acuity to users in 0.1-step categories (for example "about 6/9"), with the exact value available in details.
+  - Internally, store logMAR to 0.02. **Manager decision (2026-09-28):** the default UI shows **no clinical notation** (no Snellen, decimal, logMAR or dioptres). Present results as the 0–100 "screen detail" score and the recommended text size instead (see IMPLEMENTATION SPEC SUMMARY, item 60).
 
 **Citations (§3)**
 - ISO 8596:2017.
@@ -1018,6 +1018,8 @@ tritan variant [D]: E_t = [[1, 0, 0.7], [0, 1, 0.7], [0, 0, 0]]
 
 ## 8. Amsler grid self-screening for macular problems
 
+> **Scope note (manager decision, 2026-09-28):** the Amsler grid is **out of product scope** for regulatory reasons. This section is kept as background only. Do not implement it without regulatory sign-off.
+
 ### 8.1 Standard geometry [S]
 
 - 10 cm × 10 cm square, divided into 20 × 20 squares of 5 mm, with a central fixation dot.
@@ -1301,3 +1303,356 @@ The first zero of the MTF is at `f = 1.22/β` cycles/rad.
 - "Optically sharpens blur caused by your eyes"
 
 ---
+
+## 12. System-wide accessibility settings to map a profile onto
+
+**How to read this section**
+- Menu paths are for **iOS/iPadOS 26** (current as of 2025–26; iOS 27 shipped in September 2026 and its announced vision changes are in Magnifier and Accessibility Reader), **Android 15–16 on Pixel/AOSP**, and **Samsung One UI 7–8**.
+- **Android 17 (2026) reorganises the accessibility settings** [S: press coverage]. Keep all paths in a server-side, per-OS-version table, and re-verify them on real devices for every major OS release.
+- Labels are en-US. Localise them from the OS's own Hebrew strings, captured from real devices, **not by translating them ourselves**.
+
+### 12.1 iOS / iPadOS
+
+| Setting | Path | Values / steps | Tag |
+|---|---|---|---|
+| **Larger Text** (Dynamic Type) | Settings > Accessibility > Display & Text Size > Larger Text | Slider with **7 standard sizes**: xSmall, Small, Medium, **Large (default)**, xLarge, xxLarge, xxxLarge. Toggle **Larger Accessibility Sizes** adds **AX1–AX5**. | [V: HIG] [S: Apple Support] |
+| Body text size (pt) per step | — | xS **14**, S **15**, M **16**, L **17**, xL **19**, xxL **21**, xxxL **23**, AX1 **28**, AX2 **33**, AX3 **40**, AX4 **47**, AX5 **53**. iOS default body 17 pt; minimum 11 pt. | [V: Apple HIG Typography] |
+| **Bold Text** | Settings > Accessibility > Display & Text Size > Bold Text | on/off | [S] |
+| **Increase Contrast** | Settings > Accessibility > Display & Text Size > Increase Contrast | on/off | [S] |
+| Reduce Transparency | Settings > Accessibility > Display & Text Size > Reduce Transparency | on/off | [S] |
+| Differentiate Without Color; Button Shapes; On/Off Labels | Settings > Accessibility > Display & Text Size | on/off | [S/U] |
+| Smart Invert / Classic Invert | Settings > Accessibility > Display & Text Size | on/off | [S] |
+| **Color Filters** | Settings > Accessibility > Display & Text Size > Color Filters | Toggle, then one of: **Grayscale**; **Red/Green Filter (Protanopia)**; **Green/Red Filter (Deuteranopia)**; **Blue/Yellow Filter (Tritanopia)**; **Color Tint**. **Intensity** slider (continuous) for all; Color Tint also has a **Hue** slider. | [S] |
+| **Reduce White Point** | Settings > Accessibility > Display & Text Size > Reduce White Point | Toggle plus slider **25%–100%** (a higher % is dimmer) | [S] |
+| Auto-Brightness | Settings > Accessibility > Display & Text Size > Auto-Brightness | on/off | [S] |
+| **Zoom** | Settings > Accessibility > Zoom | Full Screen Zoom or Window Zoom. **Maximum Zoom Level 1.2×–15×**. Zoom Filter: None, Inverted, Grayscale, Grayscale Inverted, Low Light. Follow Focus, Smart Typing, Zoom Controller. Gesture: double-tap with three fingers. | [S; gesture U] |
+| **Magnifier** | Magnifier app (pre-installed). Can be added to Control Center, the Action button (15 Pro and later), or the Accessibility Shortcut | Camera magnifier with zoom, filters, brightness and contrast. iOS 26/27 add AI descriptions. | [S] |
+| Per-App Settings | Settings > Accessibility > Per-App Settings | Per-app overrides for text size, bold, contrast, and so on | [U] |
+| Accessibility Shortcut | Settings > Accessibility > Accessibility Shortcut (triple-click side/top button) | Choose Zoom, Magnifier, Color Filters, Reduce White Point, and others | [U] |
+| Accessibility Reader (iOS 26+) | Systemwide reading mode | Font, colour and spacing options | [S] |
+
+**Detecting settings from our PWA** (to confirm the user applied them):
+- **Text size** [S; mapping D]: compute the size of an element styled `font: -apple-system-body`. WebKit scales it with Dynamic Type. Map the pixel value to the nearest step in the table above.
+- **Increase Contrast** [U]: `matchMedia('(prefers-contrast: more)')`.
+- **Invert** [U]: `(inverted-colors: inverted)`.
+- **Bold Text, Color Filters, Zoom and Reduce White Point cannot be detected from the web.** Ask the user to confirm instead.
+
+### 12.2 Android (AOSP / Pixel, Android 15–16)
+
+| Setting | Path | Values / steps | Tag |
+|---|---|---|---|
+| **Font size** | Settings > Accessibility > **Display size and text** > Font size | 7 steps: **0.85, 1.0 (default), 1.15, 1.30, 1.50, 1.80, 2.0** (`entryvalues_font_size`) | [V: AOSP SettingsLib `arrays.xml`] |
+| Non-linear scaling (Android 14+) | automatic | Above 1.0 the sp→dp mapping is non-linear (`FontScaleConverterFactory`, linear interpolation between anchors). Body **14 sp** → 11.9 / 14.0 / 16.4 / 18.8 / 22.0 / 24.4 / **26.0 dp**. Body **16 sp** → 13.6 / 16.0 / 18.1 / 20.2 / 23.0 / 26.0 / **28.0 dp**. Text ≥ 100 sp is not enlarged. | [V: AOSP source; 16 sp values interpolated] |
+| **Display size** | Settings > Accessibility > Display size and text > Display size | Slider "Make everything bigger or smaller". This is display density. The number of steps is device-dependent, typically 3–5, and scales all dp, not just text. | [V: label; U: steps] |
+| **Bold text** | Settings > Accessibility > Display size and text > Bold text | on/off. Implemented as font-weight adjustment **+300** (700 − 400) via `Settings.Secure.FONT_WEIGHT_ADJUSTMENT`. | [V: AOSP] |
+| **High contrast text** (≤ Android 15) → **Outline text** (Android 16+) | Settings > Accessibility > Display size and text | on/off. Old: "Change text color to black or white". New AOSP string: "Maximize text contrast — Add a black or white background around text". | [V: AOSP strings; S: Android 16 naming] |
+| **Color contrast** (Android 15+) | Settings > Accessibility > Color and motion > Color contrast | **Default / Medium / High**. Affects Material You dynamic-colour apps only. | [V: strings; S: path] |
+| **Color correction** | Settings > Accessibility > Color and motion > Color correction | "Use color correction". Modes: **Deuteranomaly "Red-green, green weak"**, **Protanomaly "Red-green, red weak"**, **Tritanomaly "Blue-yellow"**, **Grayscale**. **Intensity** slider on Android 15+ (Pixel); unavailable in Grayscale mode. | [V: AOSP strings; S: Android 15 intensity] |
+| Color inversion; Dark theme; Remove animations | Settings > Accessibility > Color and motion | on/off | [V] |
+| **Extra dim** | Settings > Accessibility > Extra dim (also a Quick Settings tile). Pixel with Android 15+ also has a Display-level "Extra dim — Allow device to go dimmer than usual". | Toggle plus **Intensity** slider (Dimmer ↔ Brighter), "Keep on after device restarts" | [V: AOSP strings] |
+| **Magnification** | Settings > Accessibility > Magnification | Shortcut (accessibility button, volume keys, or triple-tap), full screen or partial window, follow typing | [V: strings] |
+
+**Detecting settings from our PWA:**
+- **Font scale** [S]: Chrome 138+ exposes the OS text scale as `env(preferred-text-scale)`. Chrome 139+ supports `<meta name="text-scale" content="scale">`, which makes `rem` follow the OS font scale.
+- **Other settings** [U]: Color correction, Bold text and Outline text are not detectable. `prefers-contrast` is supported, but Android maps it inconsistently.
+
+### 12.3 Samsung One UI 7–8
+
+**Verify on devices** (S23, S24, S25, A-series). Samsung support pages confirm the paths, but the option lists vary by model and region.
+
+| Setting | Path | Notes | Tag |
+|---|---|---|---|
+| **Font size**, **Bold font**, Font style | Settings > Display > **Font size and style** | Font-size slider; Bold font toggle | [S: Samsung support] |
+| **Screen zoom** | Settings > Display > Screen zoom | Equivalent of Android Display size | [S] |
+| **High contrast fonts** | Settings > Accessibility > **Vision enhancements** > High contrast fonts | Adds an outline to all text | [S] |
+| High contrast keyboard | Settings > Accessibility > Vision enhancements | | [S] |
+| **Color correction** ("Color adjustment" on S23/S24) | Settings > Accessibility > Vision enhancements > Color correction | Grayscale; red–green / green–red / blue–yellow presets; a personalised option built from a colour-arrangement test; intensity slider | [S path; U option list] |
+| Color filter | Settings > Accessibility > Vision enhancements > Color filter | Tinted overlay with opacity | [S] |
+| Extra dim; Color inversion; Magnification; Magnifier window | Settings > Accessibility > Vision enhancements | | [U] |
+| Relumino mode (selected models) | Settings > Accessibility > Vision enhancements | Outlines and edge enhancement for low vision | [S] |
+| Dim strobing (One UI 8.5) | Settings > Accessibility > Vision enhancements | | [S] |
+
+### 12.4 Profile → settings mapping [D]
+
+Inputs:
+- `fs_px`: the recommended body size (§4.3, in px_css = iOS pt ≈ Android dp)
+- `logCS` (§5)
+- CVD type and severity `s` (§7)
+- polarity preference (§4.4 / §5.5)
+- `L` (§3)
+
+1. **iOS Larger Text.** Pick the smallest step whose Body is ≥ `fs_px` from {14, 15, 16, 17, 19, 21, 23, 28, 33, 40, 47, 53}.
+   - Never go below Large (17) unless the user asks.
+   - If the step is > 23, instruct them to switch on **Larger Accessibility Sizes** first.
+   - If `fs_px` > 53, choose AX5 and add Zoom (step 6).
+2. **Android Font size.** Pick the smallest step whose converted **16 sp** value is ≥ `fs_px`, from {0.85: 13.6, 1.0: 16.0, 1.15: 18.1, 1.3: 20.2, 1.5: 23.0, 1.8: 26.0, 2.0: 28.0}.
+   - If `fs_px` > 28, choose 2.0, then raise **Display size** step by step until the in-app check passes (each step is about +10–15% [U]).
+   - If it is still short, add Magnification.
+   - Samsung: use the same logic with its Font size slider. Its steps differ, so verify the result by re-reading `env(preferred-text-scale)` where available.
+3. **Bold.** Turn on iOS Bold Text / Android Bold text / Samsung Bold font if `logCS < 1.65` **or** `L ≥ 0.3`, or if the user prefers it.
+4. **Contrast.** For `logCS < 1.65`: iOS **Increase Contrast**, Android **Color contrast = Medium**. For `logCS < 1.35`: Android **Color contrast = High** and **Outline text / High contrast text**, Samsung **High contrast fonts**. On iOS, add **Reduce Transparency**.
+5. **Colour** (only if the user opts in; many colour-deficient users prefer no filter):
+
+   | Type | iOS | Android | Samsung |
+   |---|---|---|---|
+   | protan | Red/Green Filter (Protanopia) | "Red-green, red weak" (Protanomaly) | red–green option |
+   | deutan | Green/Red Filter (Deuteranopia) | "Red-green, green weak" (Deuteranomaly) | green–red option |
+   | tritan | Blue/Yellow Filter (Tritanopia) | "Blue-yellow" | blue–yellow option |
+
+   Initial intensity = `round(100·s)`%. Android: Low / Medium / High by `s < 0.34`, `< 0.67`, or higher. The user then adjusts while viewing our test image.
+6. **Zoom / Magnifier.** If `L ≥ 0.7`, or `fs_px` exceeds the system maximum: set up the iOS Zoom shortcut with Maximum Zoom Level 8× (adjustable) and the Magnifier in Control Center; Android Magnification shortcut; Samsung Magnification.
+7. **Dim / white point** (symptom-driven only, never from test scores): if the user reports glare, photophobia or night use, suggest iOS **Reduce White Point**, starting at 50% [D], or Android/Samsung **Extra dim**.
+8. **Dark theme** only if the polarity A/B test or user preference says so (§5.5).
+9. **After every change,** re-run a 10-second in-app legibility check (one sentence at the new size) and record whether the user confirmed the change.
+
+---
+
+## 13. Red flags: when to recommend an eye-care professional
+
+**Principles** [D]:
+- Every flag is based on a **confirmed** result: an immediate retest on the same session, same eye, same correction. The one exception is symptom-based emergencies.
+- Every results screen carries the standing message: "This is not an eye examination. A normal result does not rule out eye disease."
+- The **Amsler grid is out of product scope** (manager decision). Its row below is informational only, in case it is ever reinstated.
+
+**Urgency levels:**
+
+| Level | Meaning |
+|---|---|
+| **EMERGENCY** | Now or same day, via an emergency department or eye emergency service |
+| **URGENT** | Within 24 hours |
+| **SOON** | Within 1–2 weeks |
+| **ROUTINE** | Book an eye exam within 1–3 months |
+| **INFO** | No referral; information only |
+
+| # | Trigger (confirmed) | Level | Rationale / source |
+|---|---|---|---|
+| R1 | User reports **sudden** loss or dimming of vision in one or both eyes; a **curtain or shadow**; a new shower of **floaters or flashes**; a painful red eye; halos with eye pain, headache or nausea; new double vision | **EMERGENCY** | Standard ophthalmic triage for retinal detachment, vascular occlusion, acute angle closure, and neurological causes [U]. Ask a symptom checklist before every test session. |
+| R2 | New distortion or missing area in central vision (self-reported, or Amsler if ever reinstated) | **URGENT** | NICE NG82: suspected wet AMD → macula service within 1 working day [S] |
+| R3 | Monocular acuity at the tested distance, with the correction the user uses, **worse than logMAR 0.30** (6/12, 20/40, decimal 0.5) | **ROUTINE**. **SOON** if worse than 0.50 (about 6/19). **SOON/URGENT** if worse than 1.0 and new. | WHO ICD-11: presenting acuity worse than 6/12 is mild impairment; worse than 6/18 is moderate [S]. Near impairment is worse than N6/M0.8 at 40 cm = logMAR 0.30 [S]. EU Directive 2006/126/EC Group-1 drivers need binocular ≥ 0.5 decimal [S]. |
+| R3a | Same as R3, but age ≥ 45, tested at ≤ 45 cm **without** reading correction, and the other eye is similar | **ROUTINE** + "reading glasses may help" | Presbyopia is the likely cause (Hofstetter, §9) |
+| R4 | **Interocular difference ≥ 0.20 logMAR** (2 lines) | **ROUTINE**. **SOON** if either eye is worse than 0.30. | AAO Amblyopia PPP: a difference of ≥ 2 lines [S]. Unilateral disease must be excluded. Retest first, because test–retest variability is ±0.15–0.20. |
+| R5 | **Worsening ≥ 0.20 logMAR** against the user's own baseline on the same device and distance | **SOON**. **URGENT** if the change happened over days, or R1 symptoms are present. | Exceeds the test–retest limits (§3.8) |
+| R6 | **Contrast sensitivity** below the age lower limit (provisional: < 1.65 if under 60, < 1.50 if 60 or older), or a drop of ≥ 0.30 from baseline | **ROUTINE**. **SOON** if < 1.0 or a rapid drop. | Pelli–Robson categories (< 1.5 moderate, < 1.0 disability) and age norms [S] |
+| R7 | **Colour:** tritan-type loss; **asymmetry between eyes** (worst-axis thresholds differ by > 1.5× or the classification differs); generalised loss; or any **change** from baseline | **SOON** | These patterns suggest acquired dyschromatopsia (optic neuropathy, glaucoma, diabetic or macular disease, drug toxicity such as hydroxychloroquine or ethambutol) [U]. Congenital red–green defects are symmetric and lifelong. |
+| R7a | Symmetric red–green (protan or deutan) pattern | **INFO** | Offer colour tools. Mention that occupational colour standards need formal testing. |
+| R8 | **Near point** worse than the age minimum: amplitude < (15 − 0.25·age) − 2 D, age < 40, confirmed | **ROUTINE** | Possible accommodative insufficiency; Hofstetter minimum [S/D] |
+| R9 | Astigmatism dial: a **consistent** darkest meridian (≥ 2 of 3 within ±15°) | **ROUTINE** | Possible uncorrected astigmatism (§6) |
+| R10 | Far point measurable (≤ 65 cm) while the user reports **no distance correction**, i.e. possible myopia of 1.5 D or more | **ROUTINE** | Uncorrected refractive error (§9) |
+| R11 | Test **unreliable twice** in a row (§3.5) | **ROUTINE** | "We couldn't measure reliably — a professional test is recommended" |
+| R12 | No red flag | **INFO** + exam-interval reminder | AAO PPP (adults without risk factors): under 40 every 5–10 years; 40–54 every 2–4 years; 55–64 every 1–3 years; 65+ every 1–2 years [S]. People with diabetes, glaucoma family history, and similar risks need more frequent exams. |
+
+**Wording rules** [D]:
+- Never name a disease as the user's diagnosis. Say "can be a sign of eye conditions that an eye-care professional should check".
+- Localise the emergency contacts per country. In Israel, list the nearest hospital eye emergency department and national emergency number 101 (MDA) [U: verify with legal/ops].
+
+**Citations (§13)**
+- WHO ICD-11 vision impairment categories.
+- AAO Amblyopia PPP 2022.
+- AAO Comprehensive Adult Medical Eye Evaluation PPP (2020, 2025 update).
+- EU Directive 2006/126/EC Annex III.
+- NICE NG82 (2018).
+- Mäntyjärvi & Laitinen 2001.
+- Hofstetter 1950.
+
+---
+
+## IMPLEMENTATION SPEC SUMMARY
+
+This list is copy-ready. Tags as in §0.1. Distances `d` are in mm. `L` = logMAR.
+
+**Calibration and rendering**
+1. Card: ID-1, **85.60 × 53.98 mm**, corner radius 3.18 mm. Long side parallel to the device's long axis. `mmPerCss = 85.60 / rectLong_css`. Two matches must agree within ≤ 1.5%, else take the median of 3. Accept only if `mmPerCss·dpr` (device pixel pitch) is between 0.040 and 0.120 mm. [V/D]
+2. `mmPerDev = mmPerCss / dpr`. Store `{mmPerCss, dpr, screen.w, screen.h}`. Recalibrate if `dpr` or screen size changes, or if `visualViewport.scale ≠ 1`. [D]
+3. Canvas backing size = `round(cssSize·dpr)`, using `devicePixelContentBoxSize` where available. Draw optotypes as vector geometry with anti-aliasing. **Never snap sizes**; snap only positions to whole pixels. [D]
+4. `stroke_dev = 2·d·tan(10^L · π/21600) / mmPerDev`; letter = 5 strokes. Minimum `stroke_dev` is **1.0**; below that, report the result as "ceiling-limited". Stimuli are `#000` on `#fff` in the `srgb` canvas colour space. [D]
+5. Test distance: at least 350 mm on phones and at least 400 mm on tablets. [D]
+
+**Viewing distance**
+6. Blind spot: **13.5°** temporal; `d = offset_mm / tan(13.5°)`. Phones must be in **landscape** (portrait supports at most about 21 cm).
+   - Disc 0.5° wide, moving at **2°/s** using time-based animation.
+   - Per eye: 4 "disappear" trials (start 4° from fixation, moving out) and 4 "reappear" trials (start 16°, moving in).
+   - Reject if the coefficient of variation exceeds 10% or the two eyes differ by more than 12%. `D_bs` = median. Expected error about ±7%. [V/S/D]
+7. Iris landmarks 468–472 (right eye) and 473–477 (left eye). `iris_px` = mean of the horizontal and vertical diameters. `depth = IRIS_MM·sqrt(f² + r²)/iris_px`. Population `IRIS_MM` = **11.71 mm** (SD 0.42); MediaPipe's own code uses 11.8. Smooth with `0.9·old + 0.1·new`. [V/S]
+8. Per-user calibration constant `K = D_bs·I0`, then `D = K/iris_px` (this cancels individual iris size). Per-device focal length `f_px = D_bs·I0/11.71`; crowd-source its median per model and resolution. Published accuracy with a known focal length is 4.3% ± 2.4% (4.8% with glasses). [V/S/D]
+9. Distance during tests must stay within ±10% of target, with head yaw and pitch ≤ 20°. Distance to the stimulus is `d = sqrt(D_cam² + Δ²)`. Default distances: 350 mm (phone), 400 mm (tablet). Literature: 36.2 cm for texting, 32.2 cm for web. [S/D]
+
+**Acuity**
+10. Letter height: `h = 2·d·tan(5·10^L arcmin / 2)`.
+    - Decimal = `10^−L`; Snellen `6/(6·10^L)` and `20/(20·10^L)`; M = `d_m·10^L`; 1 M = 1.4544 mm.
+    - ETDRS letters = `85 − 50L`; 0.02 logMAR per letter.
+    - Conversions are for internal use and clinician export only (see item 62). [V/U]
+11. Optotype: Tumbling E, 4AFC (guess rate 25%; 8AFC would be 12.5%).
+    - Surround bars: 1 stroke thick, 5 strokes long, with a gap of 2.5 strokes.
+    - Landolt C reads about 0.1 logMAR worse than ETDRS; Tumbling E is about equal to ETDRS. [S/D]
+12. Psychometric function: `ψ = γ + (1−γ−λ)(1 − exp(−10^(β(L−T))))` with **γ = 0.25, λ = 0.03, β = 6.0**.
+    - Parameter grid for T: −0.60 to 1.60 in steps of 0.01.
+    - Prior: normal, mean 0.2 (0.0 if age < 50), SD 0.6. [D]
+13. Trial sequence and stopping:
+    - 2 familiarisation trials at posterior mean + 0.3.
+    - Catch trials at posterior mean + 0.5 as trials 9 and 17.
+    - Place each trial at the **posterior mean**.
+    - **24 trials**; may stop early after ≥ 18 trials if posterior SD ≤ 0.035; hard cap 30.
+    - Expected time 55–75 s per eye. Result = posterior mean rounded to 0.02, reported with SD and 95% CI. [D]
+14. Mark the result **unreliable** if any of these hold:
+    - both catch trials missed;
+    - posterior SD > 0.08;
+    - median reaction time < 300 ms;
+    - 5 or more identical responses in a row;
+    - more than 20% of trials blanked for distance;
+    - squint blendshape > 0.5 on more than 30% of trials. [D]
+15. Expected test–retest 95% limits of agreement: **±0.15–0.20** (simulated ±0.09–0.14 plus state noise; FrACT with 18 trials gives ±0.17). A change counts only if it is ≥ 0.20 and confirmed. [S/D]
+
+**Reading and text size**
+16. Reserves:
+    - Acuity reserve **2:1** (0.3 log, fluent reading) by default; offer **3:1** (0.5 log) for long reading; 1.3:1 is spot reading only.
+    - Contrast reserve 10:1 for fluent reading, 4:1 for 88 wpm, 3:1 for spot reading. [S]
+17. Target x-height angle:
+    - `θx = max(5·10^L·R, 12′)` (12′ is the 0.2° floor).
+    - Hebrew: multiply by 1.12.
+    - If a reliable reading test exists: `θx = max(12′, 5·10^(CPS+0.1))`. [S/D]
+18. Physical size: `x_mm = 2·d·tan(θx/2)`; `fs_px = x_mm / xr / mmPerCss`. Never go below the platform default (iOS 17 pt; Android 16 sp). [D]
+19. x-height ratio `xr`: SF 0.508, Roboto 0.528, Arial 0.519, Helvetica 0.523, Segoe UI 0.500, Noto Sans 0.536. Hebrew body height: Noto Sans Hebrew 0.584, Heebo 0.575, Rubik 0.571, Assistant 0.545. Prefer measuring at runtime with `measureText('ה'/'x').actualBoundingBoxAscent`. [V/D]
+20. Sanity checks: iOS 17 pt body gives a 0.234° x-height at 35 cm, about newspaper size (0.23°). Legge & Bigelow: critical print size 0.2°, fluent range 0.2–2°. MNREAD CPS by age: 0.08 (8–23 y), 0.21 (68 y), 0.34 (81 y) logMAR. [V/S]
+21. Reading test: print sizes in 0.1-log steps. Fit `RS = MRS·(1 − e^(−(p−p0)/τ))`; `CPS = p0 + τ·ln 5` (the 80%-of-MRS point). Switch polarity only if it is more than 15% faster. [S/D]
+
+**Contrast**
+22. Tumbling E, 2.8° tall. Weber contrast in linear light; `logCS = −log10 C`.
+    - QUEST: γ = 0.25, λ = 0.03, **β = 3.5**, grid −2.5 to 0.0, prior mean −1.7 (SD 0.5).
+    - 24 trials. Triplet method (if used): 0.15-log steps, and require 3/3 correct with 4AFC (2/3 gives a 15.6% guess-pass rate). [S/D]
+23. Bit-stealing is required:
+    - A 254-on-255 grey step is already logCS **2.05**; 253 gives 1.75.
+    - Single-channel steps near white: B = 3.19, R = 2.72, G = 2.20 (using Y = 0.2126R + 0.7152G + 0.0722B). [V]
+24. Provisional lower limits of normal: **1.65** (age < 60), **1.50** (age ≥ 60). Re-derive from pilot data, because digital tests read 0.1–0.3 higher than the Pelli–Robson chart (iPad 1.98 vs PR 1.65). A change counts if ≥ 0.30. [S/D]
+25. UI tiers by logCS:
+    - **≥ 1.65**: contrast ≥ 4.5:1 (app default 7:1).
+    - **1.35–1.64**: ≥ 7:1, weight 500–600, +1 size step.
+    - **1.00–1.34**: ≥ 12:1, bold, +2 steps.
+    - **< 1.00**: 21:1, bold, +3 steps.
+    - Default to positive polarity (dark text on light background). Dark mode uses `#121212` background with `#E6E6E6` text. [D]
+
+**Astigmatism**
+26. Dial: 12 spokes at 15° intervals, 3 lines per spoke, lines 1.5′ wide with 1.5′ gaps, spokes 5° long. Show 3 randomised rotations. "Consistent" means ≥ 2 of 3 answers within ±15°.
+    - Axis (internal only) = `30° × lower clock hour` (6 o'clock → 180°).
+    - Never display a cylinder value. [S/D]
+
+**Colour**
+27. sRGB decode: `c ≤ 0.04045 ? c/12.92 : ((c+0.055)/1.055)^2.4`. Encode: `c ≤ 0.0031308 ? 12.92c : 1.055c^(1/2.4) − 0.055`. XYZ matrix as in §7.1. [V]
+28. Colour-space matrices `LMS_from_linearRGB` and `linearRGB_from_LMS` exactly as in §7.3 (Smith–Pokorny cone fundamentals with sRGB primaries). [V]
+29. Test stimulus (CCT-like):
+    - Disc mosaic with a 4AFC C-gap, 5° wide.
+    - Luminance noise: 6 levels, ±20%.
+    - Neutral grey: linear 0.20 (sRGB about 124).
+    - Cone-isolating displacement `LMS·(1 + c·e_k)`.
+    - 3 interleaved Bayesian staircases, 16 trials each.
+    - One 8-bit step is about 8–12×10⁻⁴ u′v′; CCT normal limits are 100/100/150×10⁻⁴. [S/V/D]
+30. Classification (P, D, T = threshold on each axis ÷ normal limit):
+    - Normal: all ≤ 1.
+    - Red–green deficiency: max(P, D) > 1 and T ≤ 1.5. Protan if P/D ≥ 1.25; deutan if D/P ≥ 1.25.
+    - Tritan: T > 1.5 and P, D ≤ 1.5 (red flag).
+    - Severity: `s = clamp(ln X / ln Xceil, 0, 1)`. [D]
+31. Machado 2009 simulation matrices (§7.4), exact, in linear RGB. Interpolate linearly between the 0.1 severity steps. [V]
+32. Brettel 1997 (use for tritan) and Viénot 1999 (protan/deutan) matrices from libDaltonLens (§7.5). [V]
+33. Daltonise: `out = rgb + k·E·(rgb − S·rgb)` with `E = [[0,0,0],[0.7,1,0],[0.7,0,1]]`. For tritan use `[[1,0,0.7],[0,1,0.7],[0,0,0]]` (this is D). User strength `k` from 0 to 1. [V/D]
+
+**Focus range**
+34. Hofstetter amplitude (D): minimum `15 − 0.25A`; mean `18.5 − 0.30A`; maximum `25 − 0.40A`. These overestimate real amplitude, so flag against the minimum. [S]
+35. Near point: constant-angle target at `max(L+0.2, 0.3)` logMAR, moved ≤ 3 cm/s. Take the median of 3 runs.
+    - `Amp = 1000/d_np − 1000/d_fp`.
+    - Camera floor 150 mm, so the maximum measurable amplitude is 6.7 D. [D]
+36. Far point: constant-angle target at logMAR 0.1. Measurable if `d_fp ≤ 650 mm`.
+    - `SE ≈ −1000/d_fp` D is **internal only**. Literature accuracy: bias 0.17 D, limits of agreement about ±0.9 D. [S/D]
+37. Comfortable near distance: `d_min_comfort = 2000/Amp` mm (half-amplitude rule, U).
+    - Recommended distance: `d_rec = clamp(max(d_hab, d_min_comfort), 250, min(d_fp, 600))`.
+    - Recompute text size at `d_rec`. Retest acuity if `d_rec` differs from the test distance by more than 15%. [D]
+
+**Enhancement**
+38. Cutoff frequency `f_c = 30/10^L` c/deg.
+    - Pixels per degree: `ppd = d·tan(1°)/mmPerDev` (iPhone 15: about 95 at 30 cm, about 126 at 40 cm).
+    - Enhancement centre `f0 = 0.35·f_c`.
+    - Filter widths: `σ1 = ppd/(2π f0)`, `σ2 = 2σ1`. [D]
+39. `Y′out = clamp(Y′ + k·(G_σ1 − G_σ2)*Y′ · (Ȳ/max(G_σ2*Y′, 0.05))^0.5, 0, 1)` on luma only. [D]
+40. Enhancement gain `k = clamp(1.25·(1.80 − logCS), 0, 1.5)`, then refined with a 6-step preference staircase. [D, informed by Fullerton 2007]
+41. Contour (wideband) mode when `L ≥ 0.7` or `logCS < 1.0`: Laplacian-of-Gaussian edges at σ1, opacity 0.3–0.7. Live-camera CLAHE: clip limit 2.0, 8×8 tiles. [D]
+42. Magnification `M = 10^((L + log10 R) − L_detail)`. Cap in-app zoom at 8×; beyond that use OS Zoom (iOS up to 15×) or Magnifier. [D]
+
+**System settings**
+43. iOS Body size (pt) per Larger Text step:
+    - Standard: xS 14, S 15, M 16, **L 17 (default)**, xL 19, xxL 21, xxxL 23.
+    - Accessibility sizes: AX1 28, AX2 33, AX3 40, AX4 47, AX5 53.
+    - Choose the smallest step ≥ `fs_px` (1 pt = 1 px_css). [V]
+44. Android font scale: 0.85, 1.0, 1.15, 1.30, 1.50, 1.80, 2.0.
+    - Resulting dp for 16 sp text: 13.6, 16.0, 18.1, 20.2, 23.0, 26.0, 28.0.
+    - Resulting dp for 14 sp text: 11.9, 14.0, 16.4, 18.8, 22.0, 24.4, 26.0. (Non-linear above 1.0.)
+    - Choose the smallest step ≥ `fs_px`. If it is still too small, increase Display size, then use Magnification. [V]
+45. Bold Text / Bold text / Bold font when `logCS < 1.65` or `L ≥ 0.3`. Android implements bold as a +300 font-weight adjustment. [V/D]
+46. Contrast settings:
+    - `logCS < 1.65`: iOS Increase Contrast; Android Color contrast = Medium.
+    - `logCS < 1.35`: Android Color contrast = High plus High contrast text / Outline text; Samsung High contrast fonts. [V/D]
+47. Colour vision deficiency mapping:
+    - Protan: iOS Red/Green (Protanopia); Android "Red-green, red weak".
+    - Deutan: iOS Green/Red (Deuteranopia); Android "Red-green, green weak".
+    - Tritan: Blue/Yellow.
+    - Intensity = `round(100·s)`%. Opt-in only. [S/V/D]
+48. Zoom and Magnifier when `L ≥ 0.7` or the needed size exceeds AX5 / scale 2.0. Reduce White Point (25–100%) and Extra dim are driven by symptoms only, never by test scores. [S/D]
+49. Settings we can detect from the web: `font: -apple-system-body` (iOS Dynamic Type), `env(preferred-text-scale)` (Chrome 138+), `<meta name="text-scale" content="scale">` (Chrome 139+), `prefers-contrast`. Everything else must be confirmed by the user. [S/U]
+50. Menu paths come from the §12 tables. Keep them in a server-side, versioned table and re-verify at each major OS release (Android 17 reorganised the menus). [D]
+
+**Red flags** (all must be confirmed by a retest; see §13)
+51. Emergency symptom checklist before every session: sudden vision loss, curtain or shadow, flashes or floaters, painful red eye, halos with pain, new double vision → **EMERGENCY**. [U]
+52. Monocular acuity:
+    - `L > 0.30` → ROUTINE.
+    - `L > 0.50` → SOON.
+    - `L > 1.0` and new → SOON/URGENT.
+    - Presbyopia exception (R3a) for age ≥ 45 tested without readers. [S/D]
+53. Difference between eyes ≥ 0.20 → ROUTINE (SOON if either eye is worse than 0.30). Worsening from baseline ≥ 0.20 → SOON (URGENT if the change was rapid). [S/D]
+54. Contrast sensitivity below the provisional lower limit (1.65 / 1.50), or a drop ≥ 0.30 → ROUTINE; `logCS < 1.0` → SOON. [S/D]
+55. Colour: tritan pattern, difference between eyes, generalised loss, or change → SOON. Symmetric red–green loss → INFO only. [U/D]
+56. Near point: amplitude below `(15 − 0.25A) − 2` D at age < 40 → ROUTINE. Consistent astigmatism dial result → ROUTINE. Measurable far point without glasses → ROUTINE. Two unreliable tests in a row → ROUTINE. [D]
+57. Amsler grid: **out of scope**. If it is ever reinstated, new distortion → URGENT (NICE NG82: within 1 working day). [S]
+58. Exam-interval reminder per AAO: under 40 every 5–10 years; 40–54 every 2–4; 55–64 every 1–3; 65+ every 1–2. [S]
+59. Always show: "This is not an eye examination; a normal result doesn't rule out eye disease." [D]
+
+**User-facing results** (manager decision: no clinical notation in the default UI)
+60. **"Screen detail" score (0–100, per eye and binocular)**, computed from the internal logMAR `L` measured at the user's habitual distance with their usual correction:
+    ```
+    screenDetail = clamp( round( 100 · (1.0 − L) / 1.2 ), 0, 100 )
+    ```
+    - Anchors: L −0.2 → 100; 0.0 → 83; 0.1 → 75; 0.2 → 67; 0.3 → 58; 0.5 → 42; 0.7 → 25; 1.0 → 0.
+    - The mapping is linear in logMAR, so each letter-equivalent (0.02) is about 1.7 points.
+    - Ceiling-limited results show "83+" or "100".
+    - Because the scale is linear in logMAR, test–retest noise of ±0.15–0.20 logMAR equals **±13–17 points**. **Never present a change of less than 15 points as real.**
+    - The red-flag cutoff `L > 0.30` corresponds to a score **< 58**. [D]
+61. Plain-language bands for the score:
+    - **83–100:** "You see fine screen detail well."
+    - **67–82:** "Good. Slightly larger text may feel more comfortable."
+    - **50–66:** "Fine detail is harder for you. We've enlarged text."
+    - **25–49:** "Small text is difficult. We've enlarged and strengthened text."
+    - **0–24:** "Screen detail is hard to see. Magnification tools are recommended."
+
+    Contrast and colour findings are plain-language too. Examples: "Low-contrast text is harder for you than for most people your age"; "You may confuse some reds and greens".
+    The recommended text size is shown as a preview ("this size"), plus the OS setting name to apply. [D]
+62. Clinical notation (logMAR, Snellen, decimal, log CS, dioptres) is stored internally. It is shown **only** in an optional "share with your eye-care professional" export, with the test distance, correction and device noted. [D]
+63. RTL: all stimuli are drawn in a `direction:ltr` container and never mirrored. Response directions refer to the physical screen. [D]
+
+---
+
+## PRODUCT CLAIMS: allowed vs not allowed
+
+The claims specific to "vision-correcting display" are in §11.3. The table below covers every other area. Regulatory note [U]: software whose intended purpose is to screen for, diagnose or monitor disease can be a medical device (EU MDR Rule 11; US FDA; Israel AMAR). Visual-acuity and refraction apps have been regulated as devices. The claims below are written for a **non-diagnostic, screen-personalisation** intended purpose. Legal and regulatory must confirm them against `business-legal-payments.md` before launch.
+
+| Area | ✅ Allowed (with the stated conditions) | ❌ Not allowed |
+|---|---|---|
+| Purpose | "Personalise your phone's display to how you see." "Find the text size, weight, contrast and colour settings that work for you." | "Eye test", "eye exam", "vision screening for eye disease", "diagnose", "detect [disease]", "monitor your [condition]" |
+| Acuity result | "Screen detail score" (0–100); "your recommended text size at your usual distance" | Snellen, logMAR or decimal in the default UI (manager decision); "your visual acuity is 20/20"; "your vision is normal" |
+| Refraction | "Text looks sharpest for you between X and Y cm" (focus range) | Any prescription, dioptre, sphere, cylinder, axis or "reading-glasses strength"; "no need for an optometrist" |
+| Astigmatism dial | "Lines in one direction looked clearer to you. An eye exam can check whether glasses would help." | "You have astigmatism of X", "axis X", "measures astigmatism" |
+| Contrast | "Low-contrast text is harder for you; we've increased contrast and weight." | "Detects cataract / glaucoma"; "contrast sensitivity test" as a clinical claim |
+| Colour | "You may confuse some colours (red–green / blue–yellow). These settings may make colours easier to tell apart." | "Diagnoses colour blindness", "certifies colour vision" (for jobs, driving, aviation), "restores / cures colour vision", "see colours like everyone else" |
+| Enhancement | "Enhancement can make details in photos, video and the camera view easier to see for some people." | "Improves your eyesight", "restores sharpness", "clinically proven to improve vision" (unless we run and publish a trial) |
+| Correction | See §11.3 | "Corrects your vision", "replaces glasses", "glasses-free screen" |
+| Red-flag messages | "Some results suggest you should see an eye-care professional (within [timeframe])." "This is not an eye examination; a normal result doesn't rule out eye disease." | "You have [disease]"; "your eyes are healthy"; "no need to see a doctor" |
+| Accuracy | "Our tests are based on published methods (e.g., adaptive tumbling-E, Pelli–Robson principles)." After our own validation study: "agreed with clinic measurements within X in our study of N people." | "Clinically validated", "as accurate as a doctor", "medical-grade", before a published validation exists |
+| Amsler grid | *(Out of scope; no claims.)* | Any macular-degeneration screening or monitoring claim |
+| Privacy (engineering fact) | "Camera images are processed on your device and are not uploaded." (Only if true in the build.) | Any privacy claim the implementation does not enforce |
+
+*End of document.*
