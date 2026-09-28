@@ -33,6 +33,7 @@
  * @property {AbortSignal} signal         Aborted when the user leaves the route.
  * @property {AppStore} store
  * @property {(path: string, opts?: NavigateOptions) => void} navigate
+ * @property {(opts?: {useReturn?: boolean}) => void} goDefault   Go where this session belongs (home / onboarding / paywall / welcome).
  * @property {ShellServices} shell
  * @property {Object<string, string>} [params]   Static params from the route definition (e.g. viewer kind).
  */

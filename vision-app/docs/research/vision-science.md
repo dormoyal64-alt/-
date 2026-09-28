@@ -456,3 +456,848 @@ These rules are [D].
 - WHO ICD-11 vision impairment categories.
 
 ---
+## 4. Reading and text-size recommendation
+
+### 4.1 Evidence
+
+**Acuity reserve and contrast reserve** (Whittaker & Lovie-Kitchin 1993, *Optom Vis Sci* 70:54–65) [S].
+Four factors drive reading rate: acuity reserve, contrast reserve, field of view and central scotoma.
+- **Acuity reserve** is the ratio of print size to acuity threshold. It maps to reading level as follows:
+  - Spot reading (~40 wpm): **1.3:1** (0.1 log unit)
+  - Fluent reading (~100 wpm): **2:1** (0.3 log unit)
+  - Maximum speed: **≥ 3:1** (0.5 log unit)
+  - Clinical practice usually uses 2:1; some practitioners use 3:1 for sustained reading. A 2:1 reserve is adequate for about 75% of low-vision readers.
+- **Contrast reserve** is the ratio of print contrast to threshold contrast:
+  - **10:1** for low-normal speed (174 wpm)
+  - **4:1** for 88 wpm
+  - **3:1** for spot reading (44 wpm)
+
+**MNREAD** (Legge, Mansfield et al.) [S]
+- Chart design: 19 sentences, each 60 characters on 3 lines, Times Roman, in 0.1 log-unit print-size steps.
+- Outputs:
+  - Reading acuity (RA): the smallest print read.
+  - Critical print size (CPS): the smallest print that still supports maximum reading speed.
+  - Maximum reading speed (MRS).
+- CPS by NLME curve fitting is defined at **80% of MRS** (Cheung, Kallie, Legge & Cheong 2008, *IOVS* 49:828–835).
+- Norms (Calabrèse et al. 2016, *IOVS* 57:3836) [S]:
+  - CPS 0.08 logMAR from 8 to 23 years, rising to 0.21 at 68 years and 0.34 at 81 years.
+  - MRS 200 ± 25 wpm between 16 and 40 years, falling to 175 wpm at 81 years.
+  - RA −0.18 logMAR at 16 years, −0.05 at 81 years.
+- Courier gives CPS 0.06 logMAR smaller and RA 0.05 logMAR better than Times in normal readers (Mansfield, Legge & Bane 1996) [S].
+
+**Legge & Bigelow 2011** (*J Vis* 11(5):8) [S]
+- Consensus CPS for normal readers is **0.2° x-height**, with an individual range of 0.15–0.3°.
+- Fluent reading range is **0.2° to 2°** x-height.
+- Newspapers and books use x-heights of **0.20–0.28°** (newspapers mean 0.23°, hardback books 0.24°).
+
+*Note the disagreement:* MNREAD-scale CPS values of about 0.08–0.2 logMAR correspond to x-heights of about 6–8 arcmin (0.10–0.13°). Legge & Bigelow's consensus is about 12′. The two are summarising different test conditions (font, presentation mode). **Recommendation [D]:** use the Legge & Bigelow 0.2° as the *floor for body text*. Use the individual acuity or CPS rule for everything above that floor.
+
+**Validation of the floor against system defaults** [V: arithmetic]:
+- On an iPhone, iOS default Body is 17 pt = 17 px_css × 0.1657 mm = 2.82 mm em. SF x-height ratio 0.508 gives a 1.43 mm x-height.
+- That subtends **0.273° at 30 cm, 0.234° at 35 cm and 0.205° at 40 cm**, i.e. almost exactly newspaper print.
+- So Apple's default already sits at the ecological print size. **Never recommend below the platform default.**
+
+### 4.2 Print-size units and font metrics
+
+**Units**
+- **M-units** measure the x-height of lower-case text. 1 M = 1.4544 mm, which subtends 5′ at 1 m. Print size in logMAR at distance d (m) = `log10(M / d)`.
+- **N-points** give the typographic body size of Times Roman. N8 ≈ 1 M [U].
+- **CSS `font-size`** sets the em box. It is *not* the letter height. Always convert through the x-height ratio.
+
+**x-height / em ratios** (from font OS/2 metrics) [V: `@capsizecss/metrics` 4.3.0]:
+
+| Font | unitsPerEm | xHeight | **x/em** | capHeight/em |
+|---|---|---|---|---|
+| SF Pro (`-apple-system`, `.SFNS-Regular`) | 2048 | 1040 | **0.508** | 0.705 |
+| Roboto | 2048 | 1082 | **0.528** | 0.711 |
+| Arial | 2048 | 1062 | **0.519** | 0.716 |
+| Helvetica | 2048 | 1071 | **0.523** | 0.717 |
+| Segoe UI | 2048 | 1024 | **0.500** | 0.700 |
+| Noto Sans (Latin) | 1000 | 536 | **0.536** | 0.714 |
+
+**Hebrew.** Hebrew has no upper/lower case and no x-height. Most letters share one body height. The exceptions are:
+- ascender: ל
+- descenders: ק ך ן ף ץ
+- short letters: י and the upper part of ו/ז
+
+I measured the glyph bounding boxes with fontTools on the Google Fonts TTFs [V: measured, variable fonts at the default instance]:
+
+| Font | Hebrew body height / em (median of א ב ג ד ה ו ח ט כ מ ס ע פ צ ר ש ת ם) | Latin x/em (glyph "x") | ל top / em |
+|---|---|---|---|
+| **Noto Sans Hebrew** (Android system Hebrew) | **0.584** | 0.528 | 0.760 |
+| Heebo | 0.575 | 0.528 | 0.750 |
+| Rubik | 0.571 | 0.520 | 0.710 |
+| Assistant | 0.545 | 0.478 | 0.717 |
+
+In the same font, Hebrew body height is about **1.08–1.14×** the Latin x-height.
+
+**Hebrew sizing rule [D]:**
+- Treat the Hebrew body height as the x-height equivalent in every formula below.
+- iOS renders Hebrew with Apple's system Hebrew face, whose metrics I could not access. **Measure the real ratio at runtime:**
+  ```
+  ctx.font = `100px ${fontStack}`
+  hebRatio = ctx.measureText('ה').actualBoundingBoxAscent / 100
+  latinRatio = ctx.measureText('x').actualBoundingBoxAscent / 100
+  ```
+  Fall back to 0.58 (Hebrew) and 0.52 (Latin) if measurement fails.
+- Many Hebrew pairs are distinguished only by small features (ב/כ, ד/ר, ה/ח/ת, ו/ז/ן, ס/ם). Add a **+0.05 log-unit (×1.12) safety margin** for Hebrew body text [D, until a Hebrew reading test validates otherwise].
+- Mixed Hebrew/English UI: compute the size for Hebrew and let Latin follow the same `font-size`.
+
+### 4.3 Formula: from logMAR threshold and distance to a CSS px font size
+
+```
+Inputs:  L    = acuity threshold (logMAR) measured at distance d_test with the correction used for the phone
+              (use binocular, or the better eye if binocular was not measured)
+         d    = habitual viewing distance (mm), measured by camera (default 350 phone / 400 tablet)
+         R    = acuity reserve: 2.0 (fluent; default) or 3.0 (max speed / long reading preference)
+         xr   = x-height ratio of the UI font (runtime-measured; Hebrew body ratio for Hebrew)
+         mmPerCss from calibration (§1)
+
+1) Required x-height angle (arcmin):   θx = 5 · 10^L · R          (x-height treated as the "letter height" per the MNREAD convention)
+2) Apply floor:                         θx = max(θx, 12′)          (0.2°, Legge & Bigelow)
+   Hebrew margin:                       θx = θx · 1.12 (Hebrew UI only)
+3) If a reading test gave CPS (logMAR at d_read): θx_cps = 5 · 10^(CPS + 0.1) ; θx = max(θx_floor, θx_cps)
+   (the CPS-based value replaces step 1 when the reading test is reliable; +0.1 log = margin above CPS [D])
+4) Physical x-height:                   x_mm = 2 · d · tan(θx/2)
+5) CSS font-size:                       fs_px = x_mm / xr / mmPerCss
+6) Never go below the platform default body (iOS 17 pt ≈ 17 px_css; Android 16 sp body ≈ 16 px_css) unless the user asks.
+```
+
+Step 1 assumes the angular threshold stays the same at the new distance. That holds only while `d` is inside the user's focus range (§9). If `d ≠ d_test`, re-test at `d`, or keep `d` within ±15% of `d_test` [D].
+
+**Worked examples** (iPhone 15, 0.1657 mm/px_css, SF xr = 0.508, d = 350 mm, R = 2):
+
+| L | θx | x-height | font-size | Nearest iOS Body step |
+|---|---|---|---|---|
+| 0.0 | 10′ → floored to 12′ | 1.22 mm | 14.5 px | keep default 17 (Large) |
+| 0.3 | 20′ | 2.03 mm | **24.1 px** | AX1 = 28 |
+| 0.5 | 31.6′ | 3.22 mm | **38.2 px** | AX3 = 40 |
+| 0.7 | 50.1′ | 5.10 mm | **60.6 px** | exceeds AX5 = 53 → also recommend Zoom or Magnifier |
+| 0.5, R = 3 | 47.4′ | 4.83 mm | 57.4 px | > AX5 |
+
+Same L = 0.5 on a Pixel 8 with Roboto (0.1558 mm/px, xr 0.528): 3.22 mm → 6.10 mm em → **39.1 px ≈ 39 dp**. That needs about 2.4× the 16 sp body, which is beyond the 2.0 maximum. Recommend font scale 2.0, plus "Display size" Largest, plus magnification.
+
+### 4.4 In-app reading test (MNREAD-like), recommended as a second-stage test
+
+**Design [D, modelled on MNREAD]**
+- Sentence sets in Hebrew and English. Each sentence is a single 3-line block of about 60 characters, of equal difficulty. **Hebrew sentences need linguistic validation**; there is no validated Hebrew MNREAD to copy.
+- Print sizes from large to small in **0.1 log steps**, rendered with the product's UI font at the measured distance.
+- The user reads aloud or silently and taps "done". The app records the time.
+- Error scoring without an examiner:
+  - Either a 2-choice comprehension check after each sentence,
+  - Or a sentence-verification (true/false) variant.
+  - Mark a sentence as failed if the check is wrong.
+- **Stop** when a sentence takes more than 20 s or is failed at 2 consecutive sizes.
+
+**Scoring**
+- Reading speed (wpm) = `60 × words / time_s` [U: MNREAD standard counts 10 standard-length words per sentence].
+- Fit `RS(p) = MRS · (1 − exp(−(p − p0)/τ))` for print sizes `p > p0` (logMAR) by least squares.
+- **CPS = p0 + τ·ln(5)**, the size where RS = 0.8·MRS, matching the Cheung et al. 80% criterion.
+- If the fit fails (fewer than 4 sizes), use CPS = the smallest size whose speed is ≥ 80% of the mean of the 3 fastest sizes.
+
+**Polarity A/B:** run 3 sizes near CPS in both positive polarity (dark on light) and negative polarity (light on dark). Choose the polarity with the higher speed only if it is faster by more than 15% [D]. See §5.5.
+
+**Citations (§4)**
+- Whittaker SG, Lovie-Kitchin J. Visual requirements for reading. *Optom Vis Sci* 1993;70:54–65.
+- Cheong AMY, Lovie-Kitchin JE, Bowers AR. Determining magnification for reading with low vision. *Clin Exp Optom* 2002;85:229–237.
+- Legge GE, Bigelow CA. Does print size matter for reading? A review of findings from vision science and typography. *J Vis* 2011;11(5):8.
+- Cheung SH, Kallie CS, Legge GE, Cheong AMY. Nonlinear mixed-effects modeling of MNREAD data. *IOVS* 2008;49:828–835.
+- Calabrèse A et al. Baseline MNREAD measures for normally sighted subjects from childhood to old age. *IOVS* 2016;57:3836–3843.
+- Mansfield JS, Legge GE, Bane MC. Psychophysics of reading XV: font effects in normal and low vision. *IOVS* 1996;37:1492–1501.
+- Apple HIG Typography (JSON at developer.apple.com, change log to 16 Dec 2025).
+- `@capsizecss/metrics` 4.3.0.
+- Google Fonts TTFs: Noto Sans Hebrew, Heebo, Rubik, Assistant.
+
+---
+
+## 5. Contrast sensitivity on a screen
+
+### 5.1 Principles (Pelli–Robson)
+
+**Chart design** [S, plus U where marked]:
+- The Pelli–Robson chart has **16 letter triplets**. Contrast falls by **0.15 log units** (a factor of √2) per triplet, from log CS 0.00 to 2.25.
+- Letters are large, about 2.8–3° at the 1 m test distance, so the test targets the peak of the contrast sensitivity function rather than acuity.
+
+**Scoring**:
+- Original rule: threshold is the last triplet with **≥ 2 of 3 letters correct**.
+- **Letter-by-letter scoring** (Elliott, Bullimore & Bailey 1991) gives each letter 0.05 log units, which improves reliability. Equivalent formula: `logCS = 0.05 × (letters correct) − 0.15` [U, derived from the chart layout].
+
+**Interpretation used clinically** [S: clinical summaries]:
+
+| log CS | Meaning |
+|---|---|
+| 2.0 | normal |
+| < 1.5 | moderate loss |
+| < 1.0 | disability |
+
+**Age norms** (Mäntyjärvi & Laitinen 2001, *J Cataract Refract Surg* 27:261–266; n = 87, ages 6–75) [S]:
+- Monocular means range from **1.84** (20–39 years) down to **1.68** (60+ years).
+- Binocular means range from 1.73 to 1.99.
+
+**Digital tests read higher than the printed chart.** Kollbaum et al. 2014 (*Optom Vis Sci* 91:291–296) used an iPad test with 2 letters per page, 0.1 log steps and contrast from 80% down to 0.5% [S]:
+
+| Group | iPad | FrACT | Pelli–Robson |
+|---|---|---|---|
+| Normal vision | 1.98 ± 0.11 | 1.96 ± 0.06 | 1.65 ± 0.04 |
+| Low vision | 1.45 ± 0.40 | 1.54 ± 0.37 | 1.30 ± 0.30 |
+
+- Agreement: iPad vs FrACT 95% limits of agreement ±0.24.
+- Repeatability (95% limits of agreement): iPad ±0.19, Pelli–Robson ±0.19, FrACT ±0.15.
+
+**Smartphone test.** Peek Contrast Sensitivity (Habtamu et al. 2019, *TVST* 8(5):13), a Tumbling-E smartphone test, compared with a Tumbling-E Pelli–Robson chart [S]:
+
+| Test | Test–retest r | Test–retest 95% limits of agreement |
+|---|---|---|
+| PeekCS | 0.93 | −0.31 to +0.29 |
+| Tumbling-E Pelli–Robson | 0.96 | −0.20 to +0.21 |
+
+### 5.2 Recommended phone test [D]
+
+**Stimulus**
+- Tumbling E, 4AFC, with the same swipe UI as acuity.
+- Letter height **2.8°** at the measured distance (1.47 cm at 30 cm, 1.96 cm at 40 cm).
+- Dark letter on a white background at maximum display white.
+- Weber contrast `C = (Lbg − Lletter)/Lbg` in **linear light**. `logCS = −log10(C)`.
+
+**Procedure: Bayesian (QUEST)** on `x = log10(C)`:
+- Grid from −2.5 to 0.0 in 0.01 steps.
+- `ψ(x) = γ + (1−γ−λ)·(1 − exp(−10^(β·(x − T))))`, with γ = 0.25, λ = 0.03 and **β = 3.5** (Watson & Pelli's contrast slope, in log10 units).
+- Prior: mean log C = −1.7, SD 0.5.
+- Familiarisation trials at C = 50% and 25%.
+- **24 trials**, placing each at the posterior mean.
+- Result: `logCS = −T̂`. Report to 0.05.
+- Duration is about 60 s per eye.
+
+**Alternative clinical-style mode**: triplets at 0.15-log steps with ≥ 2/3 correct.
+- With 4AFC, the chance of passing a triplet by guessing is **15.6%** (3·0.25²·0.75 + 0.25³).
+- With 8AFC Landolt C it is 4.3%.
+- So if triplets are used, require 3/3, or use Landolt C.
+
+**Reliability rules** are the same as §3.5. Add one: a miss on a catch trial at C = 50% counts as a lapse.
+
+### 5.3 Screen gamma and luminance caveats (must implement)
+
+**8-bit quantisation.** One code step below white (254 on 255) is already Weber C = 0.89%, i.e. logCS **2.05**. Steps 253, 252 and 250 give logCS 1.75, 1.58 and 1.36 [V: arithmetic with the sRGB EOTF]. Plain gray levels therefore cannot test normal thresholds, which are around 1.8–2.0.
+**Use "bit-stealing"**: change R, G and B unequally so the luminance falls between gray steps. Luminance weights (Rec. 709 / sRGB) are Y = 0.2126 R + 0.7152 G + 0.0722 B.
+- Near white, a 1-step change in B alone gives ΔY = 0.064%, i.e. logCS 3.19.
+- R alone gives 0.189% (2.72). G alone gives 0.636% (2.20).
+- Combinations give about 20 sub-steps between gray levels, with invisible chroma error on large letters.
+- An alternative is 2×2 ordered spatial dithering between adjacent gray levels. It is fine for 2.8° letters on phones above 300 ppi.
+
+**Gamma and transfer function.** Assume the sRGB transfer function (§7.1). Safari and Chrome colour-manage canvas as sRGB by default. Display P3 panels use the same transfer curve, so neutral contrasts are preserved. Individual panels deviate. Without a photometer the result is *screen-referred*, with an estimated additional uncertainty of about ±0.1 log [D]. Record the device model and brightness setting, and compare longitudinal results only on the same device.
+
+**Brightness and ambient light**
+- Require high brightness and no eye-comfort filters (§0.3).
+- On OLED at low brightness, PWM dimming and near-black nonlinearity get worse. We therefore use a near-white background and never a dark one.
+- Anti-aliased letter edges are blended in gamma space, not linear space. For letters this large the effect is negligible. Still, draw contrast letters with integer-snapped geometry because size is not critical here.
+
+### 5.4 Normal ranges and flags (on our digital scale)
+
+- Provisional lower limits of normal: **1.65 for ages < 60 and 1.50 for ages ≥ 60** [D, anchored to Mäntyjärvi and to the Pelli–Robson categories].
+- Because digital adaptive tests read about 0.1–0.3 higher than the printed Pelli–Robson chart (Kollbaum 2014), **re-derive these cut-offs from our own pilot normative data** (≥ 100 normal eyes per age band) before launch.
+- **Change criterion**: a drop of ≥ 0.3 log units, confirmed on retest, is a real change. This exceeds the ±0.2–0.3 test–retest limits of agreement.
+
+### 5.5 How contrast results should change the UI [D]
+
+**Rationale.** Whittaker & Lovie-Kitchin's 10:1 contrast reserve is defined relative to the contrast threshold *at the print size used*. Our measured logCS is the best case, for large letters. For small text the threshold is higher, so apply extra margin.
+
+| Measured logCS (large letters) | Text contrast target (WCAG ratio) | Font weight | Size adjustment | Other |
+|---|---|---|---|---|
+| ≥ 1.65 | ≥ 4.5:1 (AA); app default ≥ 7:1 | Regular (400) | none | — |
+| 1.35–1.64 | ≥ 7:1 (AAA); no gray-on-gray | Medium/Semibold (500–600) → suggest iOS/Android **Bold Text** | +1 step (×1.12) | Suggest **Increase Contrast** (iOS) / **Color contrast: Medium** (Android) |
+| 1.00–1.34 | ≥ 12:1, i.e. near black on white | Bold (700) + system Bold Text | +2 steps (×1.26) | Increase Contrast / High or Outline text; stronger UI borders; enable image enhancement (§10) |
+| < 1.00 | 21:1 (pure `#000`/`#fff`) | Bold | +3 steps (×1.41) | As above, plus magnifier guidance; offer the negative-polarity A/B test |
+
+**Polarity**
+- Default to **positive polarity**: dark text on light. It gives better acuity and proofreading in both younger and older adults, the benefit is largest for small text, and it goes with smaller pupils (Piepenbrock, Mayr & Buchner 2013, *Ergonomics* 56:1116–1124; 2014, *Hum Factors* 56:942–951) [S].
+- Offer **negative polarity** (light text on a dark gray `#121212` background with `#E6E6E6` text, not pure white on pure black) when:
+  1. the user reports glare or photophobia, or
+  2. the reading A/B test (§4.4) shows it is more than 15% faster.
+
+  Low-vision readers with **cloudy ocular media** (for example cataract) can read faster with reversed polarity (Legge, Rubin, Pelli & Schleske 1985, *Vision Res* 25:253–266; Legge, Rubin & Schleske 1987) [S].
+
+**Citations (§5)**
+- Pelli DG, Robson JG, Wilkins AJ. The design of a new letter chart for measuring contrast sensitivity. *Clin Vision Sci* 1988;2:187–199.
+- Elliott DB, Bullimore MA, Bailey IL. Improving the reliability of the Pelli-Robson contrast sensitivity test. *Clin Vision Sci* 1991;6:471–475.
+- Mäntyjärvi M, Laitinen T. 2001.
+- Kollbaum PS et al. 2014.
+- Habtamu E et al. 2019.
+- Watson & Pelli 1983.
+- Pelli DG, Zhang L. Accurate control of contrast on microcomputer displays. *Vision Res* 1991;31:1337–1350 [U].
+- Tyler CW. Colour bit-stealing to enhance the luminance resolution of digital displays on a single pixel basis. *Spatial Vision* 1997;10:369–377 [U].
+- Piepenbrock et al. 2013, 2014.
+- Legge et al. 1985.
+
+---
+
+## 6. Astigmatism screening with a clock dial / fan chart
+
+### 6.1 Procedure (clinical reference)
+
+The clinical clock-dial test works like this [S: StatPearls "Subjective Refraction Technique: Astigmatic Dial"]:
+1. The patient is **fogged** with plus lenses so both focal lines lie in front of the retina.
+2. The patient reports the **darkest, sharpest** line.
+3. **Minus-cylinder axis = (lower clock number of the darkest line) × 30°.** This is the "rule of 30": 360°/12 = 30° per clock hour.
+   - Darkest line 12–6 → axis 180°.
+   - Darkest line 3–9 → axis 90°.
+   - Darkest line 1–7 → axis 30°.
+4. Minus cylinder is then added until all lines look equal.
+
+### 6.2 Phone implementation [D]
+
+**Chart**
+- Twelve spokes at 15° intervals, labelled with clock positions including half-hours.
+- Each spoke has 3 parallel lines. Line width **1.5′** with a gap of 1.5′, at the measured distance.
+  - At 35 cm, 1.5′ is 0.153 mm, about 2 device px on 460 ppi phones.
+  - Render with the anti-aliasing rules from §1.3.
+- Spoke length is 5° of visual angle. Black on white. Monocular.
+
+**Procedure**
+- The user looks at the centre and taps the spoke that looks **darkest or sharpest**, or taps "all equal".
+- Repeat 3 times, rotating the whole dial by a random offset each time so position bias cannot drive the answer.
+- A **consistent** choice means ≥ 2 of 3 answers within ±15°.
+
+**Axis estimate**: `axis = 30° × h_low`, where `h_low` is the lower clock value of the chosen spoke in hours (half-hours allowed, e.g. 1.5 → 45°), and 6 → 180°.
+
+**No fogging is possible on a phone.** Accommodation can move the focal lines, so young or hyperopic users may give inconsistent answers. Test without the user's distance glasses only if the product wants detection; test with habitual correction to check whether that correction is adequate.
+
+### 6.3 Validity
+
+- There is little published validation of self-administered dial tests. Pilot smartphone astigmatism apps exist (for example the Schepens far-point dial approach: *IOVS* 2023 ARVO abstract; *TVST* 2022 [S]).
+- Reviews and product literature agree that dial tests can **flag possible astigmatism but cannot measure cylinder power or axis for a prescription** [S].
+- Expected sensitivity [U]: dials detect roughly ≥ 0.75–1.00 D of uncorrected cylinder. Lower amounts are often missed.
+- Why that threshold [V: arithmetic]: 1 D of meridional defocus with a 4 mm pupil smears one meridian over about 13.75′. That exceeds the 1.5′ line pitch, so the difference is visible. At 0.5 D with a 3 mm pupil the smear is about 5′, and the difference becomes subtle.
+- **Product use**: a consistent darkest-line result means "possible astigmatism — an eye exam can confirm and correct it". Never show a cylinder value.
+
+### 6.4 What screen adaptation can and cannot do for astigmatism
+
+**Cannot**
+- Correct meridional blur optically (see §11).
+- Pre-distort text to cancel the blur on a standard display.
+
+**Can help** [D, from general blur and legibility principles]:
+- Larger text, using the acuity rule of §4.
+- Heavier weight (≥ 500–600). Blur spreads thin strokes and lowers their contrast.
+- Positive polarity, which gives a smaller pupil and therefore less blur (Piepenbrock 2014 pupil-size data).
+- Slightly increased letter spacing, +0.02–0.05 em [D], to reduce blur-induced crowding.
+- Avoid thin, light, or condensed fonts. Apple HIG also advises avoiding Ultralight, Thin and Light weights [V].
+
+**"Halation" in dark mode** (white text appearing to bloom on black for astigmatic users) is widely asserted in design and grey literature. I found **no peer-reviewed quantification** of it. Do not claim it. Offer dark mode as dark-gray/off-white per §5.5, and let the A/B reading test decide.
+
+---
+## 7. Colour vision
+
+### 7.1 sRGB ↔ linear transfer functions (IEC 61966-2-1:1999) [V: libDaltonLens code; U: standard text]
+
+```
+decode (0..1 encoded → linear):   c_lin = c / 12.92                      if c <= 0.04045
+                                   c_lin = ((c + 0.055) / 1.055) ^ 2.4    otherwise
+encode (linear → 0..1 encoded):   c = 12.92 · c_lin                       if c_lin <= 0.0031308
+                                   c = 1.055 · c_lin ^ (1/2.4) − 0.055     otherwise
+relative luminance (sRGB/Rec.709 primaries, D65):  Y = 0.2126 R + 0.7152 G + 0.0722 B     (R,G,B linear)
+linear sRGB → XYZ (D65):  [[0.4124564, 0.3575761, 0.1804375],
+                           [0.2126729, 0.7151522, 0.0721750],
+                           [0.0193339, 0.1191920, 0.9503041]]
+```
+
+**Pipeline for any colour transform** (simulation, daltonisation, colour filters):
+1. Decode sRGB to linear.
+2. Apply the 3×3 matrix.
+3. Clamp to [0, 1].
+4. Encode back to sRGB.
+
+In WebGL: upload textures as `SRGB8_ALPHA8`, or decode manually in the shader. Never apply the matrices to encoded values.
+
+### 7.2 What is validated for computerised colour-vision testing
+
+**Cambridge Colour Test (CCT)** (Regan, Reffin & Mollon 1994, *Vision Res* 34:1279–1299) [S]
+- Stimulus: a Landolt C made of discs of random size and **random luminance** (luminance noise). The C differs from the background only in chromaticity, so luminance cues cannot be used.
+- Chromatic displacement is varied along **protan, deutan and tritan confusion lines** with a staircase. The test runs on a calibrated display with 14-bit luminance control.
+- "Trivector" normal limits: **protan ≤ 100, deutan ≤ 100, tritan ≤ 150** (units of 10⁻⁴ u′v′) [S: CCT handbook summary].
+
+**Confusion-line copunctal points** (CIE 1931 xy) [S]:
+- Protan (0.747, 0.253)
+- Deutan (1.40, −0.40)
+- Tritan (0.171, 0.000)
+
+Equivalently, and simpler to implement: a confusion line for a given dichromat is a line along which only the **missing cone's** excitation changes.
+- Protan axis = L-cone-isolating direction.
+- Deutan axis = M-cone-isolating direction.
+- Tritan axis = S-cone-isolating direction.
+
+**Waggoner Computerized Color Vision Test (CCVT / ColorDx)** [S]:
+- Desktop: 95% sensitivity, 100% specificity. Protan/deutan classification agreed with anomaloscope 89% of the time.
+- On **iPad**: sensitivity and specificity against anomaloscope and Ishihara **97.7% and 98%**, with test–retest agreement AC1 = 0.95.
+
+These results show that commodity tablets **can** screen red–green deficiency. They were obtained on known device models with manufacturer-controlled display settings.
+
+**Pseudo-isochromatic plates** (Ishihara, HRR): their printed inks are designed for illuminant C/D65 and do not reproduce on screens without calibration. Ishihara plates are also copyrighted. **Do not copy the plates.** Use the CCT-style method instead.
+
+### 7.3 Procedure for an uncalibrated phone [D]
+
+**Stimulus**
+- A Landolt-C-style ring, 4AFC gap (up/down/left/right), about 5° outer diameter at the measured distance. It is built from about 200–300 non-overlapping discs of random diameter (0.2–0.5°).
+- The background is made of the same kind of discs.
+- **Luminance noise:** each disc gets a random luminance factor from 6 equally spaced levels spanning ±20% around the mean linear luminance. Target and background discs draw from the *same* distribution.
+- **Neutral point:** linear RGB (0.20, 0.20, 0.20), i.e. sRGB ≈ 124. This is a mid gray with gamut headroom in all directions.
+
+**Chromatic displacement.** Convert the neutral point to LMS, then scale **one** cone coordinate:
+- `LMS_target = LMS_bg ⊙ (1 + c·e_k)`, with `e_k` = (1,0,0) for protan, (0,1,0) for deutan, (0,0,1) for tritan.
+- Convert back to linear RGB and check that it is in gamut.
+- Matrices [V: DaltonLens, Smith & Pokorny 1975 cone fundamentals with the sRGB/BT.709 primaries matrix]:
+  ```
+  LMS_from_linearRGB = [[0.17885956, 0.43997117, 0.03596577],
+                        [0.03380394, 0.27515242, 0.03620635],
+                        [0.00031087, 0.00191661, 0.01528089]]
+  linearRGB_from_LMS = [[ 8.0053286 , -12.8819545 ,  11.68064943],
+                        [-0.97821149,   5.26944903, -10.18300433],
+                        [-0.04016823,  -0.39885058,  66.48078797]]
+  ```
+- Apply the luminance-noise factor to the displaced colour, not to the cone contrast.
+- Report thresholds both as cone contrast `c` and as Δu′v′ (via the XYZ matrix in §7.1), so they can be compared with CCT norms.
+- Near sRGB 128 gray, one 8-bit code step moves u′v′ by about **8–12 × 10⁻⁴** [V: computed]. The CCT normal limits of 100–150 × 10⁻⁴ are therefore only about 10 steps away. Use temporal or spatial dithering to get sub-step resolution.
+
+**Adaptive procedure**
+- Three interleaved Bayesian staircases (protan, deutan, tritan), each on log10(c), with 4AFC and γ = 0.25.
+- About 16 trials per axis, 48 in total, taking about 2.5 minutes.
+- Cap `c` at the in-gamut maximum. Reaching that cap twice counts as "ceiling", consistent with dichromacy.
+- Show 1.5 s per stimulus, or until response.
+- Test **each eye** (congenital defects are symmetric; acquired ones are often asymmetric) and then both eyes.
+
+**Classification** (thresholds `P`, `D`, `T` expressed in multiples of the normal limit from our own normative data):
+- **Normal:** all three ≤ 1.
+- **Red–green deficiency:** `max(P, D) > 1` and `T ≤ 1.5`.
+  - **Protan** if `P/D ≥ 1.25`.
+  - **Deutan** if `D/P ≥ 1.25`.
+  - Otherwise "red–green, type uncertain". Protan and deutan thresholds are both raised in most red–green deficient observers. Separation relies on which axis is worse and on the luminance-sensitivity difference; protans see reds as darker.
+- **Tritan:** `T > 1.5` and `P, D ≤ 1.5` → tritan-like loss. This is **usually acquired**, so it is a red flag (§13).
+- **Generalised loss:** all three > 1.5. Suggests acquired loss, or a test/display problem.
+- **Severity estimate** for choosing correction strength: `s = clamp( log(X/1) / log(Xceil/1), 0, 1 )`, where `X` is the worst-axis threshold and `Xceil` the gamut ceiling. `s = 1` means a dichromat-like result.
+  - Map `s` to the Machado severity and to the OS colour-filter intensity.
+  - The user then fine-tunes by preference. Severity is **not** a diagnosis.
+- **Optional protan/deutan tie-breaker:** a flicker-free luminance-matching task between a red (sRGB 255,0,0) and a variable gray. Protans set red much darker, about 0.4–0.5 of the normal match [U]. Add this as a secondary cue.
+
+**Limitations**
+- Display primaries vary: sRGB vs Display-P3 panels, and OLED spectral peaks differ.
+- Colour filters and night modes are invisible to the web.
+- Ambient light chromaticity affects the result.
+- Cone fundamentals vary between individuals, including macular pigment.
+- This is **screening**, not a diagnosis of anomaloscope-grade type or severity.
+- Validate against Ishihara and HRR and, ideally, an anomaloscope before any public claim of accuracy.
+
+### 7.4 CVD simulation matrices (Machado, Oliveira & Fernandes 2009) — EXACT, applied in linear RGB [V]
+
+**Source and cross-check**
+- These are the per-severity matrices published on the authors' supplementary page (`inf.ufrgs.br/~oliveira/pubs_files/CVD_Simulation/CVD_Simulation.html`).
+- They were transcribed here from two independent libraries that both copied that page: *colorspacious* 1.1.2 (`cvd.py`) and *DaltonLens-Python* 0.1.5 (`simulate.py`). The two agree on all 297 numbers.
+- Sanity check: every row sums to 1 ± 0.000001, so white is preserved.
+
+**Usage**
+- Model: anomalous trichromacy is modelled as a spectral shift of the affected cone. Severity 1.0 corresponds to a 20 nm shift, which is approximately dichromacy [S].
+- Severity s ∈ [0, 1]. For values between the 0.1 steps, interpolate the matrices linearly, as colorspacious does.
+- Apply to linear RGB column vectors: `[R′,G′,B′]ᵀ = M · [R,G,B]ᵀ`.
+
+#### Protanomaly (Machado et al. 2009), linear RGB, `rgb_sim = M · rgb`
+
+| severity | row 1 (R′) | row 2 (G′) | row 3 (B′) |
+|---|---|---|---|
+| 0.0 | [1.000000, 0.000000, -0.000000] | [0.000000, 1.000000, 0.000000] | [-0.000000, -0.000000, 1.000000] |
+| 0.1 | [0.856167, 0.182038, -0.038205] | [0.029342, 0.955115, 0.015544] | [-0.002880, -0.001563, 1.004443] |
+| 0.2 | [0.734766, 0.334872, -0.069637] | [0.051840, 0.919198, 0.028963] | [-0.004928, -0.004209, 1.009137] |
+| 0.3 | [0.630323, 0.465641, -0.095964] | [0.069181, 0.890046, 0.040773] | [-0.006308, -0.007724, 1.014032] |
+| 0.4 | [0.539009, 0.579343, -0.118352] | [0.082546, 0.866121, 0.051332] | [-0.007136, -0.011959, 1.019095] |
+| 0.5 | [0.458064, 0.679578, -0.137642] | [0.092785, 0.846313, 0.060902] | [-0.007494, -0.016807, 1.024301] |
+| 0.6 | [0.385450, 0.769005, -0.154455] | [0.100526, 0.829802, 0.069673] | [-0.007442, -0.022190, 1.029632] |
+| 0.7 | [0.319627, 0.849633, -0.169261] | [0.106241, 0.815969, 0.077790] | [-0.007025, -0.028051, 1.035076] |
+| 0.8 | [0.259411, 0.923008, -0.182420] | [0.110296, 0.804340, 0.085364] | [-0.006276, -0.034346, 1.040622] |
+| 0.9 | [0.203876, 0.990338, -0.194214] | [0.112975, 0.794542, 0.092483] | [-0.005222, -0.041043, 1.046265] |
+| 1.0 | [0.152286, 1.052583, -0.204868] | [0.114503, 0.786281, 0.099216] | [-0.003882, -0.048116, 1.051998] |
+
+#### Deuteranomaly (Machado et al. 2009), linear RGB, `rgb_sim = M · rgb`
+
+| severity | row 1 (R′) | row 2 (G′) | row 3 (B′) |
+|---|---|---|---|
+| 0.0 | [1.000000, 0.000000, -0.000000] | [0.000000, 1.000000, 0.000000] | [-0.000000, -0.000000, 1.000000] |
+| 0.1 | [0.866435, 0.177704, -0.044139] | [0.049567, 0.939063, 0.011370] | [-0.003453, 0.007233, 0.996220] |
+| 0.2 | [0.760729, 0.319078, -0.079807] | [0.090568, 0.889315, 0.020117] | [-0.006027, 0.013325, 0.992702] |
+| 0.3 | [0.675425, 0.433850, -0.109275] | [0.125303, 0.847755, 0.026942] | [-0.007950, 0.018572, 0.989378] |
+| 0.4 | [0.605511, 0.528560, -0.134071] | [0.155318, 0.812366, 0.032316] | [-0.009376, 0.023176, 0.986200] |
+| 0.5 | [0.547494, 0.607765, -0.155259] | [0.181692, 0.781742, 0.036566] | [-0.010410, 0.027275, 0.983136] |
+| 0.6 | [0.498864, 0.674741, -0.173604] | [0.205199, 0.754872, 0.039929] | [-0.011131, 0.030969, 0.980162] |
+| 0.7 | [0.457771, 0.731899, -0.189670] | [0.226409, 0.731012, 0.042579] | [-0.011595, 0.034333, 0.977261] |
+| 0.8 | [0.422823, 0.781057, -0.203881] | [0.245752, 0.709602, 0.044646] | [-0.011843, 0.037423, 0.974421] |
+| 0.9 | [0.392952, 0.823610, -0.216562] | [0.263559, 0.690210, 0.046232] | [-0.011910, 0.040281, 0.971630] |
+| 1.0 | [0.367322, 0.860646, -0.227968] | [0.280085, 0.672501, 0.047413] | [-0.011820, 0.042940, 0.968881] |
+
+#### Tritanomaly (Machado et al. 2009), linear RGB, `rgb_sim = M · rgb`
+
+| severity | row 1 (R′) | row 2 (G′) | row 3 (B′) |
+|---|---|---|---|
+| 0.0 | [1.000000, 0.000000, -0.000000] | [0.000000, 1.000000, 0.000000] | [-0.000000, -0.000000, 1.000000] |
+| 0.1 | [0.926670, 0.092514, -0.019184] | [0.021191, 0.964503, 0.014306] | [0.008437, 0.054813, 0.936750] |
+| 0.2 | [0.895720, 0.133330, -0.029050] | [0.029997, 0.945400, 0.024603] | [0.013027, 0.104707, 0.882266] |
+| 0.3 | [0.905871, 0.127791, -0.033662] | [0.026856, 0.941251, 0.031893] | [0.013410, 0.148296, 0.838294] |
+| 0.4 | [0.948035, 0.089490, -0.037526] | [0.014364, 0.946792, 0.038844] | [0.010853, 0.193991, 0.795156] |
+| 0.5 | [1.017277, 0.027029, -0.044306] | [-0.006113, 0.958479, 0.047634] | [0.006379, 0.248708, 0.744913] |
+| 0.6 | [1.104996, -0.046633, -0.058363] | [-0.032137, 0.971635, 0.060503] | [0.001336, 0.317922, 0.680742] |
+| 0.7 | [1.193214, -0.109812, -0.083402] | [-0.058496, 0.979410, 0.079086] | [-0.002346, 0.403492, 0.598854] |
+| 0.8 | [1.257728, -0.139648, -0.118081] | [-0.078003, 0.975409, 0.102594] | [-0.003316, 0.501214, 0.502102] |
+| 0.9 | [1.278864, -0.125333, -0.153531] | [-0.084748, 0.957674, 0.127074] | [-0.000989, 0.601151, 0.399838] |
+| 1.0 | [1.255528, -0.076749, -0.178779] | [-0.078411, 0.930809, 0.147602] | [0.004733, 0.691367, 0.303900] |
+
+### 7.5 Alternatives: Viénot (1999) and Brettel (1997) dichromat simulation [V: libDaltonLens v public-domain source, sRGB + Smith–Pokorny LMS]
+
+**Viénot, Brettel & Mollon 1999.** A single projection plane gives one 3×3 matrix in linear RGB. It is accurate for **protanopia and deuteranopia**. The authors of libDaltonLens warn that it is *not* accurate for tritanopia.
+```
+protan: [[0.11238, 0.88762, 0.00000], [0.11238, 0.88762, -0.00000], [0.00401, -0.00401, 1.00000]]
+deutan: [[0.29275, 0.70725, 0.00000], [0.29275, 0.70725, -0.00000], [-0.02234, 0.02234, 1.00000]]
+```
+
+**Brettel, Viénot & Mollon 1997.** Two half-planes. Choose the matrix by the sign of `n · rgb_lin`: use `M1` if the dot product is ≥ 0, otherwise `M2`. This is the reference method for **tritanopia**.
+```
+protan  M1 = [[0.14980, 1.19548, -0.34528], [0.10764, 0.84864, 0.04372], [0.00384, -0.00540, 1.00156]]
+        M2 = [[0.14570, 1.16172, -0.30742], [0.10816, 0.85291, 0.03892], [0.00386, -0.00524, 1.00139]]
+        n  = [ 0.00048,  0.00393, -0.00441]
+deutan  M1 = [[0.36477, 0.86381, -0.22858], [0.26294, 0.64245, 0.09462], [-0.02006, 0.02728, 0.99278]]
+        M2 = [[0.37298, 0.88166, -0.25464], [0.25954, 0.63506, 0.10540], [-0.01980, 0.02784, 0.99196]]
+        n  = [-0.00281, -0.00611,  0.00892]
+tritan  M1 = [[1.01277, 0.13548, -0.14826], [-0.01243, 0.86812, 0.14431], [0.07589, 0.80500, 0.11911]]
+        M2 = [[0.93678, 0.18979, -0.12657], [0.06154, 0.81526, 0.12320], [-0.37562, 1.12767, 0.24796]]
+        n  = [ 0.03901, -0.02788, -0.01113]
+severity blend (libDaltonLens):  rgb_out = s · rgb_cvd + (1 − s) · rgb
+```
+
+**Which to use**
+- Use **Machado** for anomalous trichromacy at a given severity. This is our default for protan and deutan, because most colour-deficient users are anomalous trichromats.
+- Use **Brettel** for tritan.
+- Viénot is fine for fast protan/deutan dichromat previews.
+- The published Viénot and Brettel papers used CRT phosphors. The matrices above are their modern sRGB re-derivations (DaltonLens), which is what our pipeline needs.
+
+### 7.6 Daltonisation (recolouring) algorithms and evidence
+
+**Error-projection daltonize** (Fidaner, Lin & Ozguven 2005, Stanford EE368 report; widely reimplemented) [V: `joergdietrich/daltonize` source]:
+```
+sim  = S · rgb_lin                    (S = Machado matrix for the user's type/severity)
+err  = rgb_lin − sim                  (information the user cannot see)
+corr = E · err,   E = [[0, 0, 0], [0.7, 1, 0], [0.7, 0, 1]]      (protan/deutan: shift red-green error into G and B)
+out  = clamp(rgb_lin + corr, 0, 1)
+tritan variant [D]: E_t = [[1, 0, 0.7], [0, 1, 0.7], [0, 0, 0]]
+```
+- Apply the output with a user "strength" slider k ∈ [0, 1]: `out = rgb + k·corr`.
+- For video and the live camera, run it as a WebGL fragment shader: two 3×3 multiplies per pixel, well within budget.
+
+**Evidence**
+- Simon-Liedtke & Farup 2016 (*J Vis Commun Image Represent* 35:236–247) [S]: in a behavioural visual-search study, some daltonisation methods improved **accuracy but not response time**. Kotera's and Fidaner's methods ranked highest. Benefits depend on the image type.
+- Customised daltonisation per severity has been proposed (Univ Access Inf Soc 2021) [S].
+
+**Honest summary:** recolouring can make some colour-coded distinctions (charts, maps, traffic-light UI states) distinguishable. It **does not restore normal colour vision**, and it can make natural images look unnatural. For UI, **design colour-safe palettes plus non-colour cues**; that is always preferable to recolouring UI. Use daltonisation for third-party images, video and camera.
+
+**OS equivalents:** iOS Color Filters and Android Color correction (§12). Map protan → iOS "Red/Green Filter (Protanopia)" / Android "Red-green, red weak (Protanomaly)", and so on.
+
+### 7.7 Limitations (colour)
+
+- Screen-based classification is less reliable for **tritan** defects: display blue primaries vary, and older users have yellowing lenses.
+- Female carriers, mixed defects and acquired defects do not fit the classification scheme.
+- A result of "normal" must never be presented as clearing the user for occupational colour standards (pilots, electricians, and so on).
+
+**Citations (§7)**
+- IEC 61966-2-1:1999.
+- Machado GM, Oliveira MM, Fernandes LAF. A physiologically-based model for simulation of color vision deficiency. *IEEE TVCG* 2009;15(6):1291–1298. doi:10.1109/TVCG.2009.113
+- Brettel H, Viénot F, Mollon JD. Computerized simulation of color appearance for dichromats. *JOSA A* 1997;14:2647–2655.
+- Viénot F, Brettel H, Mollon JD. Digital video colourmaps for checking the legibility of displays by dichromats. *Color Res Appl* 1999;24:243–252.
+- libDaltonLens (public domain, github.com/DaltonLens/libDaltonLens).
+- colorspacious 1.1.2.
+- DaltonLens-Python 0.1.5.
+- Regan BC, Reffin JP, Mollon JD 1994.
+- Mollon & Regan, Cambridge Colour Test Handbook.
+- Waggoner CCVT evaluations (desktop; iPad: *Afr Vision Eye Health* and related 2021–2025 reports).
+- Simon-Liedtke JT, Farup I 2016.
+- Fidaner O, Lin P, Ozguven N. Analysis of color blindness (Stanford EE368 project, 2005) [U].
+
+---
+
+## 8. Amsler grid self-screening for macular problems
+
+### 8.1 Standard geometry [S]
+
+- 10 cm × 10 cm square, divided into 20 × 20 squares of 5 mm, with a central fixation dot.
+- Viewed at **30 cm** with the reading correction, one eye at a time. Each square subtends about 1°: exactly 0.955° for 5 mm at 30 cm. The whole grid covers **±10°** around fixation.
+- Chart 1 is white lines on a black background.
+
+### 8.2 Phone and tablet presentation [D]
+
+**Scale by angle, not by millimetres.** At the camera-measured distance `d`:
+- Square side = `2·d·tan(0.5°)`: 5.24 mm at 30 cm, 6.11 mm at 35 cm, 6.98 mm at 40 cm.
+- Full 20° grid = `2·d·tan(10°)`: 10.58 cm at 30 cm.
+
+**Phone short sides are 5.8–7.3 cm, so a full 20° grid does not fit** at 30 cm. Use one of two layouts:
+
+1. **Central grid.** A 10° × 10° grid (±5°) with fixation at its centre. At 30 cm this is 5.3 cm and fits every phone in portrait. It covers the fovea and parafovea, where most metamorphopsia is noticed.
+2. **Quadrant method** (covers the full ±10°). Four screens, each a 10° × 10° grid, with the fixation dot at the corner nearest the true centre:
+   - upper-left quadrant: fixation at the bottom-right corner;
+   - and likewise for the other three quadrants.
+
+   The user fixates the corner dot on each screen. Run it in landscape.
+
+Tablets show the full 20° grid in one view.
+
+**Rendering**
+- Lines about 2.5′ wide (0.22 mm at 30 cm), at least 2 px_dev.
+- White lines on black (Chart 1 style). Offer black-on-white if the user prefers it.
+- Central fixation dot 0.5° in diameter.
+- Brightness per §0.3. Keep the distance within ±10% of target using the camera.
+- The user wears their reading or phone correction. Test each eye separately, with the other covered.
+
+**Questions** (show one at a time; the user answers by touch):
+1. Can you see the centre dot?
+2. While looking at the dot, can you see all four sides and corners of the grid?
+3. Are any lines wavy, bent or distorted?
+4. Are any areas missing, blurred, darker or discoloured?
+5. If you answered yes to 3 or 4, draw around the area with your finger.
+
+Store the drawn map in grid coordinates (degrees) for longitudinal comparison. Repeat weekly for users over 50 or with known AMD, and compare with the previous map.
+
+### 8.3 Evidence and limitations
+
+- Faes et al. 2014 (*Eye* 28:788–796), meta-analysis [S]: Amsler grid pooled **sensitivity 0.78** (95% CI 0.64–0.87), **specificity 0.97** (0.91–0.99). Preferential hyperacuity perimetry was more sensitive.
+- Bjerager et al. 2023 (*JAMA Ophthalmol* 141:315–323), self-assessment, 10 studies, 1890 eyes [S]:
+
+  | Comparison group | Sensitivity for neovascular AMD | Specificity |
+  |---|---|---|
+  | Healthy controls | **67%** | **99%** |
+  | Non-neovascular AMD | 71% | 63% |
+
+  Conclusion: at-risk patients should have regular examinations **regardless of Amsler results**.
+- **A normal Amsler result must never reassure.** Show the text: "A normal result does not rule out eye disease."
+- Hyperacuity-based home tests (for example ForeseeHome and Alleye) are regulated medical devices. Leave them out of scope unless regulatory work is planned.
+
+### 8.4 Red-flag outcomes (urgent)
+
+Any of the following, in either eye:
+- **new** or **changed** distortion (wavy or bent lines);
+- a new missing, dark or blurred patch;
+- inability to see the fixation dot;
+- a sudden drop in central vision.
+
+**Required app response:**
+
+> "Contact an eye doctor or eye emergency service **today** (within 24 hours). Don't wait for your next routine appointment."
+
+**Basis:** NICE NG82 (2018) [S]:
+- Urgent referral to a macula service for suspected late (wet, active) AMD, "normally within 1 working day" (not an emergency referral).
+- Anti-VEGF treatment within 14 days of referral.
+
+If the user reports sudden severe vision loss, a curtain or shadow, or flashes and floaters, show the emergency (same-day) message instead (§13).
+
+**Citations (§8)**
+- Amsler M. Earliest symptoms of diseases of the macula. *Br J Ophthalmol* 1953;37:521–537 [U].
+- StatPearls "Amsler Grid" (NBK538141).
+- Faes L et al. *Eye* 2014;28:788–796. doi:10.1038/eye.2014.104
+- Bjerager J et al. *JAMA Ophthalmol* 2023;141:315–323.
+- NICE guideline NG82: Age-related macular degeneration (2018).
+
+---
+
+## 9. Focus range: near point, far point, and viewing-distance recommendation
+
+### 9.1 Age norms (Hofstetter 1950) [S]
+
+Amplitude of accommodation (D) by age A (years):
+- **minimum = 15 − 0.25·A**
+- **mean = 18.5 − 0.30·A**
+- **maximum = 25 − 0.40·A**
+
+Example at 45 years: minimum 3.75 D, mean 5.0 D, maximum 7.0 D.
+
+Hofstetter's equations are based on old datasets. A 2022 analysis of 5,433 subjects reports that they **overestimate** measured amplitude, especially in older subjects. Use the minimum formula as the flag threshold, not the mean.
+
+### 9.2 Near point of accommodation (NPA): camera-assisted modified push-up [D]
+
+**Method basis.** The classic push-up method **overestimates** amplitude: the target's angular size grows as it approaches, and depth of focus helps. In one comparison, push-up gave 10.20 ± 0.96 D and the minus-lens method 9.66 ± 0.75 D [S]. We remove the size cue by rescaling the target every frame so that its **angular size stays constant**. This is only possible because we measure distance with the camera.
+
+**Procedure**
+- One eye, other eye covered. The user wears their distance correction, or none if they have no glasses.
+- Target: a 2-line sentence whose x-height is held at **max(user's logMAR + 0.2, 0.3) logMAR**, recomputed per frame from the camera distance.
+- The user starts at about 40 cm and **slowly** brings the phone towards the eye. Show a guidance cue if movement exceeds 3 cm/s. The user taps "blurry" at the **first sustained blur**.
+- 3 runs per eye. Take the median `d_np`.
+
+**Result**
+- `Amp ≈ 1000/d_np(mm) − 1000/d_fp(mm)`. The second term is 0 for users who are corrected or emmetropic.
+- The camera cannot track reliably below about 15 cm (the face leaves the frame). If `d_np < 150 mm`, report "near point ≤ 15 cm (≥ 6.7 D)".
+
+### 9.3 Far point for uncorrected myopes [D + S]
+
+**Procedure**
+- Same constant-angle target, set at **logMAR 0.1**, or at the user's best acuity + 0.1.
+- The user moves the phone **away** from 20 cm and taps when the text **first becomes blurry**. 3 runs; take the median `d_fp`.
+- Only far points **≤ 65 cm** (arm's length) can be measured, which corresponds to myopia of about ≥ 1.5 D.
+
+**Result:** spherical-equivalent estimate `SE ≈ −1000/d_fp(mm)` D.
+
+**Evidence** [S]:
+- A Schepens-type smartphone far-point app (*TVST* 2022) holds three 20/20 Tumbling E's at constant angular size. In 201 eyes from 0 to −10.2 D it found R = 0.91 against clinical refraction, with a 0.17 D bias. Reported limits of agreement were on the order of ±0.9 D.
+- A 2025 over-refraction study (*Photonics* 12:772) in artificially myopised young eyes found 89.5% of estimates within 0.25 D, with a mean difference of 0.00 ± 0.44 D.
+- Astigmatism above about 2 D invalidates spherical-equivalent estimates.
+
+### 9.4 What refractive estimates may responsibly be shown [D]
+
+**Do show:**
+- The **focus range**: "Text stays sharp for you between X cm and Y cm with your current glasses."
+- Qualitative flags:
+  - "Your near focus is farther than typical for your age": NPA beyond `1000/Hofstetter_min(A)` mm, confirmed on retest.
+  - "Distant text may be blurry for you — possible nearsightedness."
+
+**Do NOT show:**
+- A spectacle prescription (sphere, cylinder, axis or add).
+- A dioptric value presented as a prescription.
+
+Refraction estimates are regulated medical-device functionality in the EU, US and Israel, and can mislead. They may be kept internally as an **uncertain** estimate with ±1 D uncertainty, to drive recommendations such as "consider reading glasses; see an optometrist".
+
+### 9.5 From focus range to recommended viewing distance and text size [D]
+
+**Comfort rule.** Sustaining no more than about ½ of the amplitude is a clinical convention used when prescribing reading adds [U: half-amplitude rule, standard optometry texts]. So:
+`d_min_comfort (mm) = 1000 / (0.5·Amp)`.
+
+**Recommended distance:** `d_rec = clamp(max(d_habitual, d_min_comfort), 250 mm, min(d_fp, 600 mm))`.
+- If `d_min_comfort > 600 mm` (arm's length), which is typical from about 50–55 years without readers:
+  - Recommend reading glasses or an eye exam.
+  - Set `d_rec` to the user's habitual distance and compensate with **larger text** (§4 at `d_rec`).
+- If `d_fp < d_min_comfort`, the user is a myope with presbyopia and no clear comfortable distance. Recommend an exam.
+
+**Text size:** always run the formula in §4.3 at `d_rec`. When `d_rec` differs from the acuity-test distance by more than 15%, repeat the acuity test at `d_rec` (quick 12-trial version).
+
+**Citations (§9)**
+- Hofstetter HW. A useful age-amplitude formula. *Optom World* 1950;38:42–45.
+- Burns DH et al. Sources of error in clinical measurement of the amplitude of accommodation. *J Optom* 2020 [S].
+- *TVST* 2022 "Preliminary Evaluation of a Smartphone App for Refractive Error Measurement".
+- *Photonics* 2025;12:772.
+- *TVST* 2025/2026 "Myopia Prescription Based on Smartphone App: A Feasibility Study in Africa" [S].
+
+---
+
+## 10. Image, video and live-camera enhancement for low vision
+
+### 10.1 Evidence
+
+**Peli's adaptive enhancement** (Peli et al. 1991, *IOVS* 32:2337–2350) [S]
+- Enhances a band of spatial frequencies, controlling *local contrast* as a function of local mean luminance.
+- Parameters were derived from each patient's measured contrast-sensitivity loss.
+- Tested with patients with central scotoma or cataract.
+
+**Face recognition** (Peli, Lee, Trempe & Buzney 1994, *JOSA A* 11:1929–1939) [S]
+- The **4–8 cycles/face** band is critical for recognition.
+- Patients **preferred** enhancement at higher frequencies, about 16 c/face, which is at least 1 octave above the critical band.
+- Individually selected enhancement did not beat a uniform setting on recognition.
+- Enhancement that hurts normal observers can still help low-vision observers.
+
+**Wideband enhancement for TV** (Peli, Kim, Yitzhaky, Goldstein & Woods 2004, *JOSA A* 21:937–950) [S]
+- Adds a **bipolar contour map** of edges and bars to the image.
+- Patients preferred **moderate** levels and rejected visible artefacts.
+- Perceived-quality gains were significant in only **22%** of patients.
+- **No improvement** on content questions.
+
+**MPEG/DCT enhancement** (Fullerton & Peli 2006, *J SID* 14:15–24; Fullerton, Woods, Vera-Diaz & Peli 2007, *JOSA A* 24:B174–B187) [S]
+- Scales DCT coefficients by a user gain `k` inside the decoder.
+- 24 patients chose preferred levels **consistently**.
+- The chosen level **correlated with letter contrast sensitivity**.
+- Training and video type did not affect the choice.
+
+**Contour enhancement** (Satgunam et al. 2012, *Optom Vis Sci* 89:E1364–E1373) [S]: preference and visual-search effects in 24 low-vision subjects, acuity 20/52–20/240. Benefits were modest and individual.
+
+**Bottom line:** enhancement reliably improves *preference* for many users, while *objective task* gains are inconsistent. The product must present it as an optional, user-tuned comfort feature, not a treatment.
+
+### 10.2 Implementation parameters [D]
+
+Run as a WebGL2 fragment-shader pipeline on the luma channel `Y′` (gamma-encoded, to limit halo visibility). Leave chroma unchanged, or apply daltonisation separately.
+
+1. **Map the user's resolution limit to image space**
+   - Cutoff frequency `f_c = 30 / 10^L` cycles/deg (logMAR 0 ≈ 30 c/deg).
+   - Pixels per degree on screen: `ppd = d·tan(1°) / mmPerDev`, in device px/deg. An iPhone 15 at 30 cm gives ≈ 95 and at 40 cm ≈ 126.
+   - Enhancement centre frequency `f0 = 0.35·f_c` (c/deg). This boosts detail that is visible but attenuated.
+   - Band: difference of Gaussians with `σ1 = ppd / (2π·f0)` px and `σ2 = 2·σ1`, i.e. about a 1-octave band.
+2. **Adaptive (local-contrast) gain, Peli-style:**
+   ```
+   base = G_σ2 * Y′                  (local mean)
+   band = G_σ1 * Y′ − G_σ2 * Y′
+   Y′out = clamp( Y′ + k · band · (Y′mean_global / max(base, 0.05))^0.5 , 0, 1 )
+   ```
+   - The `(…)^0.5` term partially normalises for local luminance, so dark regions get proportionally more help.
+   - Use a guided or bilateral base instead of a Gaussian when `k > 1`, to reduce halos.
+3. **Gain from contrast sensitivity:** `k = clamp(1.25·(1.80 − logCS), 0, 1.5)`.
+   - Examples: 1.8 → 0; 1.5 → 0.38; 1.2 → 0.75; 1.0 → 1.0; ≤ 0.6 → 1.5.
+   - Show it as a 0–100% slider pre-set to this value.
+   - Let the user refine it with a 6-step **preference staircase** (A/B pairs with a halving step), as in Fullerton 2007.
+4. **Wideband / contour mode** (severe loss, `L ≥ 0.7` or `logCS < 1.0`):
+   - Detect edges with a Laplacian-of-Gaussian at `σ = σ1`.
+   - Overlay bipolar contours: dark on the dark side, light on the light side. Line width 1.5·σ1, opacity 0.3–0.7 (user control).
+5. **Global contrast for the live camera and dim scenes:** CLAHE on luma, clip limit 2.0, 8×8 tiles. Preserve the global mean.
+6. **Magnification recommendation**
+   - `M_needed = 10^((L + log10 R) − L_detail)`, where `L_detail` is the logMAR-equivalent size of the detail at the current zoom.
+   - For text in images or the camera: `M = x_needed_mm / x_present_mm`. This is the same acuity-reserve logic as in §4 (Lovie-Kitchin / Cheong 2002).
+   - Default reserve R = 2. Cap the in-app zoom at 8×. Beyond that, recommend the OS Magnifier or Zoom, which on iOS reaches 15× (§12).
+7. **Performance:** at 1080p on mid-range phones, use separable Gaussians and half-resolution blurs. Target 30 fps or better.
+
+### 10.3 Limitations
+
+- Halos, noise amplification and compression-artefact amplification.
+- The benefit is individual. Nothing here restores acuity.
+- Do not apply enhancement to text UI. For text, change size, weight and contrast instead.
+
+---
+
+## 11. What is physically impossible in software: "vision-correcting" screens
+
+### 11.1 Physics
+
+- A conventional 2D display emits light whose angular distribution the software **cannot** control. Every pixel sends the same image to every part of the pupil.
+- Refractive blur is a convolution of the retinal image with a defocus point-spread function, a uniform disk (for a circular pupil) of angular diameter `β(rad) = pupil(m) × ΔD(dioptres)`.
+
+**Examples** [V: arithmetic]:
+
+| Defocus | Pupil | Blur disk | First MTF zero |
+|---|---|---|---|
+| 1 D | 4 mm | 13.75′ | 5.3 c/deg |
+| 0.5 D | 3 mm | 5.2′ | 14.2 c/deg |
+
+The first zero of the MTF is at `f = 1.22/β` cycles/rad.
+- Letters are identified mainly from about 3 cycles per letter [U: Solomon & Pelli 1994].
+- A newspaper-size x-height of 14′ therefore needs about 13 c/deg, which sits beyond the first zero for 1 D of blur.
+
+**Why it can't be undone on the display:**
+- Pre-filtering (deconvolving) the displayed image would require:
+  1. amplifying frequencies near the MTF zeros **without bound** (information at the zeros is lost);
+  2. **negative light**, which has to be emulated by adding an offset, collapsing contrast to a few percent;
+  3. exact knowledge of pupil size, accommodation, eye position and distance, all of which change continuously.
+- Published single-display pre-filtering (for example Alonso & Barreto 2003; Montalto et al. 2015 [U]) achieves only small gains at **severely reduced contrast**.
+
+### 11.2 What the research prototypes needed
+
+**Huang, Wetzstein, Barsky & Raskar 2014** ("Eyeglasses-free display", *ACM TOG* 33(4):59, SIGGRAPH) [S]:
+- A **light-field display**: a printed **pinhole mask mounted 5.4 mm in front** of an iPod touch 4 screen (326 ppi, 78 µm pixel pitch).
+- Pinholes about 75 µm, spaced about 390 µm.
+- Combined with 4D pre-filtering, so that different pupil positions receive different images.
+- This adds hardware, costs resolution and brightness, and still requires a known eye position and prescription.
+
+**Earlier work**:
+- Pamplona et al. 2012 "Tailored displays" (*ACM TOG* 31(4)).
+- Huang et al. 2012 multilayer displays (*ACM TOG* 31(6)).
+
+**Recent claims** (for example arXiv:2501.01450, "high-contrast inverse blurring", 2025) remain research demonstrations with contrast/sharpness trade-offs.
+
+**Conclusion:** a normal phone or tablet screen **cannot optically correct** myopia, hyperopia, presbyopia or astigmatism. No software update can change this.
+
+### 11.3 Honest product statements
+
+**Allowed:**
+- "We adapt what's on your screen — size, weight, contrast, colour and spacing — to what you can see best."
+- "We help you set up your phone's own accessibility settings."
+- "Image/video enhancement can make details easier to see for some people."
+
+**Not allowed:**
+- "Corrects your vision"
+- "Replaces glasses"
+- "Glasses-free screen"
+- "Treats / improves your eyesight"
+- "Optically sharpens blur caused by your eyes"
+
+---

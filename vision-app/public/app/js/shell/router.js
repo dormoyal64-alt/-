@@ -35,7 +35,6 @@ export function createRouter(opts) {
   let seq = 0;
   /** @type {{def: RouteDef, hash: string, instance: ScreenInstance|null, controller: AbortController}|null} */
   let current = null;
-  let restoring = false;
   let firstRender = true;
 
   /** @param {string} path @param {NavigateOptions} [o] */
@@ -46,7 +45,6 @@ export function createRouter(opts) {
   }
 
   function onHashChange() {
-    if (restoring) { restoring = false; return; }
     void render(false);
   }
 
@@ -103,8 +101,7 @@ export function createRouter(opts) {
       let ok = true;
       try { ok = await current.instance.canLeave(); } catch { ok = true; }
       if (!ok) {
-        // Stay: put the previous URL back without re-rendering.
-        restoring = false;
+        // Stay: put the previous URL back (pushState does not fire hashchange, so nothing re-renders).
         history.pushState(null, '', current.hash || '#/home');
         return;
       }
@@ -126,7 +123,7 @@ export function createRouter(opts) {
       if (token !== seq) return;
       /** @type {ScreenContext} */
       const ctx = {
-        lang: store.get().lang, t, route, signal: controller.signal, store, navigate, shell: opts.services(), params: def.params,
+        lang: store.get().lang, t, route, signal: controller.signal, store, navigate, goDefault, shell: opts.services(), params: def.params,
       };
       instance = await mod.mount(ctx);
     } catch (err) {

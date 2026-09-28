@@ -164,3 +164,20 @@ export function subscriptionActions(e, now) {
     needsPaymentFix: !!e && e.status === 'past_due',
   };
 }
+
+export const REFUND_WINDOW_DAYS = 14;
+
+/**
+ * Is the user still within 14 days of their FIRST payment (cancel now => full refund)?
+ * Derived from the invoice list until the entitlement carries this itself.
+ * @param {Array<{status?: string, issuedAt?: string}>|null|undefined} invoices @param {number} now
+ */
+export function refundWindowOpen(invoices, now) {
+  const paid = (invoices || [])
+    .filter((i) => i && (i.status === undefined || i.status === 'paid'))
+    .map((i) => parseTime(i.issuedAt))
+    .filter((ms) => ms !== null);
+  if (!paid.length) return false;
+  const first = Math.min(...paid);
+  return now >= first && now - first <= REFUND_WINDOW_DAYS * DAY_MS;
+}
