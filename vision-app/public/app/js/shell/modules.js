@@ -19,7 +19,6 @@ export const MODULE_PATHS = Object.freeze({
   reading: '../tests/reading/reading-view.js',
   contrast: '../tests/contrast/contrast-view.js',
   astigmatism: '../tests/astigmatism/astigmatism-view.js',
-  amsler: '../tests/amsler/amsler-view.js',
   color: '../tests/color/color-view.js',
   profile: '../engine/profile.js',
   systemGuide: '../engine/system-guide.js',

@@ -1,0 +1,118 @@
+/*
+ * Media viewers + reader (A6). Injected once by viewers/viewer-kit.js. Uses base.css tokens only.
+ * Layout: column; the stage grows to fill. A host page with a fixed header can set --va-viewer-offset.
+ */
+.va-viewer {
+  display: flex; flex-direction: column; gap: 12px;
+  width: 100%; max-width: 960px; margin-inline: auto;
+  min-height: calc(100dvh - var(--va-viewer-offset, 48px));
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+  color: var(--va-text);
+}
+.va-viewer__bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.va-viewer__title { font-size: 1.25rem; line-height: 1.25; margin: 0; font-weight: 700; flex: 1 1 auto; }
+.va-viewer__bar .va-btn { flex: 1 1 auto; }
+
+.va-viewer__stage {
+  position: relative; flex: 1 1 auto; min-height: 45dvh;
+  background: #000; color: #fff; border-radius: var(--va-radius); overflow: hidden;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.va-viewer__stage:focus-visible { outline: 3px solid var(--va-focus); outline-offset: 2px; }
+.va-viewer__canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.va-viewer__media {
+  position: absolute; top: 0; inset-inline-start: 0; width: 2px; height: 2px;
+  opacity: 0.01; pointer-events: none;
+}
+.va-viewer__overlay {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: 24px; text-align: center; background: #000; color: #fff; font-size: 1.125rem;
+}
+.va-viewer__overlay[hidden] { display: none; }
+.va-viewer__overlay p { margin: 0; max-width: 32ch; }
+.va-viewer__badge {
+  position: absolute; top: 10px; inset-inline-end: 10px; pointer-events: none;
+  background: rgb(0 0 0 / 0.75); color: #fff; border: 1px solid rgb(255 255 255 / 0.5);
+  border-radius: 999px; padding: 2px 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.va-viewer__badge[hidden] { display: none; }
+
+.va-viewer__panel {
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--va-surface); border: 1px solid var(--va-border); border-radius: var(--va-radius); padding: 12px;
+}
+.va-viewer__row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.va-viewer__row--media { direction: ltr; } /* media transport (time runs left to right) is never mirrored */
+.va-viewer__grow { flex: 1 1 auto; }
+.va-viewer__field { display: flex; flex-direction: column; gap: 2px; flex: 1 1 220px; min-width: 0; }
+.va-viewer__field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.va-viewer__value { font-weight: 700; font-variant-numeric: tabular-nums; }
+.va-viewer__time { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; padding-inline: 4px; }
+.va-viewer__status { margin: 0; min-height: 1.5em; color: var(--va-text-muted); font-size: 0.9375rem; }
+.va-viewer__note { margin: 0; color: var(--va-text-muted); font-size: 0.875rem; }
+
+.va-vbtn { min-width: var(--va-tap); padding-inline: 14px; }
+.va-vbtn--icon { padding-inline: 10px; }
+.va-vicon { width: 24px; height: 24px; flex: none; }
+.va-vbtn[aria-pressed="true"] { background: var(--va-primary); color: var(--va-primary-contrast); border-color: var(--va-primary); }
+.va-vbtn--hold { flex: 1 1 auto; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; touch-action: none; }
+
+/* Radio "segmented" choices (magnifier colour modes) */
+.va-choices { border: 0; margin: 0; padding: 0; min-width: 0; }
+.va-choices > legend { font-weight: 600; padding: 0; margin-bottom: 6px; }
+.va-choices__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 8px; }
+.va-choice { position: relative; display: flex; }
+.va-choice input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.va-choice span {
+  flex: 1; display: flex; align-items: center; justify-content: center; text-align: center;
+  min-height: var(--va-tap); padding: 8px 10px; border: 2px solid var(--va-border); border-radius: var(--va-radius-sm);
+  background: var(--va-surface); color: var(--va-text); font-weight: 600;
+}
+.va-choice input:checked + span { border-color: var(--va-primary); box-shadow: inset 0 0 0 2px var(--va-primary); }
+.va-choice input:checked + span::before { content: "✓"; margin-inline-end: 6px; }
+.va-choice input:focus-visible + span { outline: 3px solid var(--va-focus); outline-offset: 2px; }
+.va-choice--contrast span { background: #fff; color: #000; }
+.va-choice--inverted span { background: #000; color: #fff; }
+.va-choice--yellow span { background: #000; color: #ff0; }
+.va-choice--bw span { background: #fff; color: #000; }
+.va-choice--wb span { background: #000; color: #fff; }
+.va-choice--yb span { background: #000; color: #ff0; }
+.va-choice--sepia span { background: #f4ecd8; color: #3b2a1a; }
+
+/* Error / permission screen */
+.va-viewer__error { display: flex; flex-direction: column; gap: 12px; }
+.va-viewer__error h2 { margin: 0; font-size: 1.375rem; line-height: 1.3; }
+.va-viewer__error p { margin: 0; }
+.va-viewer__error ol { margin: 0; padding-inline-start: 1.4em; display: flex; flex-direction: column; gap: 8px; }
+
+/* Full screen (real or pseudo for iPhone) */
+.va-viewer:fullscreen { max-width: none; min-height: 0; height: 100%; background: var(--va-bg); }
+.va-viewer.is-pseudo-fullscreen {
+  position: fixed; inset: 0; z-index: 2147483000; max-width: none; min-height: 0; height: 100dvh;
+  background: var(--va-bg); overflow: auto;
+}
+
+/* ---------- Reader ---------- */
+.va-reader { gap: 12px; }
+.va-reader__textarea { min-height: 40dvh; resize: vertical; font-size: 1.125rem; line-height: 1.6; width: 100%; }
+.va-reader__toolbar {
+  position: sticky; top: 0; z-index: 2; display: flex; flex-direction: column; gap: 8px;
+  background: var(--va-bg); padding-block: 8px; border-bottom: 1px solid var(--va-border);
+}
+.va-reader__size { min-width: 5ch; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.va-reader__surface {
+  --va-hl-bg: #ffe14d; --va-hl-fg: #000;
+  background: var(--va-surface); color: var(--va-text); border: 1px solid var(--va-border);
+  border-radius: var(--va-radius); padding: 20px 16px; overflow-wrap: anywhere; hyphens: manual;
+}
+.va-reader__surface:focus-visible { outline: 3px solid var(--va-focus); outline-offset: 2px; }
+.va-reader__surface p { margin: 0 0 0.9em; }
+.va-reader__surface p:last-child { margin-bottom: 0; }
+.va-reader__sentence.is-speaking {
+  background: var(--va-hl-bg); color: var(--va-hl-fg); border-radius: 4px;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+.va-reader--bw .va-reader__surface { background: #fff; color: #000; border-color: #000; }
+.va-reader--wb .va-reader__surface { background: #000; color: #fff; border-color: #fff; --va-hl-bg: #ffe14d; --va-hl-fg: #000; }
+.va-reader--yb .va-reader__surface { background: #000; color: #ff0; border-color: #ff0; --va-hl-bg: #fff; --va-hl-fg: #000; }
+.va-reader--sepia .va-reader__surface { background: #f4ecd8; color: #3b2a1a; border-color: #bfa98a; --va-hl-bg: #3b2a1a; --va-hl-fg: #f4ecd8; }

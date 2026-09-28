@@ -18,7 +18,7 @@
  * @property {string} fn           exported run* function
  * @property {Eye} [eye]
  * @property {boolean} [optional]  user may skip it up-front
- * @property {string} [group]      optional steps skipped together ("health check")
+ * @property {string} [group]      optional steps skipped together
  * @property {'screen'|'distance'} [fallback]  standard values available when the step can't run
  */
 
@@ -33,8 +33,6 @@ export const PLAN = Object.freeze([
   { id: 'color', module: 'color', fn: 'runColorTest', eye: 'both' },
   { id: 'astig-right', module: 'astigmatism', fn: 'runAstigmatismTest', eye: 'right' },
   { id: 'astig-left', module: 'astigmatism', fn: 'runAstigmatismTest', eye: 'left' },
-  { id: 'amsler-right', module: 'amsler', fn: 'runAmslerTest', eye: 'right', optional: true, group: 'amsler' },
-  { id: 'amsler-left', module: 'amsler', fn: 'runAmslerTest', eye: 'left', optional: true, group: 'amsler' },
   { id: 'focus', module: 'focusRange', fn: 'runFocusRangeTest', eye: 'both', optional: true },
 ]);
 
@@ -226,8 +224,6 @@ export function buildProfileInput(d, opts) {
   if (r.color) input.color = r.color;
   const astig = pick({ right: r['astig-right'], left: r['astig-left'] });
   if (Object.keys(astig).length) input.astigmatism = astig;
-  const amsler = pick({ right: r['amsler-right'], left: r['amsler-left'] });
-  if (Object.keys(amsler).length) input.amsler = amsler;
   if (r.focus) input.focus = r.focus;
   if (opts.theme) input.prefs = { theme: opts.theme };
   return input;

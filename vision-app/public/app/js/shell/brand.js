@@ -1,30 +1,29 @@
 // @ts-check
 /**
  * Brand constants: the ONLY place in the app code where the product name lives.
- * Placeholder values until the manager sets the final brand. Keep public/app/manifest.webmanifest in sync by hand.
+ * Keep public/app/manifest.webmanifest in sync by hand.
  */
 
 /** @typedef {import('../core/types.js').Lang} Lang */
 
 export const BRAND = Object.freeze({
-  name: 'VisionFit',
-  nameHe: 'ויז׳ן פיט',
-  taglineHe: 'המסך שלך, מותאם לעיניים שלך',
-  taglineEn: 'Your screen, fitted to your eyes',
+  name: 'SeeTuned',
+  nameHe: 'סיטיונד',
+  taglineHe: 'המסך שלך, מכוון לעיניים שלך.',
+  taglineEn: 'Your screen, tuned to your eyes.',
   supportEmail: 'support@example.com',
   /** Matches --va-primary (light) and --va-bg (dark) in css/base.css. */
   themeColor: '#0a6b66',
   themeColorDark: '#0b1220',
 });
 
-/** Public legal pages (served outside the PWA scope, owned by A2). */
-export const LEGAL = Object.freeze({
-  terms: '/legal/terms.html',
-  privacy: '/legal/privacy.html',
-  accessibility: '/legal/accessibility.html',
-  cancellation: '/legal/cancellation.html',
-  disclaimer: '/legal/medical-disclaimer.html',
-});
+/** Public legal pages (owned by A2): Hebrew at /legal/<doc>.html, English at /legal/en/<doc>.html. */
+export const LEGAL_DOCS = /** @type {const} */ (['terms', 'privacy', 'accessibility', 'cancellation', 'disclaimer']);
+
+/** @param {typeof LEGAL_DOCS[number]} doc @param {Lang} lang */
+export function legalUrl(doc, lang) {
+  return lang === 'en' ? `/legal/en/${doc}.html` : `/legal/${doc}.html`;
+}
 
 /** @param {Lang} lang */
 export function brandName(lang) {
@@ -38,3 +37,12 @@ export function brandTagline(lang) {
 
 /** Shown in Settings; bump together with the service-worker VERSION. */
 export const APP_VERSION = '0.1.0';
+
+/**
+ * Feature flags. The product is a display-personalisation and viewing-comfort tool, not a medical device:
+ * clinical notation (logMAR, Snellen, decimal acuity, CS units) stays hidden unless this is switched on,
+ * and even then it is shown collapsed as "technical details".
+ */
+export const FEATURES = Object.freeze({
+  showTechnicalValues: false,
+});

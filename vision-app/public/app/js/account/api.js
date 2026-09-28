@@ -19,6 +19,8 @@
  * @property {string} currency       ISO-4217, e.g. "ILS".
  * @property {number} pricePerMonth  minor units
  * @property {number} savingsPercent
+ * @property {'auto'|'manual'} [renewal]  monthly auto-renews; 3-month and yearly are prepaid fixed terms (Israel)
+ * @property {string} [provider]
  */
 /** @typedef {{trialDays: number, currency: string, plans: Plan[]}} PlansResponse */
 /** @typedef {{user: User, entitlement: Entitlement}} SessionResponse */
@@ -133,8 +135,14 @@ export const api = {
   deleteAccount: (password) => apiRequest('DELETE', '/api/me', { body: { password }, handle401: false }),
   /** @param {PlanId} planId @returns {Promise<{url: string}>} */
   checkout: (planId) => apiRequest('POST', '/api/billing/checkout', { body: { planId } }),
-  /** @returns {Promise<{entitlement: Entitlement}>} */
-  cancel: () => apiRequest('POST', '/api/billing/cancel'),
+  /**
+   * One-click cancel. 'period_end' (default) keeps access until the paid period ends; 'now' ends it immediately and,
+   * within 14 days of the first charge, refunds in full.
+   * @param {'period_end'|'now'} [mode] @returns {Promise<{entitlement: Entitlement}>}
+   */
+  cancel: (mode = 'period_end') => apiRequest('POST', '/api/billing/cancel', { body: { mode } }),
+  /** Explicit-consent renewal of a fixed-term plan. @param {PlanId} planId @returns {Promise<{url?: string, entitlement?: Entitlement}>} */
+  renew: (planId) => apiRequest('POST', '/api/billing/renew', { body: { planId, consent: true } }),
   /** @returns {Promise<{entitlement: Entitlement}>} */
   resume: () => apiRequest('POST', '/api/billing/resume'),
   /** @param {AbortSignal} [signal] @returns {Promise<{invoices: Invoice[]}>} */
