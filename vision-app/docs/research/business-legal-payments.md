@@ -588,3 +588,265 @@ Across all jurisdictions, the **intended purpose** decides whether an app is a m
 | we recommend seeing an eye-care professional | מומלץ לפנות לאופטומטריסט או רופא עיניים | clinically proven, FDA/CE approved, doctor-grade, medical-grade | מוכח קלינית, מאושר FDA, ברמה רפואית |
 | not a medical device | אינו מכשיר רפואי | replaces your optometrist, no need for glasses | מחליף את האופטומטריסט, אין צורך במשקפיים |
 
+
+---
+
+## 6. Pricing benchmarks and default prices
+
+### 6.1 Comparable consumer apps (2025–2026)
+
+| Product | Category | Price | Source |
+|---|---|---|---|
+| Eye Test & Vision Checker (iOS) | vision-test app | $6.99/week, $29.99/month, $59.99/year | https://apps.apple.com/us/app/eye-test-vision-checker/id6621183937 [2nd] |
+| Vision Test & Eye Workout (iOS) | vision test + exercises | $4.99/week, $19.99/month, $34.99/year | https://apps.apple.com/us/app/id1557015448 [2nd] |
+| Eye Exercises and Vision Test (iOS) | vision test + exercises | $9.99/month, $29.99/year | https://apps.apple.com/us/app/eye-exercises-and-vision-test/id1457086132 [2nd] |
+| EyeQue VisionCheck 2 | at-home refraction hardware + app | device $49.99–$99, membership **$29/year** (first year included) | https://www.kickstarter.com/projects/eyeque/eyeque-visioncheck-2-smartphone-vision-test/faqs [2nd] |
+| Supersense (AI for blind/low vision) | accessibility | $4.99/month, $49.99/year, $99.99 lifetime | https://www.supersense.app/faq [2nd] |
+| Magnifier – Magnifying Glass (iOS) | magnifier | PRO $4.99/month | https://apps.apple.com/tm/app/magnifier-magnifying-glass/id1153929592 [2nd] |
+| Visor – Magnifier | low-vision magnifier | about $17.99 one-time | https://www.visorapp.net/blog/2026/3/6/the-ultimate-guide-to-magnifier-apps-for-low-vision-2026 [2nd] |
+| ZoomText Magnifier/Reader (desktop) | professional low-vision software | historically about $80/year home licence | https://afb.org/aw/19/12/15137 [2nd, 2019 data] |
+| SuperVision+ Magnifier (Mass Eye and Ear) | magnifier | free, no ads | https://eye.hms.harvard.edu/news/supervision-goggles-app-provides-low-cost-solution-visually-impaired [2nd] |
+| Be My Eyes | visual assistance | free; funded B2B | https://support.bemyeyes.com/hc/en-us/articles/360006070777 [2nd] |
+| Seeing AI (Microsoft) | visual assistance | free | https://www.seeingai.com/ [2nd] |
+| Envision app | visual assistance | now free | https://www.letsenvision.com/blog/envision-app-now-free-for-everyone [2nd] |
+| Peek Acuity | acuity screening (NGO) | free [CHECK] | — |
+| Built-in: iOS Magnifier, Android Magnification, Google Lookout | OS features | free | — |
+
+Takeaways:
+1. Low-vision users have strong **free** alternatives for magnification and assistance. Our value is the **personalised, test-driven, whole-device setup plus enhanced viewers**, so the price must feel modest.
+2. Vision-test apps with aggressive weekly plans ($5–7 per week) get poor reviews. **Avoid weekly plans.** They conflict with our trust positioning and target audience.
+3. The paid comparables cluster at **$4.99–9.99 per month** and **$30–60 per year**.
+
+**Subscription-app benchmarks** (RevenueCat State of Subscription Apps 2025/2026, via search extracts [2nd]):
+- The median monthly price is about $6.68, and the most common price is $9.99.
+- Health & Fitness apps sell about 68% of subscriptions as annual plans.
+- About 59% of users choose annual when it is 30–40% cheaper than 12 months of the monthly plan.
+- Trials of 17–32 days have the best trial-to-paid conversion (about 42.5% median) and first-renewal rates.
+- **No-card opt-in trials convert about 18% vs about 49% for card-gated trials.** That is the cost of our compliant Israeli design (section 3.5), accepted for legal safety and trust.
+
+Sources: https://www.revenuecat.com/state-of-subscription-apps ; https://www.revenuecat.com/blog/growth/free-trial-length ; https://www.airbridge.io/en/blog/subscription-app-pricing-by-category-2026-benchmark
+
+**Typical SaaS discount ladder:**
+- 3-month plan: 15–20% off the monthly equivalent.
+- Annual plan: 35–45% off, with "2 months free" (about 17%) as the conservative minimum.
+
+### 6.2 Israeli VAT in 2026
+
+**18%**, in force since 1 January 2025. The proposal to raise it to 19% in 2026 was dropped when the 2026 budget was approved. Sources are in section 1.8. All Israeli consumer prices are shown **including VAT** (sections 17A–17G).
+
+### 6.3 Default placeholder prices (founder can change later)
+
+| Plan (`planId`) | ILS incl. 18% VAT | Net of VAT / VAT | ILS per month | Saving vs monthly | USD (Paddle) | USD per month | Saving | Paddle fee (5% + $0.50) |
+|---|---|---|---|---|---|---|---|---|
+| `monthly` (1 month) | **₪24.90** | ₪21.10 / ₪3.80 | ₪24.90 | — | **$5.99** | $5.99 | — | $0.80 (13.3%) |
+| `quarterly` (3 months) | **₪59.90** | ₪50.76 / ₪9.14 | ₪19.97 | **20%** | **$14.99** | $5.00 | **17%** | $1.25 (8.3%) |
+| `yearly` (12 months) | **₪179.90** | ₪152.46 / ₪27.44 | ₪14.99 | **40%** | **$44.99** | $3.75 | **37%** | $2.75 (6.1%) |
+
+- Trial: **30 days**, no card (`trialDays: 30`).
+- EUR, if we add it later, mirrors the USD numbers with VAT included: €5.99, €14.99, €44.99. Paddle can show tax-inclusive prices per country. [CHECK Paddle settings]
+- In the UI, show the yearly plan as "the best value" (₪14.99 per month). Do not pre-select a plan, and never use fake "was" prices. Israeli price-display rules apply, and misleading reference prices are prohibited.
+- Keep prices in configuration (the server's plan table), not in code, so the founder can change them without a deploy. `GET /api/plans` returns `savingsPercent` computed from the configured prices.
+
+
+---
+
+## 7. Brand name
+
+### 7.1 Method and limits
+
+- **Conflict search:** web searches for each name as an app, company or trademark, including App Store, Google Play and USPTO-aggregator hits.
+- **Domain signal:** a DNS A-record lookup run from our sandbox on 2026-09-27.
+  - "Resolves" means the domain is **registered**.
+  - "No DNS" means **possibly** available, since a domain can be registered without DNS records. Confirm with a registrar, or with the Israel Internet Association (ISOC-IL) WHOIS for .co.il.
+- We could not query USPTO, EUIPO, WIPO or the Israel Patent Office (ILPO) databases directly.
+- **A formal trademark clearance search by a trademark attorney is still required** before adoption. It should cover ILPO, USPTO, EUIPO and WIPO Global Brand Database in Nice classes 9, 42 and 44, plus the app stores and social handles.
+
+### 7.2 Candidate evaluation
+
+The criteria were: short; easy to say and spell in Hebrew and English; says "screen tuned to your eyes"; not medical; low conflict risk.
+
+| Name | Hebrew spelling | .com / .co.il / .app | Conflicts found | Medical feel | Verdict |
+|---|---|---|---|---|---|
+| Eyedapt | אַיידַפְּט | resolves / no DNS / no DNS | **Eyedaptic**: AR low-vision glasses for AMD, the same audience (https://eyedaptic.com/). A USPTO record "EYEDAPT" held by Pharmacia & Upjohn (https://uspto.report/TM/78515983/). | medium | **Reject (high risk)** |
+| VisiFit | וִיזִיפִיט | resolves / no / no | "VisionFit" app studio, "Vision Fitness" apps, an academic "VisiFit" system. The "Visi-" prefix is crowded in optics. | low–medium | Medium risk; generic |
+| Visora | וִיזוֹרָה | resolves / no / **resolves** | Several unrelated users: a data-collection platform (tryvisora), an AI-image app (visora.app), an advisory firm and an agency. Crowded, but different fields. | low | **Medium risk; best of the list** |
+| EyeTune | אַייטְיוּן | resolves / no / no | "EyeTune" on the Vuzix smart-glasses app store; an "EyeTune" Devpost project doing *the same concept* (webcam-driven screen adjustment); "EyeTune Optical" shops. | low | Medium–high risk |
+| SightTune | סַייטְטְיוּן | resolves / no / no | **SightTune LLC**: an iOS app ("AI Page Turner") that uses **eye-gaze tracking**, active in 2026. Also a SightTune archery app. | low | **Reject (high risk)** |
+| Clarivue | קְלָרִיוְויוּ | resolves / no / **resolves** | **CLARIVUE** trademark of Boston Scientific (serial 97646225); "Clarivue" eye-care spray; "Clarivu" lens-replacement surgery brand. | **high** | **Reject** |
+| Seenly | סִינְלִי | resolves / no / no | Seenly.io (social scheduler); "Seenly" WhatsApp last-seen tracker on Google Play, a negative association. | low | Medium–high risk |
+| Focusly | פוֹקוּסְלִי | resolves / no / **resolves** | Many "Focusly" Pomodoro and focus apps on both stores. "Focus" also suggests eyesight or optics. | medium | **Reject (high risk)** |
+| VueFit | וְיוּפִיט | resolves / no / no | No identical app found. "Vue" marks nearby: Vue smart glasses (eyewear, class 9), Vue cinemas, Vue.js. People hearing it will type "viewfit". | low | Medium risk; spelling ambiguity |
+| Nitido | נִיטִידוֹ | resolves / no / **resolves** | Nitido Inc. (Toronto software), Nítido LLC (Dubai), a NITIDO mark of Telemundo. It means "sharp/clear" in Spanish and Portuguese but nothing in Hebrew or English. | low | Medium risk |
+| **SeeTuned** (ours) | **סִיטְיוּנְד** | **no DNS / no DNS / no DNS** | **None found** for "SeeTuned" or "See Tuned". Nearby but distinct: "StayTuned" (a Shopify tools company); "Tuned" (FDA-cleared hearing-aid app, a different sense). | none | **Recommended** |
+| EyeTuned (ours) | אַייטְיוּנְד | no DNS / no DNS / no DNS | No exact use, but it is close to the "EyeTune" uses above. | none | Strong alternative |
+| EyeCozy (ours) | אַייקוֹזִי | no DNS / no DNS / no DNS | None exact; "EyeEco" (dry-eye products) and "Eyezo" (eye-break app) are nearby. | none | Alternative ("comfort" angle; weaker on "tuning") |
+| AyinFit (ours) | עַיִן-פִיט | no DNS / no DNS / no DNS | None found | none | Israel-only option ("Ayin" is hard for English speakers) |
+| SeeFit (ours) | סִיפִיט | resolves / no / no | **Two "SeeFit" health and fitness apps on Google Play** and a "SeenFit" app. | low | Reject (same-category conflicts) |
+
+Sources for the conflicts:
+- Eyedaptic: https://eyedaptic.com/eye5/
+- EYEDAPT on USPTO: https://uspto.report/TM/78515983/
+- Visora: https://www.linkedin.com/company/tryvisora , https://www.visora.app/terms-of-service
+- EyeTune: https://apps.vuzix.com/app/eyetune , https://devpost.com/software/eyetune
+- SightTune: https://apps.apple.com/us/app/sighttune-ai-page-turner/id6756153566 , https://www.sighttune.com/
+- Clarivue: https://www.trademarkelite.com/trademark/trademark-detail/97646225/CLARIVUE
+- Seenly: https://play.google.com/store/apps/details?id=com.status.seenly , https://seenly.io/company/
+- Focusly: https://apps.apple.com/us/app/focusly-pomodoro-habits/id6757255803
+- Vue: https://apps.apple.com/us/app/vue-smart-glasses/id1435506636
+- Nitido: https://www.crunchbase.com/organization/nitido
+- SeeFit: https://play.google.com/store/apps/details?id=com.seefit.arya
+- Tuned: https://www.hearingtracker.com/news/tuned-ai-driven-app-for-otc-hearing-aids-gains-fda-510k-approval-paves-way-for-self-fitting-devices
+
+### 7.3 Recommendation
+
+**Final name: SeeTuned** (Hebrew **סִיטְיוּנְד**, pronounced "see-TOONED").
+- It reads as "see + tuned", with a memorable nod to "stay tuned". It says what the product does, tuning the screen to how you see, without sounding medical.
+- It is two syllables and easy for Hebrew speakers: the "-nd" ending works like סאונד or טרנד. It has no English spelling ambiguity.
+- No conflicting app or company was found, and none of the .com, .co.il or .app domains has DNS (possibly unregistered).
+- Wordmark usage: "SeeTuned" in Latin letters in both languages. In Hebrew running text write "סיטיונד" with the Latin logo alongside.
+
+**Taglines**
+- EN: **"Your screen, tuned to your eyes."**
+- HE: **"המסך שלך, מכוון לעיניים שלך."**
+- Secondary lines, all non-medical:
+  - EN: "Read easier. See your screen your way."
+  - HE: "לקרוא בקלות. לראות את המסך בדרך שלך."
+
+**Three alternatives**
+1. **EyeTuned** (אייטיונד): the most literal meaning, with moderate similarity to "EyeTune" uses.
+2. **Visora** (ויזורה): the best of the founder's list. Distinctive sound, but a crowded name.
+3. **VueFit** (ויו-פיט): the founder's list. Low direct conflict, but spelling ambiguity (view vs vue).
+
+**Next steps before adoption**
+1. Have an attorney run a clearance search: ILPO, USPTO, EUIPO and WIPO in classes 9, 42 and 44.
+2. Register seetuned.com, seetuned.co.il and seetuned.app, plus defensive variants such as see-tuned.com and eyetuned.com.
+3. Reserve social handles.
+4. File an Israeli trademark application, then a Madrid Protocol extension to the US and EU when expanding.
+
+**A formal trademark search by a qualified attorney is still needed. Nothing in this section is a clearance opinion.**
+
+
+---
+
+## DECISIONS FOR ENGINEERING
+
+1. **Providers and routing.** Build a provider-adapter layer (section 1.7).
+   - Adapters: `payplus` (Israel, ILS, primary), `paddle` (international, USD or EUR, as Merchant of Record), and `cardcom` (Israeli fallback, can come later).
+   - Routing rule: billing country IL goes to PayPlus; everything else goes to Paddle. Store `provider` on each subscription and never switch it mid-subscription.
+   - No Stripe: it is not available to Israeli companies in 2026. Keep an adapter slot for Stripe or Stripe Managed Payments.
+2. **Checkout.** Always a **full redirect** to the provider-hosted page (PayPlus `PaymentPages/generateLink`, or Paddle hosted checkout or overlay).
+   - No card fields on our pages, so we stay in PCI DSS SAQ A. `POST /api/billing/checkout` returns `{url}`.
+   - Amounts are integers in minor units. Israeli prices include VAT.
+3. **PayPlus webhook verification.**
+   - Route: `POST /api/webhooks/payplus` with a raw body.
+   - Require the header `user-agent == "PayPlus"`.
+   - Compute `base64(HMAC_SHA256(key=PAYPLUS_SECRET_KEY, msg=rawBody))` and compare it in constant time with the `hash` header. As a fallback, also accept the hash of `JSON.stringify(JSON.parse(rawBody))`.
+   - There is no timestamp, so: deduplicate on transaction uid + status; **re-query `PaymentPages/ipn` before granting access**; and check that the amount and currency match the stored session.
+   - Outgoing API authentication: header `Authorization: {"api_key":"…","secret_key":"…"}`.
+   - Base URLs: staging `https://restapidev.payplus.co.il/api/v1.0/`, production `https://restapi.payplus.co.il/api/v1.0/`.
+4. **Paddle webhook verification.**
+   - Route: `POST /api/webhooks/paddle` with a raw body.
+   - Parse the `Paddle-Signature: ts=…;h1=…` header.
+   - Compute `hex(HMAC_SHA256(key=PADDLE_WEBHOOK_SECRET (pdl_ntfset_…), msg = ts + ":" + rawBody))` and compare it in constant time with `h1`. If several `h1` values are present, accept a match with any of them.
+   - Reject if `now > ts + 5 s` (make the tolerance configurable).
+   - Deduplicate on `event_id`.
+5. **Unsigned providers (Cardcom, Grow and others).** Treat a callback only as a signal. Grant access only after an authenticated re-query (Cardcom `LowProfile/GetLpResult`). Run a nightly reconciliation job for all providers.
+6. **Trial.** 30 days, **no card**, no auto-conversion (`trialDays: 30`).
+   - On day 30 the status becomes `expired` and the user sees the paywall.
+   - Send courtesy reminders on days 23, 27 and 30 (in-app, push and email).
+   - The on-device profile survives expiry.
+7. **Plans and renewal.**
+   - **Israel:**
+     - `monthly` auto-renews. Our scheduler charges the PayPlus token (preferred over the PSP standing-order module).
+     - `quarterly` and `yearly` are **prepaid fixed-term plans with no auto-renewal**, so `cancelAtPeriodEnd` is true by default. Renewal only through an explicit "Renew" consent action near the end. Suggested endpoint: `POST /api/billing/renew`. Bit is allowed only on these one-time charges.
+   - **International (Paddle):** all three plans auto-renew. Email a reminder 7 days before any quarterly or yearly renewal.
+   - **Failed renewal:** status `past_due` with a 7-day retry and grace period, then `expired`.
+8. **Required notices for Israeli fixed-term plans.**
+   - A written notice of the end date **60 to 30 days before the end** (email and in-app, as a standalone message).
+   - An **SMS 21 days before the end** if we have a mobile number. Collect an optional mobile number at purchase for this purpose.
+   - The end date shown prominently on every invoice-receipt.
+   - Any price change needs at least 30 days' written notice.
+   - For monthly plans: an invoice-receipt for every charge, showing the next charge date, and an **annual statement of charges every March**.
+   - Keep a log of every notice: type, channel, timestamp, template version.
+9. **Cancellation.**
+   - Provide a one-click cancel in Account (`POST /api/billing/cancel`). Suggested body: `{mode:'period_end'|'now'}`.
+     - `period_end` is the default: renewal stops and access continues until the paid-through date.
+     - `now` ends access immediately and refunds unused days pro-rata.
+   - It must take effect within at most 3 business days. In practice it should be immediate, with no further charges.
+   - **No cancellation fee.**
+   - **Full refund** if the first paid charge is cancelled within 14 days.
+   - Send an email confirmation immediately, with the cancellation date and a reference number.
+   - Put a persistent **"ביטול מנוי / Cancel subscription" link on the site home page and footer**, plus a login-free contact form.
+   - Never require a phone call to cancel.
+   - `DELETE /api/me` also cancels the subscription.
+10. **Pre-purchase disclosure on the paywall and checkout.**
+    - Show: the business name and ID, address, email and phone; the service description; the **total price including VAT**; the billing period; renewal or non-renewal terms; the trial terms; how to cancel; and refund rules.
+    - Include an unchecked consent box for recurring charges.
+    - Afterwards, email a confirmation containing the same details.
+11. **Legal pages we must ship** (`/legal/*.html`, Hebrew and English; A2 drafts them):
+    - **Terms of Service:**
+      - who we are, and that the service is for adults;
+      - the service description and the intended-use statement (section 5.2);
+      - account rules;
+      - trial terms;
+      - plans, prices including VAT, billing, and renewal and non-renewal per plan;
+      - price changes with notice;
+      - cancellation and refunds (a pointer to the cancellation policy);
+      - acceptable use;
+      - intellectual property;
+      - disclaimers and limitation of liability (not excluding liability that consumer law forbids excluding);
+      - governing law of Israel and courts of Tel Aviv, while preserving consumer rights where the user lives;
+      - changes to the terms, and contact details.
+    - **Privacy Policy:** all the items in section 4.4, including "eye data stays on your device" and the camera processed locally.
+    - **Cancellation and Refund Policy:**
+      - the section 13D channels (app button, website link, email, phone);
+      - the 3-business-day effect;
+      - no fee;
+      - the 14-day full refund of the first charge, with refunds within 7 business days;
+      - pro-rata option;
+      - the extended 4-month right for seniors, people with disabilities and new immigrants where the law applies;
+      - fixed-term plans that do not auto-renew;
+      - the notice schedule.
+    - **Accessibility Statement:**
+      - the standard (IS 5568 / WCAG 2.1 AA);
+      - the date of the last review;
+      - accessible features and known limitations with workarounds;
+      - the accessibility coordinator's name, phone, email and address;
+      - the date of last update.
+    - **Medical Disclaimer:**
+      - "not a medical device, not a diagnosis, not a prescription";
+      - it does not replace an eye exam;
+      - see a professional for any concern, and promptly for sudden changes;
+      - results depend on screen, lighting and distance;
+      - no emergency use.
+      
+      Show a short version before the first check and in store listings.
+12. **Claims.** The UI shows display settings, never clinical metrics: no 6/6 or 20/20, no diopters, no disease names.
+    - Amsler-type grid: remove it from the MVP, or keep it as a "grid comfort check" with no scoring or tracking and with the see-a-professional message (section 5.2).
+    - Use the wording table in section 5.3 for every string.
+13. **Privacy architecture.**
+    - Eye data stays **on-device only**.
+    - The server stores the account, consents, subscription, provider IDs and invoice references.
+    - No third-party ad SDKs. Analytics are cookieless and contain no health data.
+    - Users can export and delete their data.
+    - Record consents with version and timestamp.
+14. **Default prices** (configurable; `GET /api/plans`):
+    - ILS: `monthly` ₪24.90, `quarterly` ₪59.90 (save 20%), `yearly` ₪179.90 (save 40%), all including 18% VAT.
+    - USD: $5.99, $14.99 (save 17%), $44.99 (save 37%).
+    - Trial: 30 days.
+    - Invoices come from PayPlus Invoice+ (Israel) and Paddle (international).
+15. **Name and taglines.** **SeeTuned** (Hebrew סִיטְיוּנְד).
+    - EN: "Your screen, tuned to your eyes."
+    - HE: "המסך שלך, מכוון לעיניים שלך."
+    - Alternatives: EyeTuned, Visora, VueFit.
+    - A formal trademark search by an attorney is required before adoption.
+16. **Store builds (later).** Use IAP or Play Billing in-app, including for trials. Honour web subscriptions (Apple 3.1.3(b)). No link-outs except in the US storefront. A TWA must use the Digital Goods API.
+17. **Open items for professionals.**
+    - Counsel:
+      - the exact current text of 13A, 13B, 13D and 14C(c1);
+      - the validity of the cancellation choice defaulting to the end of the period;
+      - the store-trial conflict with 13A.
+    - CPA:
+      - עוסק פטור vs עוסק מורשה (exempt vs licensed dealer) vs a company;
+      - VAT on supplies to Paddle.
+    - Trademark attorney: clearance of SeeTuned.

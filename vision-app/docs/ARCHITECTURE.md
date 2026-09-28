@@ -2,6 +2,10 @@
 
 This document is the contract between the manager and the build agents. Read it fully before writing code.
 
+## Product name
+**SeeTuned** (Hebrew: סיטיונד). Taglines — EN: "Your screen, tuned to your eyes." HE: "המסך שלך, מכוון לעיניים שלך."
+The name lives in one place in code: `public/app/js/shell/brand.js`.
+
 ## Product in one paragraph
 A Progressive Web App (installable on Android and iOS phones and tablets) that measures the user's vision with
 self-administered on-screen tests (each eye separately), builds a personal **VisionProfile**, and then
@@ -10,7 +14,10 @@ enhancement pipeline, and (3) gives exact, step-by-step instructions to set the 
 settings so *everything* on the phone/tablet is adapted. Subscription: 30-day free trial, then monthly / 3-month /
 yearly plans via a hosted, PCI-compliant payment page. Hebrew (RTL) first, English second.
 
-Honesty rules (non-negotiable): the product is **not a medical device, not a diagnosis and not a prescription**.
+Honesty rules (non-negotiable): the product is a **display personalization and viewing-comfort tool** — **not a medical device, not a diagnosis and not a prescription**.
+The default UI never shows clinical notation (no Snellen 6/x or 20/x, decimal acuity, logMAR, diopters or disease names);
+results are expressed functionally (e.g. recommended text size, "screen detail" level, colour-filter need). Technical values
+may appear only behind the `FEATURES.showTechnicalValues` flag (default off). The Amsler grid is **out of scope** (regulatory risk).
 A normal screen cannot optically correct refractive blur; we adapt size, contrast, colour and sharpness, and we
 recommend seeing an eye-care professional when results warrant it. See `docs/research/vision-science.md`
 ("PRODUCT CLAIMS") and `docs/research/business-legal-payments.md`.
@@ -39,12 +46,12 @@ recommend seeing an eye-care professional when results warrant it. See `docs/res
 | A1 Vision Science | `public/app/js/engine/profile.js`, `public/app/js/engine/system-guide.js`, `public/app/js/engine/strings/**`, `test/unit/engine/**`, `docs/research/vision-science.md` |
 | A2 Business/Legal | `public/legal/**`, `docs/research/business-legal-payments.md`, `docs/legal/**` |
 | A3 Calibration | `public/app/js/calibration/**`, `test/unit/calibration/**` |
-| A4 Clinical tests | `public/app/js/tests/{acuity,reading,contrast,astigmatism,amsler}/**`, `test/unit/tests/**` (except color) |
+| A4 Clinical tests | `public/app/js/tests/{acuity,reading,contrast,astigmatism}/**`, `test/unit/tests/**` (except color) |
 | A5 Colour | `public/app/js/tests/color/**`, `public/app/js/engine/color-math.js`, `test/unit/color/**` |
 | A6 Rendering | `public/app/js/render/**`, `public/app/js/viewers/**`, `test/unit/render/**` |
 | A7 Frontend/UX | `public/app/index.html`, `public/app/manifest.webmanifest`, `public/app/sw.js`, `public/app/css/app.css`, `public/app/js/app.js`, `public/app/js/{shell,flows,screens,account}/**`, `test/unit/shell/**` |
 | A8 Backend | `server/**`, `test/unit/server/**` |
-| A9 Brand | `public/index.html`, `public/assets/**`, `public/app/icons/**`, `public/brand/**`, `docs/brand/**` |
+| A9 Brand | `public/index.html`, `public/en/**`, `public/assets/**`, `public/favicon.ico`, `public/app/icons/**`, `public/brand/**`, `docs/brand/**` |
 | A10 QA/Security | `test/e2e/**` (except `harness.spec.js`), `docs/qa/**` |
 
 ## Shared core (manager-owned, use it, do not fork it)
@@ -73,7 +80,6 @@ Call `ctx.onProgress?.(fraction)` as the test advances.
 | `tests/reading/reading-view.js` | `runReadingTest(container, ctx) => Promise<ReadingResult>` |
 | `tests/contrast/contrast-view.js` | `runContrastTest(container, ctx) => Promise<ContrastResult>` |
 | `tests/astigmatism/astigmatism-view.js` | `runAstigmatismTest(container, ctx) => Promise<AstigmatismResult>` |
-| `tests/amsler/amsler-view.js` | `runAmslerTest(container, ctx) => Promise<AmslerResult>` |
 | `tests/color/color-view.js` | `runColorTest(container, ctx) => Promise<ColorResult>` |
 | `engine/color-math.js` | pure: `srgbToLinear`, `linearToSrgb`, `machadoMatrix(type, severity)`, `daltonizeMatrix(type, severity)`, `mat3Mul`, `mat3Apply` (all matrices 3x3 row-major, linear RGB) |
 | `engine/profile.js` | pure: `computeProfile(input: ProfileInput, opts?: {id?, name?, now?}) => VisionProfile`, `recomputeProfile(profile) => VisionProfile` |
@@ -101,10 +107,13 @@ and come from the same origin (server checks `Origin`). Errors: `{ "error": { "c
 | `GET /api/me` | – | `{user:{id,email,lang,createdAt}, entitlement}` or 401 |
 | `DELETE /api/me` | `{password}` | 204 (deletes account; cancels subscription) |
 | `POST /api/billing/checkout` | `{planId}` | `{url}` (hosted payment page) |
-| `POST /api/billing/cancel` | – | `{entitlement}` (cancel at period end; one click, per Israeli law) |
+| `POST /api/billing/cancel` | `{mode?: 'period_end'|'now'}` (default `period_end`) | `{entitlement}` (one click, no fee, per Israeli law; `now` + first charge within 14 days => full refund) |
+| `POST /api/billing/renew` | `{planId, consent: true}` | `{url}` or `{entitlement}` (explicit-consent renewal of Israeli fixed-term plans) |
 | `POST /api/billing/resume` | – | `{entitlement}` |
 | `GET /api/billing/invoices` | – | `{invoices:[...]}` |
 | `POST /api/webhooks/:provider` | raw provider payload | 200 after signature verification |
+
+`GET /api/plans` also returns per plan `renewal: 'auto'|'manual'` and `provider`.
 
 `entitlement = {status:'trial'|'active'|'canceled'|'past_due'|'expired', plan:null|'monthly'|'quarterly'|'yearly',
 trialEndsAt, currentPeriodEnd, cancelAtPeriodEnd, daysLeft, hasAccess}`.
