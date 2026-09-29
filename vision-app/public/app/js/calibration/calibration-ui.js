@@ -179,10 +179,9 @@ function rulerFigure() {
         s('path', { d: ticks.join(' '), stroke: 'var(--va-text)', 'stroke-width': '1', 'vector-effect': 'non-scaling-stroke', fill: 'none' }),
         s('path', { d: `M0 0 V${RULER_LENGTH_MM}`, stroke: 'var(--va-text)', 'stroke-width': '1.5', 'vector-effect': 'non-scaling-stroke' }),
         ...Array.from({ length: RULER_LENGTH_MM / 10 + 1 }, (_, i) => s('text', {
-          x: '12', y: String(i * 10 + 1.2), 'font-size': '3.6', fill: 'var(--va-text)', 'font-family': 'system-ui, sans-serif',
+          x: '13', y: String(i * 10), 'font-size': '3.6', fill: 'var(--va-text)', 'font-family': 'system-ui, sans-serif', 'dominant-baseline': 'central',
         }, String(i))),
-        s('path', { d: `M0 0 H${WIDTH_MM}`, stroke: 'var(--va-danger)', 'stroke-width': '2', 'vector-effect': 'non-scaling-stroke' }),
-        s('path', { d: `M0 ${RULER_LENGTH_MM} H${WIDTH_MM}`, stroke: 'var(--va-danger)', 'stroke-width': '2', 'vector-effect': 'non-scaling-stroke' }),
+        s('path', { d: `M0 0 H11 M0 ${RULER_LENGTH_MM} H11`, stroke: 'var(--va-danger)', 'stroke-width': '2', 'vector-effect': 'non-scaling-stroke' }),
       );
     },
   };

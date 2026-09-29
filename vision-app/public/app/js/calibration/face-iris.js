@@ -67,13 +67,50 @@ async function createLandmarker() {
   const url = new URL('vision_bundle.mjs', VENDOR_BASE).href;
   const vision = await import(/* @vite-ignore */ url);
   const fileset = await vision.FilesetResolver.forVisionTasks(new URL('wasm', VENDOR_BASE).href);
-  return vision.FaceLandmarker.createFromOptions(fileset, {
-    baseOptions: { modelAssetPath: new URL('face_landmarker.task', VENDOR_BASE).href, delegate: 'CPU' },
-    runningMode: 'VIDEO',
-    numFaces: 1,
-    outputFaceBlendshapes: false,
-    outputFacialTransformationMatrixes: true,
-  });
+  // Emscripten picks up a pre-set global `Module`: route the runtime's informational stderr lines
+  // ("INFO: Created TensorFlow Lite XNNPACK delegate…") to console.debug instead of console.error.
+  const g = /** @type {any} */ (globalThis);
+  g.Module = {
+    print: (/** @type {string} */ m) => console.debug(m),
+    printErr: (/** @type {string} */ m) => (/^(INFO|I\d{4}|W\d{4})/.test(String(m)) ? console.debug(m) : console.warn(m)),
+  };
+  try {
+    const task = await vision.FaceLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: new URL('face_landmarker.task', VENDOR_BASE).href, delegate: 'CPU' },
+      runningMode: 'VIDEO',
+      numFaces: 1,
+      outputFaceBlendshapes: false,
+      outputFacialTransformationMatrixes: true,
+    });
+    disableTelemetry(task);
+    return task;
+  } finally {
+    g.Module = undefined;
+  }
+}
+
+/**
+ * The Tasks runtime creates a usage-statistics logger that POSTs to a Google endpoint every 60 s and on close.
+ * Our privacy rule is that nothing leaves the device, so we switch it off: the logger is the object with a
+ * `flush()` method and a pending-events array; mark it failed (flush becomes a no-op), stop its timer and detach it.
+ * If a future runtime version changes this structure, nothing matches and nothing happens (CSP connect-src
+ * 'self' is the backstop).
+ * @param {any} task
+ */
+function disableTelemetry(task) {
+  try {
+    for (const key of Object.keys(task)) {
+      const session = task[key];
+      if (!session || typeof session !== 'object') continue;
+      const logger = Object.values(session).find((v) => v && typeof v === 'object' && typeof v.flush === 'function' && Array.isArray(v.h));
+      if (!logger) continue;
+      if (logger.g !== undefined) clearInterval(logger.g);
+      logger.g = undefined;
+      logger.h = [];
+      logger.error = new Error('usage logging disabled');
+      task[key] = undefined;
+    }
+  } catch { /* best effort */ }
 }
 
 /** @returns {Promise<any|null>} */

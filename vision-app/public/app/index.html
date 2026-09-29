@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>המסך שלך, מכוון לעיניים שלך</title>
+  <meta name="description" content="התאמה אישית של המסך לראייה שלך. Screen personalisation for your eyes.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#0a6b66">
+  <meta name="theme-color" content="#0a6b66" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="modulepreload" href="js/app.js">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <noscript>
+    <div class="va-noscript" lang="he" dir="rtl">
+      <p>כדי להשתמש באפליקציה צריך להפעיל JavaScript בדפדפן.</p>
+      <p lang="en" dir="ltr">Please enable JavaScript in your browser to use this app.</p>
+    </div>
+  </noscript>
+  <div id="app" class="va-app" data-state="loading">
+    <div class="va-boot" role="status"><span class="va-spinner" aria-hidden="true"></span><span class="va-visually-hidden">טוען… Loading…</span></div>
+  </div>
+</body>
+</html>

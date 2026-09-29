@@ -359,8 +359,8 @@ export function runDistanceCalibration(container, ctx) {
         for (const eye of /** @type {const} */ (['left', 'right'])) {
           let tries = 0;
           for (;;) {
-            if ((await eyeInstructions(eye)) === 'manual') return 'manual';
             if (!(await ensureFeasible())) return 'manual';
+            if ((await eyeInstructions(eye)) === 'manual') return 'manual';
             const estimate = runs.left?.distanceMm || BLIND_SPOT.initialGuessMm;
             const trials = await runEye(eye, estimate, eye === 'left' ? 0 : 0.45);
             if (!trials) return 'manual';

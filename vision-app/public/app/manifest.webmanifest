@@ -1,0 +1,37 @@
+{
+  "id": "/app/",
+  "name": "SeeTuned",
+  "short_name": "SeeTuned",
+  "description": "המסך שלך, מכוון לעיניים שלך. Your screen, tuned to your eyes.",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#0a6b66",
+  "background_color": "#f5f8fb",
+  "categories": ["health", "utilities", "lifestyle"],
+  "icons": [
+    { "src": "/app/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/app/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/app/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "זכוכית מגדלת", "short_name": "מגדלת", "url": "/app/#/viewer/magnifier", "icons": [{ "src": "/app/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "קורא טקסט", "short_name": "קורא", "url": "/app/#/viewer/reader", "icons": [{ "src": "/app/icons/icon-192.png", "sizes": "192x192" }] }
+  ],
+  "share_target": {
+    "action": "/app/share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        { "name": "media", "accept": ["image/*", "video/*"] }
+      ]
+    }
+  }
+}

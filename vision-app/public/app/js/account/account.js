@@ -75,7 +75,7 @@ export function mount(ctx) {
     const end = accessEndsAt(e);
     const endDate = end ? formatDate(end, lang) : '';
     const acts = subscriptionActions(e, now);
-    const renewal = e?.plan ? planRenewalFor(e.plan) : null;
+    const renewal = e?.renewal === 'auto' || e?.renewal === 'manual' ? e.renewal : e?.plan ? planRenewalFor(e.plan) : null;
 
     /** @type {Array<[string, any]>} */
     const rows = [[t('account.email'), h('span', { dir: 'ltr', class: 'va-ltr' }, user?.email || '')]];
@@ -92,7 +92,7 @@ export function mount(ctx) {
       else if (renewal === 'auto') when = t('account.renewsOn', { date: endDate });
       else when = t('account.endsOn', { date: endDate });
     }
-    if (when) rows.push([e?.status === 'trial' ? ctx.t('route.paywall') && t('status.trial') : t('account.plan') && '', h('span', { 'data-testid': 'account-when' }, when)]);
+    if (when) rows.push([t('account.validity'), h('span', { 'data-testid': 'account-when' }, when)]);
 
     const actions = [];
     if (acts.needsPaymentFix) actions.push(linkButton(t('account.fixPayment'), '#/paywall', { testId: 'account-fix-payment' }));
@@ -101,12 +101,13 @@ export function mount(ctx) {
     if (acts.canCancel) actions.push(actionButton(t('account.cancel'), { variant: 'secondary', className: 'va-btn--danger-outline', testId: 'account-cancel', disabled: !canAct, onClick: (ev) => void cancel(/** @type {HTMLButtonElement} */ (ev.currentTarget), e) }));
 
     const parts = [
-      infoList(rows.map(([k, v]) => [k || (lang === 'he' ? 'תוקף' : 'Validity'), v]), 'account-info'),
+      infoList(rows, 'account-info'),
       e?.status === 'trial' ? h('p', { class: 'va-hint' }, t('account.trialNoCharge')) : null,
       acts.canCancel ? h('p', { class: 'va-hint' }, t('account.cancelNote')) : null,
     ];
     const cards = [card({ title: t('account.subTitle'), iconName: 'receipt', children: parts, actions, testId: 'account-subscription' })];
-    if (e?.plan && renewal === 'manual' && e.status !== 'trial') cards.push(renewCard(e, canAct));
+    const renewable = typeof e?.canRenew === 'boolean' ? e.canRenew : !!e?.plan && renewal === 'manual' && e.status !== 'trial';
+    if (e?.plan && renewable) cards.push(renewCard(e, canAct));
     const offline = !canAct ? notice('warning', t('account.offline'), { testId: 'account-offline' }) : null;
     subHost.replaceChildren(...[offline, ...cards].filter(Boolean));
   }

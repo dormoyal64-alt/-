@@ -1,0 +1,164 @@
+// @ts-check
+/**
+ * #/results — functional, plain-language results for the active profile; flags with eye-care advice;
+ * technical values only behind FEATURES.showTechnicalValues (collapsed). Print-friendly via window.print().
+ */
+import { h } from '../core/dom.js';
+import { makeT } from '../core/i18n.js';
+import { getActiveProfile } from '../core/storage.js';
+import { SCREEN_STRINGS } from './strings.js';
+import { FLOW_STRINGS } from '../flows/strings.js';
+import { brandName, FEATURES } from '../shell/brand.js';
+import { formatDate, formatCm, formatFixed } from '../shell/format.js';
+import { icon } from '../shell/icons.js';
+import { linkButton, actionButton, card, emptyState, notice, pageHeader } from '../shell/components.js';
+import { loadModule } from '../shell/modules.js';
+import { eyeSummaries, textScalePercent, colorFinding, contrastBand, sortFlags } from './summary.js';
+import { describeFlag } from './flag-messages.js';
+import { RX_FIELDS, formatRxValue } from '../flows/rx.js';
+
+/** @typedef {import('../core/types.js').ProfileFlag} ProfileFlag */
+
+/** @param {import('../shell/screen-types.js').ScreenContext} ctx */
+export async function mount(ctx) {
+  const t = makeT(SCREEN_STRINGS, ctx.lang);
+  const tf = makeT(FLOW_STRINGS, ctx.lang);
+  const lang = ctx.lang;
+  const profile = getActiveProfile();
+  if (!profile) {
+    return {
+      el: h('div', { class: 'va-page', 'data-testid': 'screen-results' }, emptyState({
+        iconName: 'results', title: t('results.none'), body: t('results.noneBody'), testId: 'results-empty',
+        actions: [linkButton(t('results.start'), '#/onboarding')],
+      })),
+    };
+  }
+
+  // Prefer the engine's own flag wording when it offers one.
+  /** @type {((flag: ProfileFlag, lang: string) => any)|null} */
+  let engineDescribe = null;
+  const eng = await loadModule('profile');
+  if (eng.ok) engineDescribe = typeof eng.mod.describeFlag === 'function' ? eng.mod.describeFlag : typeof eng.mod.flagMessage === 'function' ? eng.mod.flagMessage : null;
+  /** @param {ProfileFlag} f */
+  const flagText = (f) => {
+    const mine = describeFlag(f, lang);
+    if (engineDescribe) {
+      try {
+        const r = engineDescribe(f, lang);
+        const text = typeof r === 'string' ? r : r?.text || r?.message || r?.title;
+        if (text) return { ...mine, text: String(text) };
+      } catch { /* fall back to our wording */ }
+    }
+    return mine;
+  };
+
+  const input = profile.input || /** @type {any} */ ({});
+  const distanceMm = input.distance?.distanceMm;
+  const sections = [];
+
+  const flags = sortFlags(profile.flags || []);
+  if (flags.length) {
+    sections.push(card({
+      title: t('results.flagsTitle'), iconName: 'info', testId: 'results-flags', className: 'va-card--full',
+      children: h('ul', { class: 'va-flags' }, flags.map((f) => {
+        const d = flagText(f);
+        return h('li', { class: `va-flag va-flag--${d.level}`, 'data-testid': `flag-${f.code}` },
+          icon(d.level === 'info' ? 'info' : 'warning', { size: 22 }),
+          h('div', null, h('p', { class: 'va-flag__text' }, d.text), d.advice ? h('p', { class: 'va-flag__advice' }, d.advice) : null));
+      })),
+    }));
+  }
+
+  // Detail per eye
+  const eyes = eyeSummaries(profile);
+  sections.push(card({
+    title: t('results.detailTitle'), iconName: 'eye', testId: 'results-detail',
+    children: [
+      h('p', { class: 'va-hint' }, t('results.detailLead')),
+      h('div', { class: 'va-eyes' }, eyes.map((x) => h('div', { class: 'va-eye', 'data-testid': `eye-${x.eye}` },
+        h('h3', { class: 'va-eye__name' }, t(x.eye === 'right' ? 'results.eyeRight' : 'results.eyeLeft')),
+        x.score === null
+          ? h('p', { class: 'va-muted' }, t('results.notMeasured'))
+          : [
+            h('div', { class: 'va-meter va-meter--score', role: 'img', 'aria-label': t('results.score', { score: x.score }) },
+              h('span', { class: 'va-meter__bar' }, h('span', { class: 'va-meter__fill', style: { width: `${x.score}%` } }))),
+            h('p', { class: 'va-eye__score' }, t('results.score', { score: x.score })),
+            h('p', { class: 'va-eye__band' }, t(`detail.${x.band}`)),
+            !x.reliable ? h('p', { class: 'va-hint' }, t('results.lessCertain')) : null,
+            x.floorLimited ? h('p', { class: 'va-hint' }, t('results.floor')) : null,
+          ],
+        x.lines ? h('p', { class: 'va-eye__lines' }, h('strong', null, t('results.linesTitle') + ': '), t(`lines.${x.lines}`)) : null,
+      ))),
+    ],
+  }));
+
+  // Text & reading
+  const pct = textScalePercent(profile.text?.scale);
+  const textRows = [];
+  if (pct) textRows.push(h('p', { class: 'va-result-line', 'data-testid': 'result-textsize' }, t('results.textSize', { pct, px: Math.round(profile.text.baseFontPx) })));
+  if (input.reading?.maxReadingSpeedWpm) textRows.push(h('p', { class: 'va-result-line' }, t('results.readingSpeed', { wpm: Math.round(input.reading.maxReadingSpeedWpm) })));
+  if (profile.viewing?.recommendedDistanceMm) textRows.push(h('p', { class: 'va-result-line' }, t('results.distance', { cm: formatCm(profile.viewing.recommendedDistanceMm, lang) })));
+  if (textRows.length) sections.push(card({ title: t('results.textTitle'), iconName: 'reader', testId: 'results-text', children: textRows }));
+
+  const cb = contrastBand(input.contrast?.logCS);
+  sections.push(card({ title: t('results.contrastTitle'), iconName: 'sparkle', testId: 'results-contrast', children: h('p', { class: 'va-result-line' }, cb ? t(`contrast.${cb}`) : t('results.notMeasured')) }));
+
+  const cf = colorFinding(input.color);
+  sections.push(card({
+    title: t('results.colorTitle'), iconName: 'photo', testId: 'results-color',
+    children: [
+      h('p', { class: 'va-result-line' }, cf ? `${t(`color.${cf.key}`)}${cf.degree ? ' ' + t(`degree.${cf.degree}`) : ''}` : t('results.notMeasured')),
+      profile.system?.colorFilter ? h('p', { class: 'va-hint' }, t('results.colorFilter')) : null,
+    ],
+  }));
+
+  if (input.focus && (input.focus.nearPointMm || input.focus.farPointMm)) {
+    const parts = [];
+    if (input.focus.nearPointMm) parts.push(t('results.focusNear', { cm: formatCm(input.focus.nearPointMm, lang) }));
+    if (input.focus.farPointMm) parts.push(t('results.focusFar', { cm: formatCm(input.focus.farPointMm, lang) }));
+    sections.push(card({ title: t('results.focusTitle'), iconName: 'magnifier', children: h('p', { class: 'va-result-line' }, parts.join(' ')) }));
+  }
+
+  if (input.rx && (input.rx.right || input.rx.left)) {
+    sections.push(card({
+      title: t('results.rxTitle'), iconName: 'receipt', testId: 'results-rx',
+      children: h('div', { class: 'va-table-wrap' }, h('table', { class: 'va-table' },
+        h('thead', null, h('tr', null, h('th', { scope: 'col' }, ''), ...RX_FIELDS.map((f) => h('th', { scope: 'col' }, tf(`rx.${f}`))))),
+        h('tbody', null, /** @type {const} */ (['right', 'left']).map((eye) => h('tr', null,
+          h('th', { scope: 'row' }, tf(`rx.${eye}`)),
+          ...RX_FIELDS.map((f) => h('td', { dir: 'ltr' }, formatRxValue(f, input.rx?.[eye]?.[f]) || '–'))))))),
+    }));
+  }
+
+  if (FEATURES.showTechnicalValues) {
+    const tech = [];
+    for (const x of eyes) {
+      if (!x.acuity) continue;
+      tech.push(h('p', null, h('strong', null, t(x.eye === 'right' ? 'results.eyeRight' : 'results.eyeLeft') + ': '),
+        t('results.techAcuity', { logmar: formatFixed(x.acuity.logMAR, 2, lang), snellen: x.acuity.snellen6, decimal: formatFixed(x.acuity.decimal, 2, lang) })));
+    }
+    if (input.contrast) tech.push(h('p', null, t('results.techContrast', { cs: formatFixed(input.contrast.logCS, 2, lang) })));
+    if (input.reading) tech.push(h('p', null, t('results.techReading', { cps: formatFixed(input.reading.criticalPrintSizeLogMAR, 2, lang) })));
+    sections.push(h('details', { class: 'va-card va-details', 'data-testid': 'results-tech' },
+      h('summary', null, t('results.techTitle', { cm: formatCm(distanceMm, lang) })), ...tech));
+  }
+
+  const el = h('div', { class: 'va-page va-page--wide va-results', 'data-testid': 'screen-results' },
+    h('div', { class: 'va-print-head', 'aria-hidden': 'true' },
+      h('p', { class: 'va-print-head__brand' }, brandName(lang)),
+      h('p', null, t('results.printedOn', { date: formatDate(new Date(), lang) }))),
+    pageHeader({
+      title: t('results.title'),
+      lead: [t('results.lead', { name: profile.name, date: formatDate(profile.updatedAt, lang) }), input.wearsCorrection ? ' ' + t('results.withGlasses') : ''],
+    }),
+    ctx.route.query.fresh ? notice('success', t('results.fresh'), { role: 'status', testId: 'results-fresh' }) : null,
+    h('div', { class: 'va-grid-2 va-results__grid' }, ...sections),
+    notice('info', t('results.disclaimer'), { testId: 'results-disclaimer' }),
+    h('div', { class: 'va-actions va-actions--row va-no-print' },
+      actionButton(t('results.print'), { variant: 'secondary', iconName: 'print', testId: 'results-print', onClick: () => window.print() }),
+      linkButton(t('results.retest'), `#/onboarding?retest=${encodeURIComponent(profile.id)}`, { variant: 'secondary', iconName: 'retest' }),
+      linkButton(t('results.adapt'), '#/guide', { iconName: 'phone' }),
+    ),
+  );
+  return { el };
+}

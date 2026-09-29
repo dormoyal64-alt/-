@@ -21,7 +21,7 @@
  * @property {(opts: import('./dialog.js').ConfirmOptions) => Promise<boolean>} confirm
  * @property {() => void} refresh                              Re-render the current route (e.g. after a language switch).
  * @property {(paused: boolean) => void} pauseAdaptation       Temporarily remove profile-based UI adaptation (during tests).
- * @property {() => void} applyAdaptation                      Re-apply the active profile to the app UI.
+ * @property {(opts?: {force?: boolean}) => void} applyAdaptation  Re-apply the active profile to the app UI (force after a theme change).
  * @property {import('../account/session.js').Session} session
  */
 

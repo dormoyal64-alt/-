@@ -56,13 +56,14 @@ let lastApplied = /** @type {string|null} */ (null);
 
 /**
  * Apply (or remove) the profile's UI adaptation via render/apply-ui.js. Silently no-ops when that module
- * isn't available yet.
+ * isn't available yet. `force` re-applies even when nothing changed (required after any theme change).
  * @param {import('../core/types.js').VisionProfile|null} profile
+ * @param {{force?: boolean}} [opts]
  */
-export async function applyAdaptation(profile) {
+export async function applyAdaptation(profile, opts = {}) {
   const effective = paused || !getAdaptUi() ? null : profile;
   const sig = effective ? `${effective.id}:${effective.updatedAt}` : 'none';
-  if (sig === lastApplied) return;
+  if (sig === lastApplied && !opts.force) return;
   const res = await loadModule('applyUi', 'applyProfileToDocument');
   if (!res.ok) return;
   try {
