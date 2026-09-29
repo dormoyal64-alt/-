@@ -26,6 +26,15 @@ import { decimalFromLogMAR, snellen6, snellen20 } from '../tests/acuity/acuity-m
  * @property {string} body     text + advice
  */
 
+/** Every stable ProfileFlag code engine/profile.js can emit (eye-specific codes listed with their suffix). */
+export const FLAG_CODES = Object.freeze([
+  'LOW_ACUITY_RIGHT', 'LOW_ACUITY_LEFT', 'LOW_ACUITY_BOTH', 'NEAR_ACUITY_REDUCED', 'ACUITY_DIFFERENCE',
+  'ACUITY_WORSENED_RIGHT', 'ACUITY_WORSENED_LEFT', 'ACUITY_WORSENED_BOTH', 'LOW_CONTRAST', 'CONTRAST_WORSENED',
+  'COLOR_RED_GREEN', 'COLOR_BLUE_YELLOW', 'COLOR_GENERAL', 'COLOR_CHANGED', 'LINES_UNEVEN_RIGHT', 'LINES_UNEVEN_LEFT',
+  'NEAR_FOCUS_REDUCED', 'NEAR_FOCUS_FAR', 'FOCUS_RANGE_LIMITED', 'DISTANCE_FOCUS_LIMITED', 'UNRELIABLE',
+  'DEFAULT_CALIBRATION', 'NO_ACUITY', 'RECHECK_AT_DISTANCE', 'EXAM_REMINDER',
+]);
+
 /** @param {unknown} lang @returns {Lang} */
 const langOf = (lang) => (lang === 'en' ? 'en' : 'he');
 /** @param {unknown} v @returns {v is number} */
