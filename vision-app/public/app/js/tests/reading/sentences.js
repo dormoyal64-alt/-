@@ -14,8 +14,8 @@ export const SENTENCES = {
   en: {
     practice: { text: 'This short sentence is only for practice so take your time', word: 'practice', foil: 'music' },
     sentences: [
-      { text: 'The old dog slept in the warm sun by the door for most of the day', word: 'dog', foil: 'cat' },
-      { text: 'We packed a small lunch and walked down to the lake after school', word: 'lake', foil: 'park' },
+      { text: 'The old dog slept in the sun by the door for most of the day', word: 'dog', foil: 'cat' },
+      { text: 'We packed a small lunch and walked to the lake after school', word: 'lake', foil: 'park' },
       { text: 'She planted red flowers along the fence behind her new house', word: 'flowers', foil: 'trees' },
       { text: 'The train was late so we had a cup of tea at the station cafe', word: 'tea', foil: 'soup' },
       { text: 'My brother likes to ride his bike to work when the sky is clear', word: 'bike', foil: 'car' },
@@ -37,28 +37,28 @@ export const SENTENCES = {
     ],
   },
   he: {
-    practice: { text: 'המשפט הקצר הזה נועד רק לתרגול ולכן אפשר לקרוא אותו לאט', word: 'לתרגול', foil: 'למוזיקה' },
+    practice: { text: 'המשפט הקצר הזה נועד רק לתרגול ולכן אפשר לקרוא אותו לאט ובנחת', word: 'לתרגול', foil: 'למוזיקה' },
     sentences: [
-      { text: 'הכלב הזקן ישן בשמש החמימה ליד הדלת כמעט כל היום ולא זז', word: 'הכלב', foil: 'החתול' },
-      { text: 'ארזנו ארוחה קטנה והלכנו ברגל אל האגם אחרי שנגמרו הלימודים', word: 'האגם', foil: 'הפארק' },
-      { text: 'היא שתלה פרחים אדומים לאורך הגדר שמאחורי הבית החדש שלה', word: 'פרחים', foil: 'עצים' },
-      { text: 'הרכבת איחרה ולכן שתינו כוס תה בבית הקפה הקטן שליד התחנה', word: 'תה', foil: 'מרק' },
-      { text: 'אחי אוהב לרכוב על האופניים לעבודה כשהשמיים בהירים ונקיים', word: 'האופניים', foil: 'המכונית' },
-      { text: 'הילדים בנו מגדל גבוה מקוביות צבעוניות על הרצפה של המטבח', word: 'מגדל', foil: 'גשר' },
-      { text: 'סבתא שומרת בשבילנו צנצנת של עוגיות מתוקות על המדף העליון', word: 'עוגיות', foil: 'תפוחים' },
-      { text: 'ציפור קטנה שרה מחוץ לחלון של החדר שלי מוקדם מאוד בבוקר', word: 'ציפור', foil: 'צפרדע' },
-      { text: 'שמענו את קול הגלים בזמן שהלכנו לאורך החוף השקט בערב', word: 'החוף', foil: 'הנהר' },
-      { text: 'הוא תיקן את הכיסא השבור וצבע אותו בצבע כחול ובהיר מאוד', word: 'הכיסא', foil: 'השולחן' },
-      { text: 'החקלאי קם מוקדם בבוקר כדי להאכיל את הפרות ולאסוף ביצים', word: 'הפרות', foil: 'הכבשים' },
-      { text: 'השכן שלנו מנגן מוזיקה שקטה בפסנתר בכל ערב אחרי ארוחת הערב', word: 'בפסנתר', foil: 'בגיטרה' },
-      { text: 'הם סחבו שמיכות חמות במעלה הגבעה כדי להסתכל על הכוכבים', word: 'הכוכבים', foil: 'הירח' },
-      { text: 'האופה מכר לחם טרי ועוגות מתוקות לכל האנשים שחיכו בתור', word: 'עוגות', foil: 'פשטידות' },
-      { text: 'חברה שלי כתבה לי מכתב ארוך על הטיול שלה לעיר הגדולה', word: 'מכתב', foil: 'סיפור' },
-      { text: 'החתול קפץ על השולחן והפיל כוס מלאה בחלב קר על הרצפה', word: 'בחלב', foil: 'במים' },
-      { text: 'חיכינו מתחת לעץ גדול עד שהגשם הכבד הפסיק לרדת סוף סוף', word: 'הגשם', foil: 'השלג' },
-      { text: 'אבא הכין מרק חם עם גזר ושעועית בערב חורף קר במיוחד', word: 'גזר', foil: 'בצל' },
-      { text: 'הסירה הקטנה שטה לאט על פני המים השקטים של המפרץ הרחב', word: 'הסירה', foil: 'הספינה' },
-      { text: 'בכל אביב הציפורים חוזרות אלינו כדי לבנות קנים בגינה', word: 'בגינה', foil: 'ביער' },
+      { text: 'הכלב הזקן ישן בשמש החמימה ליד הדלת כמעט כל היום ולא זז משם', word: 'הכלב', foil: 'החתול' },
+      { text: 'ארזנו ארוחה קטנה והלכנו יחד ברגל אל האגם אחרי שנגמרו הלימודים', word: 'האגם', foil: 'הפארק' },
+      { text: 'היא שתלה פרחים אדומים לאורך הגדר שמאחורי הבית החדש שלה בכפר', word: 'פרחים', foil: 'עצים' },
+      { text: 'הרכבת איחרה מאוד ולכן שתינו כוס תה בבית הקפה הקטן שליד התחנה', word: 'תה', foil: 'מרק' },
+      { text: 'אחי הגדול אוהב לרכוב על האופניים לעבודה כשהשמיים בהירים ונקיים', word: 'האופניים', foil: 'המכונית' },
+      { text: 'הילדים בנו מגדל גבוה מאוד מקוביות צבעוניות על הרצפה של המטבח', word: 'מגדל', foil: 'גשר' },
+      { text: 'סבתא שומרת בשבילנו צנצנת גדולה של עוגיות מתוקות על המדף העליון', word: 'עוגיות', foil: 'תפוחים' },
+      { text: 'ציפור קטנה שרה מחוץ לחלון של החדר שלי מוקדם מאוד בכל בוקר', word: 'ציפור', foil: 'צפרדע' },
+      { text: 'שמענו את קול הגלים הרכים בזמן שהלכנו לאט לאורך החוף השקט בערב', word: 'החוף', foil: 'הנהר' },
+      { text: 'הוא תיקן בזהירות את הכיסא השבור וצבע אותו בצבע כחול בהיר מאוד', word: 'הכיסא', foil: 'השולחן' },
+      { text: 'החקלאי קם מוקדם בבוקר כדי להאכיל את הפרות ולאסוף את הביצים', word: 'הפרות', foil: 'הכבשים' },
+      { text: 'השכן הנחמד שלנו מנגן מוזיקה שקטה בפסנתר בכל ערב אחרי ארוחת הערב', word: 'בפסנתר', foil: 'בגיטרה' },
+      { text: 'בלילה הם סחבו שמיכות חמות במעלה הגבעה כדי להסתכל על הכוכבים', word: 'הכוכבים', foil: 'הירח' },
+      { text: 'האופה מכר לחם טרי וגם עוגות מתוקות לכל האנשים שחיכו בתור הארוך', word: 'עוגות', foil: 'פשטידות' },
+      { text: 'חברה טובה שלי כתבה לי מכתב ארוך על הטיול שלה לעיר הגדולה בצפון', word: 'מכתב', foil: 'סיפור' },
+      { text: 'החתול הצעיר קפץ על השולחן והפיל כוס גדולה מלאה בחלב קר על הרצפה', word: 'בחלב', foil: 'במים' },
+      { text: 'חיכינו מתחת לעץ גדול עד שסוף סוף הגשם הכבד הפסיק לרדת מהשמיים', word: 'הגשם', foil: 'השלג' },
+      { text: 'אבא הכין לנו מרק חם עם גזר ושעועית בערב חורף קר וגשום במיוחד', word: 'גזר', foil: 'בצל' },
+      { text: 'הסירה הקטנה והלבנה שטה לאט על פני המים השקטים של המפרץ הרחב', word: 'הסירה', foil: 'הספינה' },
+      { text: 'בכל אביב הציפורים הקטנות חוזרות אלינו כדי לבנות קנים בגינה שלנו', word: 'בגינה', foil: 'ביער' },
     ],
   },
 };
@@ -71,21 +71,23 @@ export const SENTENCES = {
  */
 export function splitIntoLines(text, lines = 3) {
   const words = text.split(/\s+/).filter(Boolean);
-  const out = [];
-  let start = 0;
-  for (let k = 1; k < lines; k++) {
-    const remainingText = words.slice(start).join(' ');
-    const target = remainingText.length / (lines - k + 1);
-    let best = start + 1; let bestErr = Infinity;
-    for (let i = start + 1; i <= words.length - (lines - k); i++) {
-      const err = Math.abs(words.slice(start, i).join(' ').length - target);
-      if (err < bestErr) { bestErr = err; best = i; }
+  if (words.length <= lines) return words;
+  /** @type {string[]} */
+  let best = [text];
+  let bestKey = [Infinity, Infinity];
+  /** @param {number} start @param {number} k @param {string[]} acc */
+  const search = (start, k, acc) => {
+    if (k === 1) {
+      const cand = [...acc, words.slice(start).join(' ')];
+      const lens = cand.map((l) => l.length);
+      const key = [Math.max(...lens), Math.max(...lens) - Math.min(...lens)];
+      if (key[0] < bestKey[0] || (key[0] === bestKey[0] && key[1] < bestKey[1])) { best = cand; bestKey = key; }
+      return;
     }
-    out.push(words.slice(start, best).join(' '));
-    start = best;
-  }
-  out.push(words.slice(start).join(' '));
-  return out;
+    for (let i = start + 1; i <= words.length - (k - 1); i++) search(i, k - 1, [...acc, words.slice(start, i).join(' ')]);
+  };
+  search(0, lines, []);
+  return best;
 }
 
 /**

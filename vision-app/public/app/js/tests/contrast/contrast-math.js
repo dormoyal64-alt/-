@@ -25,6 +25,10 @@ export function linearToSrgb(y) {
   return y <= 0.0031308 ? 12.92 * y : 1.055 * y ** (1 / 2.4) - 0.055;
 }
 
+/** Bit-stealing search range (code values per channel around a grey level) and neutrality penalty. */
+const STEAL_RANGE = 2;
+const CHROMA_PENALTY = 0.001;
+
 const LIN8 = Array.from({ length: 256 }, (_, i) => srgbToLinear(i / 255));
 
 /** Relative luminance (0..1) of an 8-bit sRGB colour. @param {number} r @param {number} g @param {number} b */
@@ -65,8 +69,9 @@ export function greyLogCS(grey) {
 
 /**
  * Bit-stealing: the 8-bit colour whose luminance on a white background gives the Weber contrast closest to
- * `targetC`. Channels stay within ±1 code value of a common grey level (invisible chroma error on large
- * letters); among equally close candidates the most neutral one wins. Never returns pure white (C > 0).
+ * `targetC`. Channels stay within ±2 code values of a common grey level (invisible chroma error on large
+ * letters); a small penalty per code of chroma keeps the colour as neutral as possible. Never returns pure
+ * white (C > 0).
  * @param {number} targetC Weber contrast 0 < C ≤ 1
  * @returns {BitStolenColour}
  */
@@ -74,20 +79,18 @@ export function bitStealColour(targetC) {
   const C = Math.min(1, Math.max(0, targetC));
   const yTarget = 1 - C;
   const g0 = Math.round(linearToSrgb(yTarget) * 255);
+  const logTarget = Math.log10(Math.max(C, 1e-6));
   let best = null;
-  let bestErr = Infinity;
-  let bestChroma = Infinity;
-  for (let grey = Math.max(0, g0 - 2); grey <= Math.min(255, g0 + 2); grey++) {
-    for (let dr = -1; dr <= 1; dr++) for (let dg = -1; dg <= 1; dg++) for (let db = -1; db <= 1; db++) {
+  let bestScore = Infinity;
+  for (let grey = Math.max(0, g0 - 3); grey <= Math.min(255, g0 + 3); grey++) {
+    for (let dr = -STEAL_RANGE; dr <= STEAL_RANGE; dr++) for (let dg = -STEAL_RANGE; dg <= STEAL_RANGE; dg++) for (let db = -STEAL_RANGE; db <= STEAL_RANGE; db++) {
       const r = grey + dr; const g = grey + dg; const b = grey + db;
       if (r < 0 || g < 0 || b < 0 || r > 255 || g > 255 || b > 255) continue;
       if (r === 255 && g === 255 && b === 255) continue;
       const y = luminance8(r, g, b);
-      const err = Math.abs(Math.log10(weberContrast(y)) - Math.log10(Math.max(C, 1e-6)));
       const chroma = Math.max(r, g, b) - Math.min(r, g, b);
-      if (err < bestErr - 1e-12 || (Math.abs(err - bestErr) <= 1e-12 && chroma < bestChroma)) {
-        best = { r, g, b, y }; bestErr = err; bestChroma = chroma;
-      }
+      const score = Math.abs(Math.log10(weberContrast(y)) - logTarget) + CHROMA_PENALTY * chroma;
+      if (score < bestScore) { best = { r, g, b, y }; bestScore = score; }
     }
   }
   const contrast = weberContrast(best.y);
