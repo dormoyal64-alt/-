@@ -92,6 +92,7 @@
  * @property {number} severity     0 (none) .. 1 (dichromat-like)
  * @property {number} confidence   0..1
  * @property {boolean} reliable
+ * @property {Object<string, any>} [details]  Procedure details (per-axis thresholds, ceiling flags, trial counts, reasons).
  */
 
 /**

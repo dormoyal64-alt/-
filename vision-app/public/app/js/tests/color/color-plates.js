@@ -22,7 +22,7 @@ import {
 /** @typedef {'protan'|'deutan'|'tritan'} Axis */
 /**
  * @typedef {{kind: 'axis', axis: Axis, c: number} | {kind: 'catch'} | {kind: 'none'}} PlateStimulus
- * 'axis': chromatic ring at cone contrast c; 'catch': luminance-defined (dark) ring everyone can see;
+ * 'axis': chromatic ring at cone contrast c; 'catch': luminance-defined (light) ring everyone can see;
  * 'none': no ring (mask shown after the stimulus time or between trials).
  */
 /**
@@ -44,8 +44,8 @@ export const DIRECTIONS = Object.freeze(['up', 'right', 'down', 'left']);
 export const NEUTRAL_LINEAR = 0.2;
 /** 6 equally spaced luminance factors spanning ±20 % (spec §7.3). */
 export const NOISE_LEVELS = Object.freeze([0.8, 0.88, 0.96, 1.04, 1.12, 1.2]);
-/** Luminance factor of catch-trial ring discs (a dark ring visible to every observer). */
-export const CATCH_LUMINANCE = 0.5;
+/** Luminance factor of catch-trial ring discs (a light ring visible to every observer). */
+export const CATCH_LUMINANCE = 2.2;
 /** Linear luminance of the gaps between discs and of the surround (dark neutral, sRGB ≈ 40). */
 export const GAP_LINEAR = 0.021;
 
@@ -53,11 +53,11 @@ export const GAP_LINEAR = 0.021;
 export const GEOMETRY_DEG = Object.freeze({
   plate: 8.75,        // plate diameter
   ringOuter: 5,       // Landolt-ring outer diameter
-  stroke: 1.15,       // ring thickness
-  gap: 1.15,          // gap width
-  discMax: 0.46,      // largest disc diameter
-  discMin: 0.13,      // smallest (gap-filling) disc diameter
-  spacing: 0.035,     // minimum clearance between discs
+  stroke: 1.3,        // ring thickness
+  gap: 1.3,           // gap width
+  discMax: 0.42,      // largest disc diameter
+  discMin: 0.12,      // smallest (gap-filling) disc diameter
+  spacing: 0.03,      // minimum clearance between discs
 });
 
 const R_DEG = GEOMETRY_DEG.plate / 2;
@@ -218,7 +218,7 @@ export function layoutPlate({ seed, gap }) {
   const BANDS = 8;
   for (let b = 0; b < BANDS; b++) {
     const bandR = rMax * Math.pow(rMin / rMax, b / (BANDS - 1));
-    const attempts = 160 + b * b * 90;
+    const attempts = 220 + b * b * 140;
     for (let a = 0; a < attempts; a++) {
       const r = bandR * (0.9 + 0.1 * rng());
       const ang = rng() * 2 * Math.PI;

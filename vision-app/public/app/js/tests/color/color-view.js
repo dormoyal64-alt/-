@@ -26,7 +26,7 @@ const STRINGS = {
     task: 'הקישו על החץ לכיוון הפתח. אם אינכם רואים טבעת — הקישו "לא רואה טבעת". זה צפוי לקרות מדי פעם.',
     settings: 'לפני שמתחילים: כבו מצב לילה, מסנן אור כחול, מסנני צבע ותיקון צבע בהגדרות המכשיר, והעמידו את הבהירות על רמה נוחה וגבוהה יחסית.',
     room: 'עדיף חדר מואר באופן אחיד, בלי השתקפויות על המסך. הבדיקה נמשכת כשלוש דקות.',
-    exampleLabel: 'דוגמה: הטבעת כהה כאן כדי שיהיה קל לראות. הפתח פונה ימינה.',
+    exampleLabel: 'דוגמה: כאן הטבעת בהירה כדי שיהיה קל לראות אותה. הפתח פונה ימינה.',
     start: 'התחל',
     question: 'לאן פונה הפתח של הטבעת?',
     hint: 'הטבעת מוצגת לרגע קצר — אפשר לענות גם אחרי שהיא נעלמת.',
@@ -45,7 +45,7 @@ const STRINGS = {
     task: 'Tap the arrow that points to the opening. If you can’t see a ring, tap “I can’t see a ring” — that is expected now and then.',
     settings: 'Before you start: turn off night mode, blue-light filters, colour filters and colour correction in your device settings, and set the brightness to a comfortable, fairly bright level.',
     room: 'An evenly lit room without reflections on the screen works best. The check takes about three minutes.',
-    exampleLabel: 'Example: here the ring is dark so it is easy to see. The opening points right.',
+    exampleLabel: 'Example: here the ring is lighter so it is easy to see. The opening points right.',
     start: 'Start',
     question: 'Which way does the ring open?',
     hint: 'The ring shows briefly — you can still answer after it fades.',
@@ -96,14 +96,16 @@ function paintPlate(g, w, hgt, layout, colors, radiusPx) {
   });
 }
 
-/** Small static example plate for the instructions (luminance-defined ring, opening right). */
+/** Small static example plate for the instructions (light luminance-defined ring, opening right). */
 function examplePlate() {
-  const size = 168;
+  const size = 200;
   const c = hiDpiCanvas(size, size);
   c.canvas.style.borderRadius = '16px';
   c.canvas.setAttribute('aria-hidden', 'true');
   const layout = layoutPlate({ seed: 20260928, gap: 'right' });
-  paintPlate(c.ctx, size, size, layout, colorizePlate(layout, { kind: 'catch' }), size / 2 - 8);
+  // Illustration only: ring discs drawn plain light grey so the shape is obvious at this small size.
+  const colors = colorizePlate(layout, { kind: 'none' }).map((rgb, i) => (layout.discs[i].target ? /** @type {[number, number, number]} */ ([226, 226, 226]) : rgb));
+  paintPlate(c.ctx, size, size, layout, colors, size / 2 - 8);
   return c.canvas;
 }
 
@@ -237,7 +239,7 @@ async function luminanceMatch(container, t, rng, signal) {
     const redLeft = n === 1;
     const c = hiDpiCanvas(size, size);
     c.canvas.dataset.testid = 'color-match';
-    c.canvas.dataset.answer = String(linearToSlider(RED_LUMINANCE));
+    c.canvas.dataset.matchAnswer = String(linearToSlider(RED_LUMINANCE));
     c.canvas.setAttribute('aria-hidden', 'true');
     const slider = h('input', {
       type: 'range', class: 'va-range', min: '0', max: String(MATCH_STEPS), step: '1',
@@ -246,8 +248,7 @@ async function luminanceMatch(container, t, rng, signal) {
     const paint = () => {
       const grey = Math.round(linearToSrgb(sliderToLinear(Number(slider.value))) * 255);
       const g = c.ctx;
-      g.fillStyle = GAP_CSS;
-      g.fillRect(0, 0, size, size);
+      g.clearRect(0, 0, size, size);
       const half = (/** @type {boolean} */ left, /** @type {string} */ fill) => {
         g.fillStyle = fill;
         g.beginPath();

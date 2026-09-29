@@ -72,9 +72,9 @@ test('luminance noise is shared by ring and background; dither is unbiased', () 
     const base = d.target ? axisColor('tritan', 0.5) : [0.2, 0.2, 0.2];
     lin.forEach((v, i) => assert.ok(Math.abs(v - base[i] * NOISE_LEVELS[d.level]) < 1e-12));
   }
-  // Catch trial: ring is clearly darker than any background disc.
+  // Catch trial: ring is clearly lighter than any background disc.
   const ring = layout.discs.find((d) => d.target);
-  assert.ok(lum(discLinearColor(ring, { kind: 'catch' })) < 0.2 * NOISE_LEVELS[0]);
+  assert.ok(lum(discLinearColor(ring, { kind: 'catch' })) > 1.3 * 0.2 * NOISE_LEVELS[NOISE_LEVELS.length - 1]);
   // Dither: the mean of many 8-bit codes decodes to the intended value.
   const rng = mulberry32(9);
   const target = 0.2 * 1.04;
