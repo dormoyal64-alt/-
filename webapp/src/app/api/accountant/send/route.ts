@@ -6,7 +6,11 @@ import { agorotToShekels } from "@/lib/money";
 import { formatDateHe } from "@/lib/dates";
 import { monthRange, expenseLines, buildAccountantEmail } from "@/lib/accountant";
 import type { AdSpend, AppSettings, BusinessExpense, ExpenseCategory, ExpenseReceipt, Receipt } from "@/lib/types";
-import { RECEIPTS_BUCKET, adSpendReceiptFilesInMonth } from "@/lib/api/expenseReceipts";
+import {
+  RECEIPTS_BUCKET,
+  adSpendReceiptFilesInMonth,
+  jobExpenseReceiptFilesInMonth,
+} from "@/lib/api/expenseReceipts";
 import { fetchLiveReceipts } from "@/lib/api/jobs";
 import { contractorReceiptLines, contractorReceiptFilesInMonth } from "@/lib/api/contractorReceipts";
 
@@ -71,7 +75,7 @@ export async function POST(request: NextRequest) {
   const fromIso = `${range.from}T00:00:00`;
   const toIso = `${range.to}T23:59:59.999`;
 
-  const [settingsRes, rec, fixed, cats, ads, costs, photos, contractorPaid, contractorPaper, adPaper] =
+  const [settingsRes, rec, fixed, cats, ads, costs, photos, contractorPaid, contractorPaper, adPaper, jobCostPaper] =
     await Promise.all([
       supabase.from("app_settings").select("*").eq("id", true).maybeSingle(),
       fetchLiveReceipts(supabase, fromIso, toIso),
@@ -93,6 +97,8 @@ export async function POST(request: NextRequest) {
       contractorReceiptFilesInMonth(supabase, range.from, range.to),
       // the invoice behind the advertising, which the figures alone cannot prove
       adSpendReceiptFilesInMonth(supabase, range.from, range.to),
+      // and the counter receipts for what was bought for the jobs themselves
+      jobExpenseReceiptFilesInMonth(supabase, fromIso, toIso),
     ]);
 
   const settings = settingsRes.data as AppSettings | null;
@@ -184,15 +190,21 @@ export async function POST(request: NextRequest) {
   });
 
   // every kind of paper goes out together: what the business bought, what the
-  // contractors it paid handed over, and what the advertising cost
-  const photoRows: ExpenseReceipt[] = [...purchasePaper, ...contractorPaper, ...adPaper];
+  // contractors it paid handed over, what the advertising cost, and what was
+  // bought at a counter for one job
+  const photoRows: ExpenseReceipt[] = [
+    ...purchasePaper,
+    ...contractorPaper,
+    ...adPaper,
+    ...jobCostPaper,
+  ];
 
   const { attached, skipped } = await attachPhotos(supabase, photoRows, attachments);
 
   let body = email.body;
   if (attached === 1) body += "\n\nמצורפת קבלה אחת (רכישה, קבלן או פרסום).";
   else if (attached > 1)
-    body += `\n\nמצורפות ${attached} קבלות — רכישות, קבלות מקבלנים וחשבוניות פרסום.`;
+    body += `\n\nמצורפות ${attached} קבלות — רכישות, הוצאות על עבודות, קבלות מקבלנים וחשבוניות פרסום.`;
   if (skipped > 0) {
     // saying nothing would leave the accountant unaware there is more to ask for
     body += attached > 0 ? " " : "\n\n";

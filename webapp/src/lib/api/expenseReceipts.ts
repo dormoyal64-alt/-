@@ -7,28 +7,31 @@ export const RECEIPTS_BUCKET = "receipts";
 /**
  * Which record the paper belongs to.
  *
- * Three kinds of document end up in the same bucket — a purchase the business
- * made, a receipt a contractor handed over, and the invoice behind an
- * advertising spend — and the row records exactly one of them. Naming the
- * parent once here keeps the upload, the folder and the column from being
- * decided separately and drifting apart.
+ * Four kinds of document end up in the same bucket — a purchase the business
+ * made, a receipt a contractor handed over, the invoice behind an advertising
+ * spend, and the counter receipt for something bought for one job — and the row
+ * records exactly one of them. Naming the parent once here keeps the upload,
+ * the folder and the column from being decided separately and drifting apart.
  */
 export type ReceiptParent =
   | { kind: "expense"; id: string }
   | { kind: "contractor"; id: string }
-  | { kind: "ad"; id: string };
+  | { kind: "ad"; id: string }
+  | { kind: "job"; id: string };
 
 /** The folder a parent's files live in, so deleting it takes them along. */
 function folder(parent: ReceiptParent): string {
   if (parent.kind === "expense") return parent.id;
   if (parent.kind === "contractor") return `contractor-receipts/${parent.id}`;
-  return `ad-spend/${parent.id}`;
+  if (parent.kind === "ad") return `ad-spend/${parent.id}`;
+  return `job-expenses/${parent.id}`;
 }
 
 function parentColumn(parent: ReceiptParent): Record<string, string> {
   if (parent.kind === "expense") return { business_expense_id: parent.id };
   if (parent.kind === "contractor") return { contractor_receipt_id: parent.id };
-  return { ad_spend_id: parent.id };
+  if (parent.kind === "ad") return { ad_spend_id: parent.id };
+  return { job_expense_id: parent.id };
 }
 
 /** Every photograph filed against one expense, oldest first. */
@@ -163,4 +166,62 @@ export async function deleteAdSpend(supabase: SupabaseClient, id: string) {
   if (files.length > 0) {
     await supabase.storage.from(RECEIPTS_BUCKET).remove(files.map((f) => f.storage_path));
   }
+}
+
+/**
+ * Every document filed against a set of one job's own costs, oldest first.
+ *
+ * Throws rather than returning nothing when the column is missing, so the
+ * caller can tell "no receipts yet" apart from "the database has not been
+ * updated yet" and hide the camera instead of offering one that cannot work.
+ */
+export async function listJobExpenseReceipts(
+  supabase: SupabaseClient,
+  jobExpenseIds: string[]
+): Promise<ExpenseReceipt[]> {
+  if (jobExpenseIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("expense_receipts")
+    .select("*")
+    .in("job_expense_id", jobExpenseIds)
+    .order("created_at");
+  if (error) throw error;
+  return (data ?? []) as ExpenseReceipt[];
+}
+
+/**
+ * Remove one of a job's costs, paperwork and all.
+ *
+ * The row goes by way of the cascade, but storage keeps no foreign keys, so the
+ * files have to be named before the row that points at them is gone.
+ */
+export async function deleteJobExpense(supabase: SupabaseClient, id: string) {
+  const files = await listJobExpenseReceipts(supabase, [id]).catch(() => [] as ExpenseReceipt[]);
+  const { error } = await supabase.from("job_expenses").delete().eq("id", id);
+  if (error) throw error;
+  if (files.length > 0) {
+    await supabase.storage.from(RECEIPTS_BUCKET).remove(files.map((f) => f.storage_path));
+  }
+}
+
+/**
+ * The receipts behind the job costs that belong to one month.
+ *
+ * Keyed by when the job closed, because that is how the accountant report
+ * counts the costs themselves — the paper has to travel with the line it
+ * proves. Returns nothing rather than failing when the column is not there yet.
+ */
+export async function jobExpenseReceiptFilesInMonth(
+  supabase: SupabaseClient,
+  fromIso: string,
+  toIso: string
+): Promise<ExpenseReceipt[]> {
+  const { data, error } = await supabase
+    .from("expense_receipts")
+    .select("*, cost:job_expenses!inner(job:jobs!inner(closed_at))")
+    .gte("cost.job.closed_at", fromIso)
+    .lte("cost.job.closed_at", toIso)
+    .order("created_at");
+  if (error) return [];
+  return (data ?? []) as ExpenseReceipt[];
 }
