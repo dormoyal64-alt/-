@@ -1,0 +1,58 @@
+# Apply database changes by themselves.
+#
+# The whole point of this file is that the business owner never opens a SQL
+# editor again. Until now every schema change ended the same way: a script
+# pasted into Supabase by hand, which is a step that can be forgotten, done
+# half way, or done while a page that expects the new shape is already live.
+#
+# So a migration committed under webapp/supabase/migrations reaches the
+# database the moment it is pushed — before Vercel has finished building the
+# page that needs it, because this runs on the same push and takes seconds.
+#
+# It needs one secret, DATABASE_URL, which is the project's connection string.
+# That is a real key to the database: anything this workflow runs, runs with
+# it. It is stored encrypted by GitHub and is never printed here — the script
+# passes it straight to psql and the log shows only file names.
+
+name: migrate
+
+on:
+  push:
+    branches:
+      - claude/job-contractor-management-system-it593e
+    paths:
+      # only when there is actually something new to apply
+      - "webapp/supabase/migrations/**"
+      - ".github/scripts/apply-migrations.sh"
+      - ".github/workflows/migrate.yml"
+  # so it can be run by hand from the Actions tab, which is also how the very
+  # first run happens after the secret is added
+  workflow_dispatch:
+
+# two pushes in a minute must not race each other into the same database
+concurrency:
+  group: migrate-database
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Apply the migrations this database has not seen
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::Missing the DATABASE_URL repository secret. Settings → Secrets and variables → Actions → New repository secret."
+            exit 1
+          fi
+          bash .github/scripts/apply-migrations.sh
