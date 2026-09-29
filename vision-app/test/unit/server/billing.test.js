@@ -139,6 +139,8 @@ describe('renewal scheduler and Israeli plan rules (mock provider)', () => {
     const newEnd = Date.parse(r.data.entitlement.currentPeriodEnd);
     assert.ok(newEnd > cpe + 364 * DAY && newEnd < cpe + 367 * DAY, 'extends from the current end');
     assert.equal(t.services.billing.listInvoices(user.id).length, 2);
+    // a manual fixed-term renewal is a new purchase (14C): the 14-day refund window re-opens for that charge
+    assert.ok(Date.parse(r.data.entitlement.refundEligibleUntil) > t.clock.t + 13 * DAY, 'refund window re-opens after a manual renewal');
 
     // declined token => hosted page for the renewal
     t.clock.t = newEnd - 5 * DAY;
@@ -163,6 +165,7 @@ describe('renewal scheduler and Israeli plan rules (mock provider)', () => {
     t.advance(13 * DAY);
     const c = t.client();
     await c.post('/api/auth/login', { email: a.email, password: PASSWORD });
+    assert.ok((await c.get('/api/me')).data.entitlement.refundEligibleUntil, 'day 13: refund option offered');
     const r = await c.post('/api/billing/cancel', { mode: 'now' });
     assert.equal(r.status, 200);
     assert.deepEqual(r.data.refund, { status: 'refunded', amount: 17990, currency: 'ILS' });
@@ -179,6 +182,7 @@ describe('renewal scheduler and Israeli plan rules (mock provider)', () => {
     t.advance(15 * DAY);
     const cb = t.client();
     await cb.post('/api/auth/login', { email: b.email, password: PASSWORD });
+    assert.equal((await cb.get('/api/me')).data.entitlement.refundEligibleUntil, null, 'day 15: no refund option');
     const late = await cb.post('/api/billing/cancel', { mode: 'now' });
     assert.equal(late.status, 400);
     assert.equal(late.data.error.code, 'REFUND_WINDOW_PASSED');

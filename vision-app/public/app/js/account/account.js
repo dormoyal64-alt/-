@@ -156,7 +156,10 @@ export function mount(ctx) {
   async function cancel(btn, e) {
     const end = accessEndsAt(e);
     const date = end ? formatDate(end, lang) : '';
-    const refundable = refundWindowOpen(invoices, Date.now());
+    const until = e && typeof e.refundEligibleUntil === 'string' ? Date.parse(e.refundEligibleUntil) : NaN;
+    const refundable = e && 'refundEligibleUntil' in e
+      ? Number.isFinite(until) && Date.now() <= until
+      : refundWindowOpen(invoices, Date.now());
     const choice = /** @type {{mode: 'period_end'|'now'}} */ ({ mode: 'period_end' });
     const body = [date ? t('account.cancelConfirmBody', { date }) : t('account.cancelConfirmBodyNoDate')];
     if (refundable) {

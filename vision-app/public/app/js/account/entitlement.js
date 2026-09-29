@@ -19,6 +19,7 @@
  * @property {boolean} hasAccess
  * @property {'auto'|'manual'|null} [renewal]  monthly = auto; prepaid 3-month / yearly = manual (Israel)
  * @property {boolean} [canRenew]               a fixed-term plan can be renewed now (explicit consent)
+ * @property {string|null} [refundEligibleUntil] ISO time until which "cancel now + full refund" is available, else null
  */
 
 /** @typedef {{id: string, email: string, lang?: 'he'|'en', createdAt?: string}} User */

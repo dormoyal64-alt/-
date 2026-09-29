@@ -131,6 +131,7 @@ main:focus:not(:focus-visible) { outline: none; }
   gap: 0 1.25rem;
   font-size: 1rem;
 }
+.docs-nav li + li { margin-block-start: 0; }
 .docs-nav a[aria-current="page"] { font-weight: 800; color: var(--lg-text); text-decoration-thickness: 0.16em; }
 
 /* Content */
@@ -150,6 +151,7 @@ section { scroll-margin-block-start: 1rem; }
 strong { font-weight: 700; }
 
 .doc-meta { color: var(--lg-muted); font-size: 1rem; margin-block-end: 1.25rem; }
+.doc-meta time { white-space: nowrap; }
 
 .toc {
   background: var(--lg-surface);

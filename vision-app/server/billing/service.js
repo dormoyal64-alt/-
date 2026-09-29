@@ -81,8 +81,15 @@ export function createBillingService({ db, config, providers, now, logger, audit
 
   /** @param {{id: string, trial_ends_at: number}} user */
   function entitlementFor(user) {
-    return computeEntitlement({ trialEndsAt: user.trial_ends_at }, currentSubscription(user.id), now(),
+    const sub = currentSubscription(user.id);
+    const ent = computeEntitlement({ trialEndsAt: user.trial_ends_at }, sub, now(),
       { graceDays: config.pastDueGraceDays, renewWindowDays: config.renewWindowDays });
+    let refundEligibleUntil = null;
+    if (sub && ent.hasAccess) {
+      const charge = refundableCharge(sub);
+      if (charge) refundEligibleUntil = new Date(charge.issued_at + config.refundWindowDays * DAY_MS).toISOString();
+    }
+    return { ...ent, refundEligibleUntil };
   }
 
   /** @param {string} providerId */
@@ -167,22 +174,31 @@ export function createBillingService({ db, config, providers, now, logger, audit
   }
 
   /**
-   * The subscription's first paid charge if it is still inside the statutory refund window
-   * (exactly one paid invoice so far, issued <= REFUND_WINDOW_DAYS ago).
+   * The charge that is still inside the statutory 14-day cancellation window (Consumer Protection Law 14C), or null:
+   * - the subscription's first paid charge (exactly one invoice so far), or
+   * - for fixed-term plans renewed manually with explicit consent ('manual' renewal), the latest paid charge,
+   *   because each such renewal is a new distance purchase.
+   * Automatic monthly renewals are not new purchases, so they only stop future charges.
    * @param {SubscriptionRow} sub
    */
-  function refundableFirstCharge(sub) {
+  function refundableCharge(sub) {
     const paid = db.all("SELECT * FROM invoices WHERE provider = ? AND provider_subscription_id = ? AND status = 'paid' ORDER BY issued_at",
       sub.provider, sub.provider_subscription_id);
+    if (!paid.length) return null;
+    const latest = paid[paid.length - 1];
+    if (now() - latest.issued_at > config.refundWindowDays * DAY_MS) return null;
     const all = db.one('SELECT COUNT(*) AS n FROM invoices WHERE provider = ? AND provider_subscription_id = ?', sub.provider, sub.provider_subscription_id).n;
-    if (paid.length !== 1 || all !== 1) return null;
-    return now() - paid[0].issued_at <= config.refundWindowDays * DAY_MS ? paid[0] : null;
+    if (paid.length === 1 && all === 1) return latest;
+    let renewal = 'auto';
+    try { renewal = renewalFor(sub.region, sub.plan, adapterFor(sub.provider)); } catch { /* provider gone: be conservative */ }
+    return renewal === 'manual' ? latest : null;
   }
 
   /**
    * One-request cancellation, no fee.
    * mode 'period_end' (default): stop renewal, keep access until the paid period ends. Idempotent.
-   * mode 'now': only within REFUND_WINDOW_DAYS of the first paid charge => immediate end + full refund;
+   * mode 'now': only within REFUND_WINDOW_DAYS of a refundable charge (first charge, or the latest manual
+   *   fixed-term renewal) => immediate end + full refund of that charge;
    *   otherwise 400 REFUND_WINDOW_PASSED (the user keeps paid access; they can use 'period_end').
    * @param {{id: string, email: string, lang: string, trial_ends_at: number}} user
    * @param {unknown} [mode]
@@ -210,7 +226,7 @@ export function createBillingService({ db, config, providers, now, logger, audit
     if (!sub || !ent.hasAccess || !(ent.status === 'active' || ent.status === 'canceled' || ent.status === 'past_due')) {
       throw new HttpError(409, 'NO_ACTIVE_SUBSCRIPTION', 'There is no active subscription to cancel');
     }
-    const charge = refundableFirstCharge(sub);
+    const charge = refundableCharge(sub);
     if (!charge) {
       throw new HttpError(400, 'REFUND_WINDOW_PASSED',
         `Immediate cancellation with a refund is only available within ${config.refundWindowDays} days of the first payment. You can stop the renewal instead.`);
