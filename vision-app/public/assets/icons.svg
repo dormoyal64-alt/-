@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <!-- SeeTuned line icons (24 grid). Stroke/fill come from the page CSS (.ico). -->
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M2.5 18.5 6 9.5l3.5 9M3.8 15.5h4.4M11 20.5 16.5 4.5 22 20.5M13 15.5h7"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+  <symbol id="i-colour" viewBox="0 0 24 24"><circle cx="9" cy="9.5" r="5.5"/><circle cx="15" cy="9.5" r="5.5"/><circle cx="12" cy="15" r="5.5"/></symbol>
+  <symbol id="i-tired" viewBox="0 0 24 24"><path d="M2.5 11.5h19M3.5 11.5c2.5 4 5.3 6 8.5 6s6-2 8.5-6M7 13.8l-1.2 2.4M12 14.6v2.8M17 13.8l1.2 2.4"/><path d="M15 3.5h4l-4 4h4"/></symbol>
+  <symbol id="i-contrast" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></symbol>
+  <symbol id="i-photo" viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="m21 15.5-5-5-9.5 9"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="2" y="6" width="14" height="12" rx="2.5"/><path d="m16 10.5 5.5-3v9l-5.5-3z"/></symbol>
+  <symbol id="i-magnifier" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7"/><path d="m15.5 15.5 6 6M10.5 7.5v6M7.5 10.5h6"/></symbol>
+  <symbol id="i-reader" viewBox="0 0 24 24"><path d="M12 6.5C10 5 7 4.5 2.5 4.5v14c4.5 0 7.5.5 9.5 2 2-1.5 5-2 9.5-2v-14C17 4.5 14 5 12 6.5zM12 6.5v14"/></symbol>
+  <symbol id="i-device" viewBox="0 0 24 24"><rect x="5.5" y="2" width="13" height="20" rx="2.5"/><path d="M8.5 8h7M8.5 12.5h7M8.5 17h7"/><circle cx="13" cy="8" r="1.4" fill="currentColor"/><circle cx="10.5" cy="12.5" r="1.4" fill="currentColor"/><circle cx="14" cy="17" r="1.4" fill="currentColor"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c.7-3.4 3-5.5 6-5.5s5.3 2.1 6 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16 13.9c.3 0 .7-.1 1-.1 2.4 0 4.1 1.6 4.6 4.7"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="11" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3M12 14.5v3"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="m7.5 12.3 3 3 6-6.3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="m8.8 8.8 6.4 6.4M15.2 8.8l-6.4 6.4"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19M6 15h4"/><path d="M3 3 21 21"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4M8.5 14.5l2.2 2.2 4.8-4.7"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.5 4 5.5v6c0 4.8 3.4 8.6 8 10 4.6-1.4 8-5.2 8-10v-6z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-eye-device" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M6 12c1.6-2.6 3.6-4 6-4s4.4 1.4 6 4c-1.6 2.6-3.6 4-6 4s-4.4-1.4-6-4z"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></symbol>
+</svg>
