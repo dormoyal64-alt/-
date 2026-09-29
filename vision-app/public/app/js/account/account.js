@@ -157,19 +157,18 @@ export function mount(ctx) {
     const end = accessEndsAt(e);
     const date = end ? formatDate(end, lang) : '';
     const refundable = refundWindowOpen(invoices, Date.now());
-    /** @type {'period_end'|'now'} */
-    let mode = 'period_end';
+    const choice = /** @type {{mode: 'period_end'|'now'}} */ ({ mode: 'period_end' });
     const body = [date ? t('account.cancelConfirmBody', { date }) : t('account.cancelConfirmBodyNoDate')];
     if (refundable) {
-      const choice = radioGroup({
+      const group = radioGroup({
         legend: t('account.cancelMode.legend'), name: 'cancelMode', value: 'period_end', testId: 'cancel-mode',
         options: [
           { value: 'period_end', label: date ? t('account.cancelMode.periodEnd', { date }) : t('account.cancelMode.periodEndNoDate') },
           { value: 'now', label: t('account.cancelMode.now'), hint: t('account.cancelMode.nowHint') },
         ],
-        onChange: (v) => { mode = v === 'now' ? 'now' : 'period_end'; },
+        onChange: (v) => { choice.mode = v === 'now' ? 'now' : 'period_end'; },
       });
-      body.push(/** @type {any} */ (choice.el));
+      body.push(/** @type {any} */ (group.el));
     }
     const ok = await openDialog({
       title: t('account.cancelConfirmTitle'), body, testId: 'cancel-dialog', dismissValue: false, focusIndex: 0,
@@ -181,6 +180,7 @@ export function mount(ctx) {
     if (!ok || ctx.signal.aborted) return;
     setBusy(btn, true);
     try {
+      const mode = choice.mode;
       const res = await api.cancel(mode);
       if (res?.entitlement) ctx.shell.session.setEntitlement(res.entitlement);
       const newEnd = accessEndsAt(res?.entitlement);

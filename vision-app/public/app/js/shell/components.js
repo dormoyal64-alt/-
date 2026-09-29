@@ -99,7 +99,7 @@ export function field({ label, control, hint, requiredMark, className = '' }) {
 }
 
 /**
- * @param {{label: string, name: string, type?: string, autocomplete?: string, required?: boolean, value?: string, inputmode?: string,
+ * @param {{label: string, name: string, type?: string, autocomplete?: string, required?: boolean, value?: string|number, inputmode?: string,
  *   hint?: Child|Child[], testId?: string, min?: string|number, max?: string|number, step?: string|number, dir?: string, maxlength?: number, placeholder?: string}} opts
  */
 export function textField(opts) {

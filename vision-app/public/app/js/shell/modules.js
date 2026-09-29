@@ -30,7 +30,7 @@ export const MODULE_PATHS = Object.freeze({
 });
 
 /** @typedef {keyof typeof MODULE_PATHS} ModuleKey */
-/** @typedef {{ok: true, mod: any} | {ok: false, reason: 'offline'|'missing'|'error', error?: unknown}} LoadResult */
+/** @typedef {{ok: boolean, mod?: any, reason?: 'offline'|'missing'|'error', error?: unknown}} LoadResult */
 
 /** @type {Map<string, Promise<any>>} */
 const loaded = new Map();
