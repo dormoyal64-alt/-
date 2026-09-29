@@ -189,8 +189,16 @@ export function simulateCvd(rgbLinear, type, severity) {
 
 /** Error-redistribution matrix for protan/deutan: the red–green error is pushed into G and B (Fidaner 2005). */
 export const DALTONIZE_E_RED_GREEN = Object.freeze([0, 0, 0, 0.7, 1, 0, 0.7, 0, 1]);
-/** Error-redistribution matrix for tritan (spec item 33, [D]): the blue–yellow error is pushed into R and G. */
-export const DALTONIZE_E_TRITAN = Object.freeze([1, 0, 0.7, 0, 1, 0.7, 0, 0, 0]);
+/**
+ * Error-redistribution matrix for tritan. DEVIATES from the spec's [D] proposal E = [[1,0,0.7],[0,1,0.7],[0,0,0]]
+ * (item 33): with the Machado tritan matrices that proposal makes blue/yellow confusion pairs LESS distinct under
+ * simulation (ΔE76 ×0.8–0.9 at severity 0.3–0.6; test/unit/color/color-math.test.js). Here the blue error is
+ * re-encoded as a red–green opponent signal instead (R += 0.7·errB, G −= 0.7·errB, B unchanged), which the user
+ * still sees: simulated ΔE76 gain ×1.1–1.2 at severity 0.3, ×1.3–1.7 at 0.6, ×1.6–5.6 at 1.0.
+ */
+export const DALTONIZE_E_TRITAN = Object.freeze([0, 0, 0.7, 0, 0, -0.7, 0, 0, 0]);
+/** The spec's original tritan proposal (item 33), kept for reference and regression tests. */
+export const DALTONIZE_E_TRITAN_SPEC = Object.freeze([1, 0, 0.7, 0, 1, 0.7, 0, 0, 0]);
 
 /**
  * Recolouring ("colour filter") matrix for a user of `type`/`severity`, as a single 3x3 LINEAR-RGB matrix that
@@ -199,7 +207,7 @@ export const DALTONIZE_E_TRITAN = Object.freeze([1, 0, 0.7, 0, 1, 0.7, 0, 0, 0])
  * Derivation. The spec's per-pixel algorithm (item 33) is
  *     sim  = S·rgb                      S = machadoMatrix(type, severity)
  *     err  = rgb − sim = (I − S)·rgb    the part of the signal the user cannot see
- *     out  = rgb + k·E·err              E = DALTONIZE_E_RED_GREEN (protan/deutan) or DALTONIZE_E_TRITAN
+ *     out  = rgb + k·E·err              E = DALTONIZE_E_RED_GREEN (protan/deutan, spec) or DALTONIZE_E_TRITAN
  * Every step is linear, so out = [I + k·E·(I − S)]·rgb = M·rgb with
  *     M = I + k·E·(I − S).
  * Grey/white preservation. A neutral grey g·(1,1,1) is unchanged by M iff every row of M sums to 1, i.e. iff

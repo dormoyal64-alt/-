@@ -45,6 +45,8 @@ import {
  * @property {number} catchTrials
  * @property {number} catchMissed
  * @property {string[]} reasons               why the run was marked unreliable (empty when reliable)
+ * @property {import('../../core/types.js').Eye|null} [eye]  added by the view
+ * @property {number} [durationMs]             added by the view
  */
 
 /** @typedef {ColorResult & {details: ColorDetails}} ColorTestResult */
@@ -93,7 +95,10 @@ export const RED_LUMINANCE = 0.2126729;
 /** @param {number} v @param {number} lo @param {number} hi */
 function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 /** @param {number} v @param {number} [step] */
-function round(v, step = 0.01) { return Math.round(v / step) * step; }
+function round(v, step = 0.01) {
+  const decimals = Math.max(0, Math.round(-Math.log10(step)));
+  return Number((Math.round(v / step) * step).toFixed(decimals));
+}
 
 /**
  * Detection probability F(x; T) = 1 − exp(−10^(β(x − T))).
@@ -212,13 +217,13 @@ export function classifyThresholds(X, { redLuminanceMatch = null } = {}) {
 }
 
 /**
- * Longest run of identical direction answers ("can't see" breaks nothing and is not counted).
+ * Longest run of identical direction answers (a "can't see" answer ends the run).
  * @param {Array<Direction|'unsure'>} answers
  */
 export function longestIdenticalRun(answers) {
   let best = 0; let run = 0; /** @type {string|null} */ let prev = null;
   for (const a of answers) {
-    if (a === 'unsure') continue;
+    if (a === 'unsure') { prev = null; run = 0; continue; }
     run = a === prev ? run + 1 : 1;
     prev = a;
     if (run > best) best = run;
