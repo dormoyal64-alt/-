@@ -25,6 +25,7 @@
  * @property {number} distanceMm        Typical eye-to-screen viewing distance in mm used for the tests.
  * @property {'blindspot'|'camera'|'manual'} method
  * @property {number} [focalLengthPx]   Front-camera focal length in video pixels (width-normalised to 640 px), if calibrated.
+ * @property {{deviceId?: string, width: number, height: number}} [camera]  Camera the focal length is valid for.
  * @property {string} measuredAt
  */
 
@@ -47,6 +48,7 @@
  * @property {DistanceTracker|null} [distanceTracker] Optional live distance; when present, size stimuli using current().
  * @property {(fraction: number) => void} [onProgress] Progress 0..1 for the shell's progress bar.
  * @property {number} [age]
+ * @property {number} [acuityLogMAR]  Best measured acuity so far (used to size focus-range text).
  */
 
 /**
@@ -116,6 +118,7 @@
  * @property {Eye} eye
  * @property {number|null} nearPointMm  Closest distance at which text stays sharp, or null if not measured.
  * @property {number|null} farPointMm   Farthest distance at which small text stays sharp, null = beyond measurable range.
+ * @property {boolean} [nearPointFloorLimited]  True when the near point is at or closer than the 15 cm camera floor.
  */
 
 /**
