@@ -4,30 +4,28 @@
  * No clinical notation here: technical values are shown only behind FEATURES.showTechnicalValues.
  */
 
+import { detailScore as engineDetailScore } from '../engine/profile.js';
+
 /** @typedef {import('../core/types.js').VisionProfile} VisionProfile */
 /** @typedef {import('../core/types.js').AcuityResult} AcuityResult */
 /** @typedef {import('../core/types.js').ColorResult} ColorResult */
 
-/** @param {number} v @param {number} lo @param {number} hi */
-const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-
 /**
  * "Screen detail" level 0..100 at the tested distance (100 = sees the finest detail we can draw).
- * Linear in the log scale between -0.1 (100) and 1.0 (0).
+ * Delegates to the engine (single source of truth): score = clamp(round(100·(1.0 − logMAR)/1.2), 0, 100).
  * @param {number|null|undefined} logMAR
  * @returns {number|null}
  */
 export function detailScore(logMAR) {
-  if (typeof logMAR !== 'number' || !Number.isFinite(logMAR)) return null;
-  return Math.round(clamp((1.0 - logMAR) / 1.1, 0, 1) * 100);
+  return engineDetailScore(logMAR);
 }
 
 /** @param {number|null} score @returns {'excellent'|'good'|'fair'|'low'|null} */
 export function detailBand(score) {
   if (score === null) return null;
-  if (score >= 85) return 'excellent';
-  if (score >= 65) return 'good';
-  if (score >= 45) return 'fair';
+  if (score >= 80) return 'excellent';
+  if (score >= 58) return 'good';
+  if (score >= 40) return 'fair';
   return 'low';
 }
 

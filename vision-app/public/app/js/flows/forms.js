@@ -62,9 +62,18 @@ export function basicsForm(body, t, initial) {
       options: [{ value: 'yes', label: t('basics.yes') }, { value: 'no', label: t('basics.no') }],
       onChange: (v) => { glassesNote.hidden = v !== 'yes'; glasses.setError(null); },
     });
+    const glare = radioGroup({
+      legend: t('basics.glare'), name: 'lightSensitivity', testId: 'basics-glare', hint: t('basics.glareHint'),
+      value: initial.lightSensitivity || 'normal',
+      options: [
+        { value: 'low', label: t('basics.glareLow') },
+        { value: 'normal', label: t('basics.glareNormal') },
+        { value: 'high', label: t('basics.glareHigh') },
+      ],
+    });
     const hasRx = checkboxField({ name: 'hasRx', label: t('basics.hasRx'), checked: !!initial.hasRx, testId: 'basics-hasrx' });
     const submit = actionButton(t('basics.continue'), { type: 'submit', testId: 'basics-continue', className: 'va-btn--block' });
-    const form = h('form', { class: 'va-form', novalidate: true }, alert.el, name.el, age.el, glasses.el, glassesNote, hasRx.el, submit);
+    const form = h('form', { class: 'va-form', novalidate: true }, alert.el, name.el, age.el, glasses.el, glassesNote, glare.el, hasRx.el, submit);
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const n = name.input.value.trim();
@@ -76,7 +85,8 @@ export function basicsForm(body, t, initial) {
       if (!n) { name.input.focus(); return; }
       if (!ageOk) { age.input.focus(); return; }
       if (!glasses.value) { glasses.focus(); return; }
-      resolve({ name: n.slice(0, 40), age: a, wearsCorrection: glasses.value === 'yes', hasRx: hasRx.input.checked });
+      const ls = glare.value === 'low' || glare.value === 'high' ? glare.value : 'normal';
+      resolve({ name: n.slice(0, 40), age: a, wearsCorrection: glasses.value === 'yes', lightSensitivity: ls, hasRx: hasRx.input.checked });
     });
     clear(body);
     body.append(h('div', { class: 'va-page va-page--narrow va-flow', 'data-testid': 'onboarding-basics' },

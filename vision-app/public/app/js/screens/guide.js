@@ -36,7 +36,12 @@ export async function mount(ctx) {
   const guideMod = res.mod;
   /** @type {Platform} */
   let detected = 'other';
-  try { detected = guideMod.detectPlatform(navigator.userAgent, navigator.maxTouchPoints); } catch { /* keep other */ }
+  let model = '';
+  try {
+    const uad = /** @type {any} */ (navigator).userAgentData;
+    if (uad?.getHighEntropyValues) model = (await uad.getHighEntropyValues(['model']))?.model || '';
+  } catch { /* UA-CH unavailable */ }
+  try { detected = guideMod.detectPlatform(navigator.userAgent, navigator.maxTouchPoints, model); } catch { /* keep other */ }
   /** @type {Platform} */
   let platform = /** @type {Platform} */ (readPlatform() || detected);
   const choices = CHOICES.includes(detected) ? CHOICES : [...CHOICES, detected];

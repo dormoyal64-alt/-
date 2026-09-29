@@ -47,6 +47,7 @@ export const DEFAULT_DISTANCE_MM = 400;
  * @property {number|null} age
  * @property {boolean} wearsCorrection
  * @property {boolean} hasRx
+ * @property {'low'|'normal'|'high'} [lightSensitivity]  How bright screens feel (drives warmth/dimming).
  */
 
 /**
@@ -225,7 +226,12 @@ export function buildProfileInput(d, opts) {
   const astig = pick({ right: r['astig-right'], left: r['astig-left'] });
   if (Object.keys(astig).length) input.astigmatism = astig;
   if (r.focus) input.focus = r.focus;
-  if (opts.theme) input.prefs = { theme: opts.theme };
+  const ls = d.basics?.lightSensitivity;
+  if (opts.theme || ls) {
+    input.prefs = {};
+    if (opts.theme) input.prefs.theme = opts.theme;
+    if (ls === 'low' || ls === 'normal' || ls === 'high') input.prefs.lightSensitivity = ls;
+  }
   return input;
 }
 

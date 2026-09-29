@@ -114,6 +114,7 @@ export function mount(ctx) {
       const initial = draft.basics || (retestProfile ? {
         name: retestProfile.name, age: retestProfile.input?.age ?? null, wearsCorrection: retestProfile.input?.wearsCorrection,
         hasRx: !!(retestProfile.input?.rx?.right || retestProfile.input?.rx?.left),
+        lightSensitivity: retestProfile.input?.prefs?.lightSensitivity,
       } : { name: firstProfile ? t('basics.defaultName') : '' });
       const basics = await basicsForm(body, t, initial);
       if (destroyed) return;
@@ -280,15 +281,18 @@ export function mount(ctx) {
       theme: getTheme(), now: now(),
       screenFallback: fallbackScreen({ cssPxPerMm: DEFAULT_CSS_PX_PER_MM, dpr: window.devicePixelRatio || 1, screenWidthCssPx: screen.width, screenHeightCssPx: screen.height }, now()),
     });
+    const previous = draft.target.mode === 'retest' ? getProfile(draft.target.profileId) : null;
     let profile;
     try {
-      profile = res.mod.computeProfile(input, { id: draft.target.profileId, name: draft.basics?.name || t('basics.defaultName') });
+      profile = res.mod.computeProfile(input, {
+        id: draft.target.profileId, name: draft.basics?.name || t('basics.defaultName'),
+        ...(previous ? { baseline: previous } : {}),
+      });
     } catch (err) {
       console.warn('computeProfile failed', err);
       computeProblem('error');
       return;
     }
-    const previous = draft.target.mode === 'retest' ? getProfile(draft.target.profileId) : null;
     if (previous?.createdAt) profile = { ...profile, createdAt: previous.createdAt };
     saveProfile(profile);
     setActiveProfileId(profile.id);

@@ -180,6 +180,7 @@
  * @property {number} textScale              Relative to the platform default text size (1 = default).
  * @property {boolean} boldText
  * @property {boolean} increaseContrast
+ * @property {'medium'|'high'} [contrastLevel]  Which contrast tier the guide should recommend.
  * @property {null|{type: 'protan'|'deutan'|'tritan', intensity: number}} colorFilter  intensity 0..1
  * @property {boolean} reduceWhitePoint
  * @property {boolean} darkMode

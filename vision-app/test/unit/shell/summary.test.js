@@ -8,14 +8,15 @@ import { formatMinor, fromMinor } from '../../../public/app/js/shell/format.js';
 import { demoProfile } from '../../../public/app/js/core/demo-profile.js';
 
 test('functional detail score and bands', () => {
-  assert.equal(detailScore(-0.1), 100);
+  assert.equal(detailScore(-0.2), 100);
   assert.equal(detailScore(1.0), 0);
   assert.equal(detailScore(2), 0);
-  assert.equal(detailScore(0), 91);
+  assert.equal(detailScore(0), 83);
+  assert.equal(detailScore(0.3), 58);
   assert.equal(detailScore(undefined), null);
-  assert.equal(detailBand(91), 'excellent');
-  assert.equal(detailBand(70), 'good');
-  assert.equal(detailBand(50), 'fair');
+  assert.equal(detailBand(83), 'excellent');
+  assert.equal(detailBand(58), 'good');
+  assert.equal(detailBand(57), 'fair');
   assert.equal(detailBand(10), 'low');
   assert.equal(contrastBand(1.8), 'good');
   assert.equal(contrastBand(1.5), 'reduced');
