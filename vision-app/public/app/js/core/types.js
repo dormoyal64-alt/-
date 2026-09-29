@@ -61,6 +61,10 @@
  * @property {boolean} floorLimited True when the user resolved the smallest renderable size (true acuity may be better).
  * @property {number} trials
  * @property {number} durationMs
+ * @property {number} [sd]              Posterior SD of the estimate (logMAR).
+ * @property {[number, number]} [ci95]  95% credible interval (logMAR).
+ * @property {boolean} [ceilingLimited] True when even the largest size that fits was not resolved.
+ * @property {string[]} [reasons]       Machine codes explaining an unreliable result.
  */
 
 /**
@@ -77,6 +81,9 @@
  * @property {Eye} eye
  * @property {number} logCS        Log contrast sensitivity (Pelli-Robson-like scale).
  * @property {boolean} reliable
+ * @property {number} [distanceMm]
+ * @property {number} [trials]
+ * @property {string[]} [reasons]
  */
 
 /**
@@ -92,6 +99,8 @@
  * @property {Eye} eye
  * @property {boolean} suspected
  * @property {number|null} axisDeg  0..180 estimated axis, or null.
+ * @property {boolean} [consistent]  True when repeated presentations agreed.
+ * @property {Array<number[]|'same'>} [answers]  Raw selections per presentation (angles in degrees).
  */
 
 /**

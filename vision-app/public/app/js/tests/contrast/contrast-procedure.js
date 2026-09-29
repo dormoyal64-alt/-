@@ -29,7 +29,9 @@ export const CONTRAST_PARAMS = Object.freeze({
   reportStep: 0.05,
   // §5.2: "Reliability rules are the same as §3.5" => posterior SD > 0.08 is unreliable. With β = 3.5 an
   // ideal simulated observer exceeds 0.08 in ~10 % of runs (see test/unit/tests/contrast.test.js).
-  maxPosteriorSD: 0.08,
+  // Manager decision: scaled to 0.137 so an ideal observer's false "unreliable" rate matches the acuity
+  // test's (a few %), instead of ~10 % at 0.08 with the shallower contrast psychometric slope.
+  maxPosteriorSD: 0.137,
 });
 
 /**
