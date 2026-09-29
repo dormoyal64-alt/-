@@ -296,7 +296,7 @@ export function mount(ctx) {
     tracker?.stop();
     tracker = null;
     exiting = true;
-    ctx.shell.toast(t('compute.done'), { kind: 'success' });
+    ctx.shell.announce(t('compute.done'));
     ctx.navigate('/results', { replace: true, query: { fresh: 1 } });
   }
 

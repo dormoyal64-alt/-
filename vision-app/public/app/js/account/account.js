@@ -60,7 +60,7 @@ export function mount(ctx) {
       const e = ctx.store.get().entitlement;
       if (e && (e.status === 'active' || e.status === 'canceled') && e.hasAccess && e.plan) {
         pending.replaceWith(notice('success', t('account.checkoutSuccess'), { role: 'status', testId: 'checkout-success' }));
-        ctx.shell.toast(t('account.checkoutSuccess'), { kind: 'success' });
+        ctx.shell.announce(t('account.checkoutSuccess'));
         void loadInvoices();
         return;
       }

@@ -113,6 +113,7 @@ and come from the same origin (server checks `Origin`). Errors: `{ "error": { "c
 | `GET /api/billing/invoices` | – | `{invoices:[...]}` |
 | `POST /api/webhooks/:provider` | raw provider payload | 200 after signature verification |
 
+All money amounts in the API (plan prices, invoices, refunds) are integers in minor units (agorot / cents), VAT-inclusive.
 `GET /api/plans` also returns top-level `region` and `provider`, per plan `renewal: 'auto'|'manual'` and `provider`, and accepts `?country=`/`?currency=`.
 `POST /api/billing/checkout` accepts optional `country`/`currency`. Cancel responses include `refund:{status,amount,currency}` when a refund happens.
 Password-reset e-mails link to `/app/#/reset-password?token=…`. Bodyless POSTs (logout, cancel, resume) may omit Content-Type.

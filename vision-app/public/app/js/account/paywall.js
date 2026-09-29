@@ -8,7 +8,7 @@ import { makeT } from '../core/i18n.js';
 import { ACCOUNT_STRINGS } from './strings.js';
 import { api, safeCheckoutUrl } from './api.js';
 import { errorKey } from './errors.js';
-import { trialDaysLeft } from './entitlement.js';
+import { trialDaysLeft, hasEffectiveAccess } from './entitlement.js';
 import { brandName, legalUrl } from '../shell/brand.js';
 import { formatMinor } from '../shell/format.js';
 import { icon } from '../shell/icons.js';
@@ -32,7 +32,7 @@ export function mount(ctx) {
 
   // Trial / subscription status.
   const days = trialDaysLeft(entitlement, Date.now());
-  if (!online || (source === 'cache' && !entitlement?.hasAccess)) {
+  if (!online || (source === 'cache' && !hasEffectiveAccess(entitlement, source, Date.now()))) {
     status.append(notice('warning', t('paywall.offlineCheck'), { testId: 'paywall-offline', actions: [actionButton(ctx.t('retry'), { variant: 'secondary', onClick: () => void recheck() })] }));
   } else if (entitlement?.status === 'trial' && entitlement.hasAccess && days !== null) {
     status.append(notice('info', days <= 0 ? t('paywall.trialLastDay') : t('paywall.trialLeft', { days }), { testId: 'paywall-trial', iconName: 'clock' }));

@@ -91,8 +91,8 @@ export function createLayout(root, actions) {
 
     header.replaceChildren(h('div', { class: 'va-appbar__inner' },
       h('div', { class: 'va-appbar__start' }, up, titleEl || brandLink),
-      nav,
       h('div', { class: 'va-appbar__tools' }, ...tools),
+      nav,
     ));
 
     // Banners

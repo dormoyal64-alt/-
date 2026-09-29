@@ -304,12 +304,13 @@ export function mountLiveMagnifier(container, options = {}) {
     root.dataset.error = kind;
     const retry = iconButton({ icon: 'retry', label: t('retry'), showLabel: true, variant: 'primary', testId: 'magnifier-retry', onClick: () => { void start(); } });
     const steps = kind === 'denied' ? h('ol', null, h('li', null, t('denied_step1')), h('li', null, t('denied_step2')), h('li', null, t('denied_step3'))) : null;
-    errorBox.replaceChildren(
+    // Native replaceChildren() stringifies null ("null"), so pass only real nodes.
+    errorBox.replaceChildren(...[
       h('h2', { tabindex: '-1' }, t(`${kind}_title`)),
       h('p', null, t(`${kind}_body`, { name })),
       steps,
       kind === 'nocamera' || kind === 'insecure' ? null : retry,
-    );
+    ].filter(Boolean));
     /** @type {HTMLElement} */ (errorBox.firstChild).focus({ preventScroll: true });
   }
 

@@ -22,6 +22,7 @@ export function registerServiceWorker({ onUpdateReady }) {
     onUpdateReady();
   };
   navigator.serviceWorker.register(swUrl.href, { scope, type: 'classic' }).then((reg) => {
+    if (!reg) return;
     markWaiting(reg.waiting);
     reg.addEventListener('updatefound', () => {
       const w = reg.installing;

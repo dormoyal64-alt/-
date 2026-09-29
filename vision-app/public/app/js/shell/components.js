@@ -136,7 +136,8 @@ export function passwordField(opts) {
   });
   const f = field({ label: opts.label, control: input, hint: opts.hint, requiredMark: '*' });
   // Put the toggle next to the input inside a positioned wrapper.
-  const wrap = h('div', { class: 'va-pw-wrap' });
+  // Passwords are typed LTR; keep the toggle on the same (end) side as the input's padding.
+  const wrap = h('div', { class: 'va-pw-wrap', dir: 'ltr' });
   input.replaceWith(wrap);
   wrap.append(input, toggle);
   return { el: f.el, input, setError: f.setError };

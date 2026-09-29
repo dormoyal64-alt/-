@@ -7,7 +7,7 @@ export const ACCOUNT_STRINGS = {
   he: {
     // Welcome
     'welcome.eyebrow': 'התאמה אישית של המסך לראייה שלכם',
-    'welcome.title': 'הטלפון שלכם, מותאם לעיניים שלכם',
+    'welcome.title': 'הטלפון שלכם, מכוון לעיניים שלכם',
     'welcome.lead': '{brand} בודקת איך כל עין שלכם רואה את המסך, ומתאימה עבורכם את הטקסט, התמונות, הסרטונים והמצלמה, ואפילו את הגדרות הטלפון כולו.',
     'welcome.v1.title': 'בדיקה קצרה לכל עין',
     'welcome.v1.body': 'כ-15 דקות של משימות פשוטות על המסך, בקצב שלכם.',
@@ -218,7 +218,7 @@ export const ACCOUNT_STRINGS = {
   },
   en: {
     'welcome.eyebrow': 'Screen personalisation for your eyes',
-    'welcome.title': 'Your phone, fitted to your eyes',
+    'welcome.title': 'Your phone, tuned to your eyes',
     'welcome.lead': '{brand} checks how each of your eyes sees the screen, then adapts text, photos, videos and the camera for you, and even the settings of your whole phone.',
     'welcome.v1.title': 'A short check for each eye',
     'welcome.v1.body': 'About 15 minutes of simple on-screen tasks, at your own pace.',
