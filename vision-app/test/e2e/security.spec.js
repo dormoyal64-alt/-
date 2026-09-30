@@ -13,7 +13,7 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const EXPECTED_CSP = [
   "default-src 'self'",
   "script-src 'self' 'wasm-unsafe-eval'",
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self'",
   "img-src 'self' data: blob:",
   "media-src 'self' blob:",
   "connect-src 'self'",

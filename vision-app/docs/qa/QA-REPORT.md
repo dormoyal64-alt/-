@@ -83,3 +83,23 @@ But BUG-02/BUG-04 fail the WCAG 2.1 AA / IS 5568 commitment for precisely the lo
 non-negotiable "no clinical notation" honesty rule. Fix BUG-01 and BUG-03 in the same pass; SEC-03 must be resolved as
 part of the production deployment configuration (before real traffic behind a proxy); SEC-06/SEC-02/SEC-04 can follow
 in the next iteration. After fixes: remove the corresponding `test.fail()` lines and re-run `npx playwright test`.
+
+## 6. Fixes applied by the manager (2026-09-30) and re-verification
+
+| Id | Fix | Where |
+|---|---|---|
+| BUG-01 | Marketing and legal links carry `?lang=he` / `?lang=en`; `getInitialLang()` honours and remembers it. | `public/app/js/core/i18n.js`, `public/index.html`, `public/en/index.html`, `public/legal/**` |
+| BUG-02 | App chrome (brand, tabs, language toggle, skip link, headings, badges) capped in px; long words wrap (`overflow-wrap:anywhere`); flex text columns may shrink (`min-inline-size:0`) in flags, guide steps, link lists and switches. Verified: all screens are exactly 320 px wide at `--va-font-scale` 2.475, he + en. | `public/app/css/base.css`, `public/app/css/app.css` |
+| BUG-03 | Paywall cancellation-policy link is a ≥ 48 px touch target (`.va-tap-link`). | `account/paywall.js`, `app.css` |
+| BUG-04 | New `--va-on-danger` token (white in light, `#2b0000` in dark). | `base.css`, `app.css` |
+| BUG-05 | Home shows "50 מתוך 100" / "50 of 100" instead of "50/100". | `screens/home.js`, `screens/strings.js` |
+| SEC-02 | CSP `style-src 'self'` (no `'unsafe-inline'`); the dev-only mock checkout page allows only its own stylesheet by SHA-256 hash. | `server/http/security.js`, `server/billing/providers/mock.js` |
+| SEC-03 | One-time startup warning when `X-Forwarded-For` arrives while `TRUST_PROXY` is off; `.env.example` marks it required behind a proxy. | `server/app.js`, `server/.env.example` |
+| SEC-06 | Shared content never opens automatically: the share screen asks first and does not display incoming text before the user taps "Open". | `screens/share.js` |
+| Refunds | "Cancel now + full refund" also covers the latest charge of a fixed-term plan renewed manually (each is a new distance purchase, section 14C); entitlement exposes `refundEligibleUntil`. | `server/billing/service.js`, `account/account.js` |
+
+Not changed (documented for launch): SEC-04 (no per-account login limit across many IPs — per IP and per IP+e-mail limits exist), SEC-01 (dev-only Host-header URLs; production pins `PUBLIC_BASE_URL`), info items.
+
+**Re-run results (2026-09-30):** `npm run lint` clean · `npm run typecheck` clean · `npm test` 332/332 · `npx playwright test` **124/124 passed** (phone + tablet, no expected-failure markers left).
+
+**Updated verdict:** GO for a Hebrew-first beta once the launch checklist in `README.md` is completed (business details, payment-provider sandbox verification, domain, TRUST_PROXY).

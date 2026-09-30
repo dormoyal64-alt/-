@@ -85,7 +85,7 @@ test('full Hebrew customer journey: landing → onboarding → results → tools
 
   await test.step('"start free month" → register (terms + disclaimer)', async () => {
     await page.getByRole('link', { name: HE.startFree }).first().click();
-    await expect(page).toHaveURL(/\/app\/#\/register$/);
+    await expect(page).toHaveURL(/\/app\/\?lang=he#\/register$/);
     await waitForApp(page);
     await expect(page.getByTestId('screen-register')).toBeVisible();
     // Submitting without consents must be refused client-side.

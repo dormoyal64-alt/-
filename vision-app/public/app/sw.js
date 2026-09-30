@@ -11,7 +11,7 @@
 /** ServiceWorkerGlobalScope (typed loosely: the project tsconfig uses the DOM lib, not webworker). */
 const sw = /** @type {any} */ (self);
 
-const VERSION = '0.1.0-1';
+const VERSION = '0.1.0-2';
 const SHELL_CACHE = `va-shell-${VERSION}`;
 const VENDOR_CACHE = 'va-vendor-v1';
 const SHARE_CACHE = 'va-share-v1';

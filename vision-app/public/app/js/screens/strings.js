@@ -210,6 +210,7 @@ export const SCREEN_STRINGS = {
     'share.openReader': 'פתיחה בקורא הטקסט',
     'share.discard': 'ביטול',
     'share.confirm': 'התקבל תוכן ששותף לאפליקציה. לפתוח אותו?',
+    'share.textInfo': 'טקסט ({count} תווים)',
     // 404
     'notFound.home': 'למסך הבית',
   },
@@ -410,6 +411,7 @@ export const SCREEN_STRINGS = {
     'share.openReader': 'Open in the reader',
     'share.discard': 'Discard',
     'share.confirm': 'Something was shared with the app. Open it?',
+    'share.textInfo': 'Text ({count} characters)',
     'notFound.home': 'Go to home',
   },
 };

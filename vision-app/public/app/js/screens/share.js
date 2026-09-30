@@ -86,11 +86,11 @@ export function mount(ctx) {
     }
     const text = shareText(meta);
     if (text) {
-      const preview = text.length > 280 ? `${text.slice(0, 280)}…` : text;
+      // Do not display the incoming text before the user chooses to open it (it may come from any website).
       el.replaceChildren(
         pageHeader({ title: t('share.title'), lead: t('share.confirm') }),
         h('div', { class: 'va-card', 'data-testid': 'share-confirm' },
-          h('p', { class: 'va-text', dir: 'auto', style: { whiteSpace: 'pre-wrap' } }, preview),
+          h('p', { class: 'va-text' }, icon('reader'), ' ', t('share.textInfo', { count: text.length })),
           h('div', { class: 'va-actions' },
             actionButton(t('share.openReader'), { testId: 'share-open', onClick: () => { setPending({ kind: 'reader', text }); ctx.navigate('/viewer/reader', { replace: true }); } }),
             discard)));

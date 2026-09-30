@@ -275,7 +275,7 @@ img, svg { max-width: 100%; }
 .va-choice__label { font-weight: 600; }
 
 .va-switch { display: flex; align-items: center; gap: 16px; justify-content: space-between; }
-.va-switch__text { display: flex; flex-direction: column; gap: 4px; }
+.va-switch__text { display: flex; flex-direction: column; gap: 4px; min-inline-size: 0; overflow-wrap: anywhere; }
 .va-switch__control { position: relative; flex: none; inline-size: 60px; block-size: 36px; }
 .va-switch__input { position: absolute; inset: -6px; inline-size: calc(100% + 12px); block-size: calc(100% + 12px); margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
 .va-switch__track {
@@ -334,8 +334,8 @@ img, svg { max-width: 100%; }
 .va-info dd { margin: 0; font-weight: 600; text-align: end; }
 .va-badge {
   display: inline-flex; align-items: center; gap: 4px; inline-size: fit-content; margin: 0;
-  padding: 3px 10px; border-radius: 999px; font-size: 0.875rem; font-weight: 700;
-  background: var(--va-surface-2); color: var(--va-text);
+  padding: 3px 10px; border-radius: 999px; font-size: min(0.875rem, 20px); font-weight: 700;
+  background: var(--va-surface-2); color: var(--va-text); max-inline-size: 100%; overflow-wrap: anywhere;
 }
 .va-badge--save { background: var(--va-accent); color: #2b1a00; }
 .va-badge--active, .va-badge--rec { background: var(--app-tint); color: var(--app-tint-text); }
@@ -412,7 +412,7 @@ img, svg { max-width: 100%; }
 .va-invoice > a, .va-invoice__nolink { grid-area: link; }
 .va-invoice__nolink { inline-size: var(--va-tap); }
 .va-linklist { list-style: none; margin: 0; padding: 0; }
-.va-linklist a { display: flex; align-items: center; min-block-size: var(--va-tap); padding-block: 8px; font-weight: 600; border-block-end: 1px solid var(--va-border); }
+.va-linklist a { display: flex; align-items: center; min-block-size: var(--va-tap); padding-block: 8px; font-weight: 600; border-block-end: 1px solid var(--va-border); overflow-wrap: anywhere; min-inline-size: 0; }
 .va-linklist li:last-child a { border-block-end: 0; }
 
 /* ---------- Dialog ---------- */
@@ -491,6 +491,7 @@ img, svg { max-width: 100%; }
 .va-flag--urgent { background: var(--app-danger-bg); }
 .va-flag--urgent .va-icon { color: var(--va-danger); }
 .va-flag--info .va-icon { color: var(--app-info); }
+.va-flag > :not(.va-icon) { flex: 1; min-inline-size: 0; }
 .va-flag__text { margin: 0; font-weight: 600; }
 .va-flag__advice { margin: 4px 0 0; }
 .va-eyes { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
@@ -540,7 +541,8 @@ img, svg { max-width: 100%; }
 .va-guide-step__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .va-guide-step__num { inline-size: 34px; block-size: 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; background: var(--va-primary); color: var(--va-primary-contrast); flex: none; }
 .va-guide-step.is-done .va-guide-step__num { background: var(--va-success); }
-.va-guide-step__title { margin: 0; font-size: 1.1875rem; flex: 1; min-inline-size: 10ch; }
+.va-guide-step__title { margin: 0; font-size: 1.1875rem; flex: 1; min-inline-size: min(10ch, 100%); }
+.va-guide-step__value > :not(.va-icon) { min-inline-size: 0; overflow-wrap: anywhere; }
 .va-guide-step__why { margin: 0; color: var(--va-text-muted); }
 .va-guide-step__value { margin: 0; display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: var(--app-tint); color: var(--va-text); }
 .va-guide-step__value .va-icon { color: var(--app-tint-text); margin-block-start: 2px; }
