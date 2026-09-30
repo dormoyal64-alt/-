@@ -16,7 +16,8 @@
     "lint": "eslint .",
     "check": "npm run lint && npm run typecheck && npm test",
     "postinstall": "node scripts/vendor.js",
-    "static": "node scripts/static-server.js"
+    "static": "node scripts/static-server.js",
+    "demo": "node scripts/build-demo.js"
   },
   "dependencies": {
     "express": "^5.2.1",

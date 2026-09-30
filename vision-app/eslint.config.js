@@ -17,6 +17,10 @@ export default [
     languageOptions: { ecmaVersion: 2023, sourceType: 'module', globals: { ...globals.node } },
   },
   {
+    files: ['scripts/demo/**/*.js'],
+    languageOptions: { ecmaVersion: 2023, sourceType: 'script', globals: { ...globals.browser } },
+  },
+  {
     files: ['test/e2e/**/*.js'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
