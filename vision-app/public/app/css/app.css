@@ -73,6 +73,7 @@ img, svg { max-width: 100%; }
   position: absolute; inset-inline-start: 12px; inset-block-start: -80px; z-index: 100;
   background: var(--va-primary); color: var(--va-primary-contrast); padding: 12px 16px; border-radius: var(--va-radius-sm);
   font-weight: 700; text-decoration: none;
+  max-inline-size: calc(100vw - 24px); font-size: min(1rem, 20px); overflow-wrap: anywhere;
 }
 .va-skip:focus { inset-block-start: 12px; }
 .va-main { flex: 1; outline: none; padding-block-end: calc(24px + env(safe-area-inset-bottom)); }
@@ -93,13 +94,14 @@ img, svg { max-width: 100%; }
 }
 .va-appbar__start { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1; }
 .va-appbar__tools { display: flex; align-items: center; gap: 4px; }
-.va-appbar__title { font-weight: 700; font-size: 1.125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* App chrome is capped in px so a very large profile text scale enlarges content, not the bars (WCAG 1.4.10). */
+.va-appbar__title { font-weight: 700; font-size: min(1.125rem, 22px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .va-brand {
-  display: inline-flex; align-items: center; gap: 10px; min-height: var(--va-tap); padding-inline: 8px;
-  color: var(--va-text); text-decoration: none; font-weight: 800; font-size: 1.1875rem; letter-spacing: -0.01em; border-radius: var(--va-radius-sm);
+  display: inline-flex; align-items: center; gap: 10px; min-height: var(--va-tap); padding-inline: 8px; min-width: 0;
+  color: var(--va-text); text-decoration: none; font-weight: 800; font-size: min(1.1875rem, 22px); letter-spacing: -0.01em; border-radius: var(--va-radius-sm);
 }
 .va-brand:hover { color: var(--va-text); }
-.va-brand__name { white-space: nowrap; }
+.va-brand__name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .va-brand__mark {
   inline-size: 36px; block-size: 36px; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center;
   background: var(--va-primary); color: var(--va-primary-contrast);
@@ -113,7 +115,7 @@ img, svg { max-width: 100%; }
 .va-lang-toggle {
   appearance: none; border: 2px solid var(--va-border); background: var(--va-surface); color: var(--va-text);
   min-block-size: 44px; padding-inline: 12px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px;
-  font-weight: 600; cursor: pointer; font-size: 0.9375rem;
+  font-weight: 600; cursor: pointer; font-size: min(0.9375rem, 18px);
 }
 .va-lang-toggle:hover { border-color: var(--va-primary); }
 
@@ -127,8 +129,8 @@ img, svg { max-width: 100%; }
 .va-tabs__list { list-style: none; margin: 0; padding: 0 4px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .va-tabs__link {
   min-block-size: var(--app-tabs-h); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  color: var(--va-text-muted); text-decoration: none; font-size: 0.8125rem; font-weight: 600; border-radius: 12px; padding: 6px 2px; text-align: center;
-  line-height: 1.2;
+  color: var(--va-text-muted); text-decoration: none; font-size: min(0.8125rem, 16px); font-weight: 600; border-radius: 12px; padding: 6px 2px; text-align: center;
+  line-height: 1.2; min-width: 0; overflow-wrap: anywhere;
 }
 .va-tabs__link:hover { color: var(--va-text); }
 .va-tabs__link[aria-current="page"] { color: var(--va-primary); }
@@ -171,7 +173,9 @@ img, svg { max-width: 100%; }
 .va-page--narrow { max-inline-size: var(--app-maxw-narrow); }
 .va-page--wide { max-inline-size: var(--app-maxw-wide); }
 .va-page-head { display: flex; flex-direction: column; gap: 6px; }
-.va-title { font-size: 1.75rem; letter-spacing: -0.01em; }
+.va-title { font-size: min(1.75rem, 44px); letter-spacing: -0.01em; }
+/* Inline text link that still meets the 44px touch-target minimum. */
+.va-tap-link { display: inline-flex; align-items: center; min-block-size: var(--va-tap); }
 .va-lead { margin: 0; font-size: 1.0625rem; color: var(--va-text-muted); }
 .va-eyebrow { margin: 0; font-size: 0.875rem; font-weight: 700; color: var(--va-primary); text-transform: none; letter-spacing: 0.02em; }
 .va-section-title { font-size: 1.25rem; margin: 0 0 10px; }
@@ -198,7 +202,7 @@ img, svg { max-width: 100%; }
 .va-btn--block { inline-size: 100%; }
 .va-btn--secondary:hover { border-color: var(--va-primary); color: var(--va-text); }
 .va-btn--ghost:hover { background: var(--app-tint); }
-.va-btn--danger:hover { filter: brightness(0.92); color: #fff; }
+.va-btn--danger:hover { filter: brightness(0.92); color: var(--va-on-danger); }
 .va-btn--danger-outline { color: var(--va-danger); border-color: color-mix(in srgb, var(--va-danger) 55%, var(--va-border)); }
 .va-btn--danger-outline:hover { border-color: var(--va-danger); color: var(--va-danger); background: var(--app-danger-bg); }
 .va-btn--danger-text { color: var(--va-danger); }

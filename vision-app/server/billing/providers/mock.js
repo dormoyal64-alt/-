@@ -11,7 +11,8 @@
  *   (a single event object is accepted too).
  */
 import express from 'express';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, createHash, timingSafeEqual } from 'node:crypto';
+import { buildCsp } from '../../http/security.js';
 import { newToken, hmacHex, safeEqual, sha256Hex } from '../../auth/tokens.js';
 import { WebhookVerificationError } from './errors.js';
 import { EVENT_TYPES } from '../service.js';
@@ -133,6 +134,8 @@ const PAGE_CSS = `
   form{margin:0}
 `;
 
+const PAGE_CSS_HASH = `'sha256-${createHash('sha256').update(PAGE_CSS).digest('base64')}'`;
+
 /** @param {'he'|'en'} lang @param {string} title @param {string} bodyHtml */
 function page(lang, title, bodyHtml) {
   return `<!doctype html><html lang="${lang}" dir="${lang === 'he' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8">`
@@ -148,6 +151,8 @@ function page(lang, title, bodyHtml) {
  */
 export function mockCheckoutRouter({ config, billing, db, now, baseUrlOf, returnUrls }) {
   const router = express.Router();
+  // The site-wide CSP forbids inline styles; this dev-only page allows exactly its own stylesheet by hash.
+  router.use((_req, res, next) => { res.setHeader('Content-Security-Policy', buildCsp([], [PAGE_CSS_HASH])); next(); });
   router.use((req, res, next) => {
     if (config.isProduction) {
       res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Not found' } });

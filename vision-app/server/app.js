@@ -67,6 +67,18 @@ export function createApp(config, deps = {}) {
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy);
   app.set('etag', false); // API responses are no-store; static files get ETags from express.static
+  // SEC-03: behind a reverse proxy without TRUST_PROXY every client shares the proxy's IP, so the per-IP rate
+  // limits would throttle everyone together. Warn once, loudly, when forwarded headers arrive while it is off.
+  if (config.trustProxy === false) {
+    let warned = false;
+    app.use((req, _res, next) => {
+      if (!warned && req.headers['x-forwarded-for']) {
+        warned = true;
+        logger.warn('[security] X-Forwarded-For received but TRUST_PROXY is off: set TRUST_PROXY to the number of proxy hops (e.g. 1) so rate limits use real client IPs.');
+      }
+      next();
+    });
+  }
 
   const formActionOrigins = [...new Set([...providers.values()].flatMap((p) => p.cspFormActionOrigins))];
   app.use(securityHeaders({ isProduction: config.isProduction, formActionOrigins }));

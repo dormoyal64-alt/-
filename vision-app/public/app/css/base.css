@@ -25,6 +25,7 @@
   --va-primary-contrast: #ffffff;
   --va-accent: #f2a93b;
   --va-danger: #b42318;
+  --va-on-danger: #ffffff;       /* 6.6:1 on #b42318 */
   --va-success: #127a3a;
   --va-warning: #8a5a00;
   --va-focus: #1d6fe0;
@@ -48,6 +49,7 @@
     --va-primary-strong: #6fdad2;
     --va-primary-contrast: #06201e;
     --va-danger: #ff8a80;
+    --va-on-danger: #2b0000;     /* 9+:1 on #ff8a80 */
     --va-success: #5fd48a;
     --va-warning: #ffcc66;
     --va-focus: #7fb2ff;
@@ -65,6 +67,7 @@
   --va-primary-strong: #6fdad2;
   --va-primary-contrast: #06201e;
   --va-danger: #ff8a80;
+  --va-on-danger: #2b0000;
   --va-success: #5fd48a;
   --va-warning: #ffcc66;
   --va-focus: #7fb2ff;
@@ -106,7 +109,10 @@ body {
   padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
 }
 .va-screen__body { display: flex; flex-direction: column; gap: 12px; }
-.va-title { font-size: 1.5rem; line-height: 1.25; margin: 0; font-weight: 700; }
+.va-title { font-size: 1.5rem; line-height: 1.25; margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+/* Reflow at large profile text scales (WCAG 1.4.10): long words wrap instead of forcing sideways scroll. */
+h1, h2, h3, h4, label, legend, .va-label, .va-btn, .va-text, .va-hint { overflow-wrap: anywhere; }
+.va-btn { max-inline-size: 100%; }
 .va-title:focus { outline: none; }
 .va-text { margin: 0; font-size: 1rem; }
 .va-hint { margin: 0; font-size: 0.875rem; color: var(--va-text-muted); }
@@ -134,7 +140,7 @@ body {
 .va-btn--primary:hover { background: var(--va-primary-strong); }
 .va-btn--secondary { background: var(--va-surface); color: var(--va-text); border-color: var(--va-border); }
 .va-btn--ghost { background: transparent; color: var(--va-primary); }
-.va-btn--danger { background: var(--va-danger); color: #fff; }
+.va-btn--danger { background: var(--va-danger); color: var(--va-on-danger); }
 
 /* ---------- Inputs ---------- */
 .va-field { display: flex; flex-direction: column; gap: 6px; }

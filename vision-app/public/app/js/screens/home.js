@@ -74,7 +74,7 @@ export function mount(ctx) {
       title: t('home.summaryTitle'), iconName: 'eye', testId: 'home-summary', className: 'va-summary',
       children: h('div', { class: 'va-stats' },
         stat(t('home.textSize'), pct ? `${pct}%` : '–', 'stat-text'),
-        ...eyes.map((x) => stat(t(x.eye === 'right' ? 'home.detailRight' : 'home.detailLeft'), x.score === null ? t('results.notMeasured') : `${x.score}/100`, `stat-${x.eye}`)),
+        ...eyes.map((x) => stat(t(x.eye === 'right' ? 'home.detailRight' : 'home.detailLeft'), x.score === null ? t('results.notMeasured') : t('home.scoreValue', { score: x.score }), `stat-${x.eye}`)),
         stat(t('home.colors'), color ? t(`color.${color.key}`) : t('results.notMeasured'), 'stat-color')),
       actions: [linkButton(t('home.seeResults'), '#/results', { variant: 'secondary', iconName: 'results' })],
     });

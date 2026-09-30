@@ -126,7 +126,7 @@ export function mount(ctx) {
         card({ title: t('paywall.secureTitle'), iconName: 'shield', className: 'va-card--soft', children: h('p', { class: 'va-text' }, t('paywall.secure')), testId: 'secure-note' }),
         card({
           title: t('paywall.cancelTitle'), iconName: 'check', className: 'va-card--soft',
-          children: [h('p', { class: 'va-text' }, t('paywall.cancel')), h('p', null, h('a', { href: legalUrl('cancellation', ctx.lang) }, t('account.cancellation')))],
+          children: [h('p', { class: 'va-text' }, t('paywall.cancel')), h('p', null, h('a', { href: legalUrl('cancellation', ctx.lang), class: 'va-tap-link' }, t('account.cancellation')))],
         }),
       ),
     ),

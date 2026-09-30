@@ -30,6 +30,11 @@ export function dirFor(lang) {
 
 /** @returns {Lang} */
 export function getInitialLang() {
+  // An explicit ?lang= (e.g. from the Hebrew or English marketing site) wins and is remembered.
+  try {
+    const fromUrl = new URLSearchParams(location.search).get('lang');
+    if (fromUrl === 'he' || fromUrl === 'en') { saveLang(fromUrl); return fromUrl; }
+  } catch { /* no location (tests) */ }
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === 'he' || saved === 'en') return saved;

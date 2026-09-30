@@ -9,13 +9,15 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**
  * @param {string[]} formActionOrigins extra origins allowed as form targets (hosted payment pages)
+ * @param {string[]} [extraStyleSources] e.g. a 'sha256-…' hash for one known inline stylesheet
  */
-export function buildCsp(formActionOrigins = []) {
+export function buildCsp(formActionOrigins = [], extraStyleSources = []) {
   const formAction = ["'self'", ...formActionOrigins].join(' ');
   return [
     "default-src 'self'",
     "script-src 'self' 'wasm-unsafe-eval'",
-    "style-src 'self' 'unsafe-inline'",
+    // No 'unsafe-inline': the app sets styles through the CSSOM only (allowed by CSP).
+    ["style-src 'self'", ...extraStyleSources].join(' '),
     "img-src 'self' data: blob:",
     "media-src 'self' blob:",
     "connect-src 'self'",

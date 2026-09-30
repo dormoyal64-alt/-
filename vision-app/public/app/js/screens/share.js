@@ -63,8 +63,18 @@ export function mount(ctx) {
       setPending({ kind, file });
       ctx.navigate(`/viewer/${kind}`, { replace: true });
     };
+    // Security (SEC-06): any website can POST to the share-target URL, so nothing opens without the user's tap.
+    const discard = actionButton(t('share.discard'), { variant: 'ghost', testId: 'share-discard', onClick: () => ctx.navigate('/home', { replace: true }) });
     const supported = files.filter((f) => viewerForType(f.type));
-    if (supported.length === 1) { open(supported[0]); return; }
+    if (supported.length === 1) {
+      const f = supported[0];
+      el.replaceChildren(
+        pageHeader({ title: t('share.title'), lead: t('share.confirm') }),
+        h('div', { class: 'va-card', 'data-testid': 'share-confirm' },
+          h('p', { class: 'va-text' }, icon(viewerForType(f.type) === 'video' ? 'video' : 'photo'), ' ', f.name),
+          h('div', { class: 'va-actions' }, actionButton(t('share.open'), { testId: 'share-open', onClick: () => open(f) }), discard)));
+      return;
+    }
     if (supported.length > 1) {
       el.replaceChildren(
         pageHeader({ title: t('share.title'), lead: t('share.pick', { count: supported.length }) }),
@@ -75,7 +85,17 @@ export function mount(ctx) {
       return;
     }
     const text = shareText(meta);
-    if (text) { setPending({ kind: 'reader', text }); ctx.navigate('/viewer/reader', { replace: true }); return; }
+    if (text) {
+      const preview = text.length > 280 ? `${text.slice(0, 280)}…` : text;
+      el.replaceChildren(
+        pageHeader({ title: t('share.title'), lead: t('share.confirm') }),
+        h('div', { class: 'va-card', 'data-testid': 'share-confirm' },
+          h('p', { class: 'va-text', dir: 'auto', style: { whiteSpace: 'pre-wrap' } }, preview),
+          h('div', { class: 'va-actions' },
+            actionButton(t('share.openReader'), { testId: 'share-open', onClick: () => { setPending({ kind: 'reader', text }); ctx.navigate('/viewer/reader', { replace: true }); } }),
+            discard)));
+      return;
+    }
     if (files.length) { el.replaceChildren(emptyState({ iconName: 'warning', title: t('share.title'), body: t('share.unsupported') })); return; }
     nothing();
   })().catch((err) => { console.warn('share load failed', err); nothing(); });

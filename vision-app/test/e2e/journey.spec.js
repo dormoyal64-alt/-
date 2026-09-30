@@ -5,7 +5,7 @@
  * -> home -> guide -> reader -> settings (adapt UI) -> paywall -> mock checkout -> active -> cancel -> logout -> login.
  */
 import { test, expect } from '@playwright/test';
-import { collectErrors, uniqueEmail, PASSWORD, autopilot, waitForApp } from './helpers.js';
+import { collectErrors, uniqueEmail, PASSWORD, autopilot, waitForApp, apiRegister, seedProfile, gotoRoute } from './helpers.js';
 
 const HE = {
   startFree: 'התחילו חודש חינם',
@@ -21,12 +21,45 @@ const HE = {
 // BUG-01: the app picks its language from navigator.language only, so a visitor coming from the HEBREW landing page
 // with an English-locale browser (e.g. the Pixel 7 profile, en-US) lands in an ENGLISH app. Kept as an expected failure.
 test('BUG-01: Hebrew landing CTA opens the app in Hebrew even on an en-US browser', async ({ page }) => {
-  test.fail(true, 'BUG-01: app ignores the landing page language (core/i18n.js getInitialLang)');
   await page.goto('/');
   await page.getByRole('link', { name: HE.startFree }).first().click();
   await waitForApp(page);
   await expect(page.locator('html')).toHaveAttribute('lang', 'he', { timeout: 3000 });
 });
+
+const CLINICAL = [/\d+\s*\/\s*\d+/, /logMAR/i, /דיופטר/, /dioptr|diopter/i, /snellen/i, /\b(6|20)\s*\/\s*\d{1,3}\b/];
+
+for (const lang of /** @type {const} */ (['he', 'en'])) {
+  test(`results screen shows no clinical notation (${lang})`, async ({ page }) => {
+    await page.addInitScript((l) => { localStorage.setItem('va.lang', l); }, lang);
+    await page.goto('/app/');
+    await waitForApp(page);
+    await apiRegister(page, { lang });
+    await seedProfile(page);
+    await page.reload();
+    await waitForApp(page);
+    await gotoRoute(page, '/results');
+    await expect(page.getByTestId('result-textsize')).toBeVisible();
+    const text = await page.locator('main').innerText();
+    for (const re of CLINICAL) expect(text, String(re)).not.toMatch(re);
+  });
+
+  // BUG-05: the home summary prints the screen-detail score as "50/100" (home.js:77). A low score such as 20
+  // renders as "20/100", indistinguishable from a Snellen acuity fraction — the results screen correctly says "50 מתוך 100".
+  test(`BUG-05: home summary shows no Snellen-like "N/100" notation (${lang})`, async ({ page }) => {
+    await page.addInitScript((l) => { localStorage.setItem('va.lang', l); }, lang);
+    await page.goto('/app/');
+    await waitForApp(page);
+    await apiRegister(page, { lang });
+    await seedProfile(page);
+    await page.reload();
+    await waitForApp(page);
+    await gotoRoute(page, '/home');
+    await expect(page.getByTestId('home-summary')).toBeVisible();
+    const text = await page.locator('main').innerText();
+    for (const re of CLINICAL) expect(text, String(re)).not.toMatch(re);
+  });
+}
 
 test.describe('Hebrew-locale device', () => {
 test.use({ locale: 'he-IL', timezoneId: 'Asia/Jerusalem' });
