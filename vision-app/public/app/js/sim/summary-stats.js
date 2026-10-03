@@ -4,6 +4,7 @@
  * Markdown report section. Validation-only code.
  */
 import { allFiniteNumbers } from './util.js';
+import { lineAngleDiff } from '../tests/astigmatism/astigmatism-math.js';
 
 /** @typedef {ReturnType<typeof import('./evaluate.js').evaluateRun>} Eval */
 /** @typedef {import('./cohort.js').SimUser} SimUser */
@@ -83,6 +84,7 @@ export function summarize(cohort, runs, { reps, minorForced }) {
       baseReserve: rs[0].baseReserve, baseClass: rs[0].baseLegibility,
       cplHebrew: quantile(rs.map((r) => r.cpl.hebrew), 0.5), cplLatin: quantile(rs.map((r) => r.cpl.latin), 0.5),
       distanceOk: rs.filter((r) => r.distanceOk).length / rs.length,
+      tComf: quantile(rs.map((r) => r.Tcomf), 0.5),
       textAngle: quantile(rs.map((r) => (2 * Math.atan((r.baseFontPx * 0.58) / u.device.cssPxPerMm / (2 * r.dEval)) * 10800) / Math.PI), 0.5),
       topFlags: [...new Set(rs.flatMap((r) => r.flags))].filter((c) => rs.filter((r) => r.flags.includes(c)).length >= rs.length / 2),
     });
@@ -118,10 +120,16 @@ export function summarize(cohort, runs, { reps, minorForced }) {
     'hyperopia at 45 +0.5 → +3': ['hyp+0.5-45', 'hyp+1-45', 'hyp+2-45', 'hyp+3-45'],
     'astigmatism sph 0 ×90 0.75 → 2.5': ['ast0-0.75x90', 'ast0-1.5x90', 'ast0-2.5x90'],
   };
+  // A pair violates monotonicity when the eye that truly needs ≥ 0.1 log more (comfortable threshold at its viewing
+  // distance) gets a text angle more than 10 % smaller. Equal needs (e.g. two myopes both inside their sharp range)
+  // are not compared: there "larger text for the worse eye" does not apply.
   const mono = Object.entries(series).map(([name, ids]) => {
-    const angles = ids.map((id) => perUser.find((p) => p.id === id)?.textAngle ?? NaN);
+    const pu = ids.map((id) => /** @type {Record<string, any>} */ (perUser.find((p) => p.id === id)));
+    const angles = pu.map((p) => p?.textAngle ?? NaN);
     const violations = [];
-    for (let i = 1; i < angles.length; i++) if (angles[i] < 0.9 * Math.max(...angles.slice(0, i))) violations.push(ids[i]);
+    for (let i = 0; i < pu.length; i++) for (let j = 0; j < pu.length; j++) {
+      if (pu[j].tComf >= pu[i].tComf + 0.1 && pu[j].textAngle < 0.9 * pu[i].textAngle) violations.push(`${ids[j]}<${ids[i]}`);
+    }
     return { name, angles, violations };
   });
   // ---- flag sanity
@@ -153,6 +161,18 @@ export function summarize(cohort, runs, { reps, minorForced }) {
       c.rate = rs.filter((r) => r.flags.some((x) => x.startsWith('LINES_UNEVEN'))).length / Math.max(1, rs.length);
     }
   }
+  // ---- line dial: detection rate by cylinder and axis agreement (internal axis estimate)
+  const dial = [0, -0.75, -1.5, -2.5].map((cyl) => {
+    const rs = runs.filter((r) => r.dial.cyl === cyl && r.age >= 18);
+    const det = rs.filter((r) => r.dial.suspected);
+    const axisErr = (/** @type {Eval[]} */ a) => a.filter((r) => r.dial.axisDeg !== null).map((r) => lineAngleDiff(/** @type {number} */ (r.dial.axisDeg), r.dial.trueAxis));
+    const errs = axisErr(det);
+    return {
+      cyl, runs: rs.length, detected: rs.length ? det.length / rs.length : NaN,
+      axisWithin15: errs.length ? errs.filter((e) => e <= 15).length / errs.length : NaN,
+      axisOff75: errs.length ? errs.filter((e) => e >= 75).length / errs.length : NaN,
+    };
+  });
   const checks = {
     nanRuns, yesRuns: verdictRuns.yes, yesNotPass: yesNotPass.length, yesNotPassIds: [...new Set(yesNotPass.map((r) => r.id))],
     minorsYes, minorsNotNo, minorsTooClose, strongMyopesYes, distanceBad,
@@ -198,6 +218,10 @@ export function summarize(cohort, runs, { reps, minorForced }) {
   L.push(`- Myopia ≥ 4 D with 'yes': ${strongMyopesYes}. Runs with the evaluated distance outside 25–60 cm (33–60 cm under 18): ${distanceBad}.`);
   L.push(`- Users whose modal verdict holds in < 80 % of repetitions: ${unstable.length ? checks.unstableUsers.join(', ') : 'none'}.`);
   for (const m of mono) L.push(`- Monotonic text angle, ${m.name}: ${m.angles.map((a) => f(a, 1)).join(' → ')}′ — ${m.violations.length ? `violations: ${m.violations.join(', ')}` : 'OK'}.`);
+  L.push('\n| Line dial (right eye, adults) | runs | "suspected" | internal axis within ±15° | axis off by ≥ 75° |');
+  L.push('|---|---:|---:|---:|---:|');
+  const p2 = (/** @type {number} */ v) => (Number.isFinite(v) ? pct(v) : '–');
+  for (const d of dial) L.push(`| cyl ${d.cyl} | ${d.runs} | ${pct(d.detected)} | ${p2(d.axisWithin15)} | ${p2(d.axisOff75)} |`);
   L.push('\n| Flag sanity check | runs | rate | expected |');
   L.push('|---|---:|---:|---|');
   for (const c of flagChecks) L.push(`| ${c.what} | ${c.n} | ${pct(c.rate)} | ${c.expect} |`);
@@ -208,5 +232,5 @@ export function summarize(cohort, runs, { reps, minorForced }) {
     `checks: NaN ${nanRuns}, yes¬PASS ${yesNotPass.length} ${checks.yesNotPassIds.join(' ')}, minorsYes ${minorsYes}, minorsNotNo ${minorsNotNo}, strongMyopesYes ${strongMyopesYes}, distanceBad ${distanceBad}, unstable ${unstable.length}`,
     ...groups.map((g) => `  ${g.padEnd(24)} yes ${byGroup[g].yes} partial ${byGroup[g].partial} no ${byGroup[g].no} none ${byGroup[g].none}`),
   ].join('\n');
-  return { json: { acc, focus, byGroup, verdictRuns, legib, checks, perUser, minorForced: minorForced.slice(0, 20) }, markdown, console: consoleOut };
+  return { json: { acc, focus, dial, byGroup, verdictRuns, legib, checks, perUser, minorForced: minorForced.slice(0, 20) }, markdown, console: consoleOut };
 }

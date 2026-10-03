@@ -93,6 +93,7 @@ export function evaluateRun(run) {
     reserve: app.reserve, reserveLatin: app.latin, reserveHebrew: app.hebrew, Tcomf: app.T, legibility: legibilityClass(app.reserve),
     baseReserve: base.reserve, baseLegibility: legibilityClass(base.reserve), Tbase: base.T,
     cpl, distanceOk,
+    dial: { suspected: !!input.astigmatism?.right?.suspected, axisDeg: input.astigmatism?.right?.axisDeg ?? null, trueAxis: eyes.right.axisDeg, cyl: eyes.right.cyl, sphere: eyes.right.sphere },
     flags: profile.flags.map((f) => f.code),
   };
 }

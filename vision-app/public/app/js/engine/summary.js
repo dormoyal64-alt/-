@@ -5,16 +5,19 @@
  *   summarizeProfile(profile, lang)  → plain-language summary (no clinical notation, no condition names)
  *   technicalDetails(profile, lang)  → [{label, value}] with clinical values, for the hidden technical panel only
  *   describeFlag(flag, lang)         → {level, code, title, text, advice, body} for one ProfileFlag
+ *   describeGlassesFree(a, lang)     → {title, body, tips} for VisionProfile.glassesFree (tests done without glasses)
  */
 import { makeT } from '../core/i18n.js';
 import { FLAG_STRINGS } from './strings/flag-strings.js';
 import { SUMMARY_STRINGS, TECH_STRINGS } from './strings/summary-strings.js';
+import { GLASSES_FREE_STRINGS } from './strings/glasses-free-strings.js';
 import { detailScore, deriveMetrics, PLATFORM_DEFAULT_PX } from './profile.js';
 import { decimalFromLogMAR, snellen6, snellen20 } from '../tests/acuity/acuity-math.js';
 
 /** @typedef {import('../core/types.js').Lang} Lang */
 /** @typedef {import('../core/types.js').VisionProfile} VisionProfile */
 /** @typedef {import('../core/types.js').ProfileFlag} ProfileFlag */
+/** @typedef {import('../core/types.js').GlassesFreeAssessment} GlassesFreeAssessment */
 
 /**
  * @typedef {Object} FlagText
@@ -254,4 +257,67 @@ export function technicalDetails(profile, lang) {
   const wc = input?.wearsCorrection;
   rows.push({ label: t('correction'), value: wc === true ? t('yes') : wc === false ? t('no') : t('unknown') });
   return rows;
+}
+
+/** Every reason code engine/profile.js can put in GlassesFreeAssessment.reasons. */
+export const GLASSES_FREE_REASONS = Object.freeze([
+  'SHARP_RANGE_OK', 'SHARP_AT_HABITUAL', 'NO_COMFORTABLE_DISTANCE', 'TOO_CLOSE', 'TEXT_LARGE', 'TEXT_TOO_LARGE',
+  'HIGH_ASTIGMATISM', 'BLUR_AT_ALL_DISTANCES', 'FOCUS_NOT_MEASURED', 'FOCUS_INCONSISTENT', 'UNRELIABLE', 'EYES_DIFFER',
+  'CHILD', 'NOT_ENOUGH_DATA',
+]);
+
+/** Reasons that get their own explanatory sentence, in display order. */
+const GF_EXPLAINED = ['TEXT_TOO_LARGE', 'TEXT_LARGE', 'TOO_CLOSE', 'NO_COMFORTABLE_DISTANCE', 'HIGH_ASTIGMATISM',
+  'BLUR_AT_ALL_DISTANCES', 'FOCUS_NOT_MEASURED', 'FOCUS_INCONSISTENT', 'UNRELIABLE', 'EYES_DIFFER'];
+
+/**
+ * Plain-language wording for the glasses-free assessment (no clinical terms, no promises; an eye exam is always
+ * recommended). Returns null for a missing assessment.
+ * @param {GlassesFreeAssessment|null|undefined} a @param {Lang|string} lang
+ * @returns {{title: string, body: string, tips: string[]}|null}
+ */
+export function describeGlassesFree(a, lang) {
+  if (!a || typeof a !== 'object') return null;
+  const t = makeT(GLASSES_FREE_STRINGS, langOf(lang));
+  const reasons = Array.isArray(a.reasons) ? a.reasons.map(String) : [];
+  const cmOf = (/** @type {unknown} */ mm) => (isNum(mm) && mm > 0 ? Math.round(mm / 10) : null);
+  const cm = cmOf(a.recommendedDistanceMm);
+  const from = cmOf(a.sharpFromMm);
+  const to = cmOf(a.sharpToMm);
+  const cpl = isNum(a.charsPerLine) ? Math.max(0, Math.round(a.charsPerLine)) : 0;
+  if (reasons.includes('CHILD')) {
+    return { title: t('child.title'), body: t('child.body'), tips: [t('tip.childDistance'), t('tip.exam')] };
+  }
+  const range = from !== null && to !== null ? t('range.both', { from, to })
+    : from !== null ? t('range.from', { from })
+      : to !== null ? t('range.to', { to }) : '';
+  const hold = cm !== null ? t('hold', { cm }) : t('hold.habitual');
+  const feasible = a.feasible === 'yes' || a.feasible === 'no' ? a.feasible : 'partial';
+  // 'no' already says that text would be very large / very close.
+  const skip = feasible === 'no' ? ['TEXT_TOO_LARGE', 'TOO_CLOSE'] : [];
+  const explain = GF_EXPLAINED.filter((r) => reasons.includes(r) && !skip.includes(r)).map((r) => t(`reason.${r}`, { cpl, min: 12 }));
+  /** @type {string[]} */
+  const tips = [];
+  let title;
+  let body;
+  if (feasible === 'yes') {
+    title = cm !== null ? t('yes.title', { cm }) : t('yes.title.noDistance');
+    body = [range, hold].filter(Boolean).join(' ');
+    if (cm !== null) tips.push(t('tip.keepDistance', { cm }));
+    tips.push(t('tip.breaks'), t('tip.tired'), t('tip.exam'));
+  } else if (feasible === 'partial') {
+    title = t('partial.title');
+    body = [range, hold, ...explain].filter(Boolean).join(' ');
+    if (cm !== null) tips.push(t('tip.keepDistance', { cm }));
+    tips.push(t('tip.useGlasses'), t('tip.tired'));
+    if (reasons.includes('UNRELIABLE') || reasons.includes('FOCUS_INCONSISTENT')) tips.push(t('tip.repeat'));
+    tips.push(t('tip.exam'));
+  } else {
+    title = t('no.title');
+    body = [t('no.body'), range, ...explain].filter(Boolean).join(' ');
+    tips.push(t('tip.useGlasses'));
+    if (cm !== null) tips.push(t('tip.ifWithout', { cm }));
+    tips.push(t('tip.readingGlasses'), t('tip.exam'));
+  }
+  return { title: tidy(title), body: tidy(body), tips: tips.map(tidy) };
 }

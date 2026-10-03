@@ -262,14 +262,20 @@ describe('recommended viewing distance (§9.5)', () => {
     assert.equal(p.viewing.recommendedDistanceMm, 350);
     assert.ok(codes(p).includes('NEAR_FOCUS_FAR'));
   });
-  test('far point closer than the comfortable distance → exam flag', () => {
-    const p = computeProfile(withFocus(250, 300)); // Amp 0.67 D → d_min 3000 mm > 600 → NEAR_FOCUS_FAR takes priority
-    assert.ok(codes(p).includes('NEAR_FOCUS_FAR'));
-    const q = computeProfile(withFocus(200, 300)); // Amp 1.67 D → d_min 1200 > 600
-    assert.ok(codes(q).includes('NEAR_FOCUS_FAR'));
-    const r = computeProfile(withFocus(150, 300)); // Amp 3.33 D → d_min 600; far point 300 < 600
-    assert.ok(codes(r).includes('FOCUS_RANGE_LIMITED'));
-    assert.equal(r.viewing.recommendedDistanceMm, 300);
+  test('measured far point: comfortable near limit = 1000/(F + Amp/2); narrow range (< 10 cm) → exam flag', () => {
+    // Uncorrected myope: at d the focusing effort is 1000/d − F (F = 1000/far point), so the comfortable near limit is
+    // 1000/(F + Amp/2), not 2000/Amp (validation simulation, docs/validation/SIMULATION-REPORT.md).
+    const p = computeProfile(withFocus(250, 300)); // F 3.33, Amp 0.67 → 273 mm; range 27–30 cm
+    assert.ok(codes(p).includes('FOCUS_RANGE_LIMITED'));
+    assert.ok(!codes(p).includes('NEAR_FOCUS_FAR'));
+    const q = computeProfile(withFocus(200, 300)); // Amp 1.67 → 240 mm; range 24–30 cm
+    assert.ok(codes(q).includes('FOCUS_RANGE_LIMITED'));
+    const r = computeProfile(withFocus(150, 300)); // Amp ≥ 3.33 → 200 mm; range 20–30 cm: comfortable, no flag
+    assert.ok(!codes(r).includes('FOCUS_RANGE_LIMITED') && !codes(r).includes('NEAR_FOCUS_FAR'));
+    assert.equal(r.viewing.recommendedDistanceMm, 300); // capped by the far point
+    // A young myope whose near point is at the camera floor is never told about reading glasses.
+    const young = computeProfile(eyesInput(0.6, { age: 38, focus: { eye: 'both', nearPointMm: 150, farPointMm: 290 } }));
+    assert.ok(!codes(young).includes('NEAR_FOCUS_FAR') && !codes(young).includes('FOCUS_RANGE_LIMITED'));
   });
   test('text is sized at d_rec and a re-check is suggested when it differs > 15 % from the test distance', () => {
     const at350 = computeProfile(eyesInput(0.3));
