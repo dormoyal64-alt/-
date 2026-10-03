@@ -49,6 +49,8 @@
  * @property {(fraction: number) => void} [onProgress] Progress 0..1 for the shell's progress bar.
  * @property {number} [age]
  * @property {number} [acuityLogMAR]  Best measured acuity so far (used to size focus-range text).
+ * @property {FocusRangeResult} [focusRange] Focus-range result, if already measured (the line dial uses it to know
+ *   whether the eye is "fogged", which its internal axis estimate depends on).
  */
 
 /**
@@ -103,6 +105,8 @@
  * @property {boolean} suspected
  * @property {number|null} axisDeg  0..180 estimated axis, or null.
  * @property {boolean} [consistent]  True when repeated presentations agreed.
+ * @property {number|null} [lineAngleDeg]  Mean screen orientation of the agreeing answers (internal).
+ * @property {boolean} [fogged]  Whether the eye was judged fogged (rule of 30) when axisDeg was derived (internal).
  * @property {Array<number[]|'same'>} [answers]  Raw selections per presentation (angles in degrees).
  */
 

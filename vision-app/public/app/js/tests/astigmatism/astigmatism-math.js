@@ -7,6 +7,8 @@
  * Clock positions: hour h sits 30·h degrees clockwise from 12 o'clock, i.e. at math angle 90 − 30·h.
  */
 
+import { FOCUS } from '../../calibration/calibration-math.js';
+
 export const DIAL = Object.freeze({
   spokes: 12,               // 12 lines through the centre at 15° intervals (24 half-hour clock positions)
   spokeStepDeg: 15,
@@ -21,6 +23,8 @@ export const DIAL = Object.freeze({
 });
 
 const ARCMIN_RAD = Math.PI / 10800;
+/** Where the focus-range far sweep starts (calibration-math FOCUS.farStartMm). */
+const FAR_SWEEP_START_MM = FOCUS.farStartMm;
 
 /** Circular distance between two line orientations (mod 180), in [0, 90]. @param {number} a @param {number} b */
 export function lineAngleDiff(a, b) {
@@ -67,14 +71,41 @@ export function clockHoursForLine(phi) {
 /**
  * Axis (internal only) by the rule of 30: axis = 30° × lower clock hour of the chosen line, with the lower
  * hour snapped to half hours; 6 o'clock → 180°. Result in (0, 180].
- * Examples: 12–6 → 180, 3–9 → 90, 1–7 → 30.
- * @param {number} phi
+ * Examples (fogged): 12–6 → 180, 3–9 → 90, 1–7 → 30.
+ *
+ * The rule of 30 assumes a FOGGED eye (both focal lines in front of the retina, §6.1): the focal line of the
+ * weaker meridian (= minus-cylinder axis) is then nearest the retina and the sharp line runs perpendicular to the
+ * axis. A phone cannot fog (§6.2): an unfogged eye looking at the dial with the usual accommodative lag has the
+ * focal lines straddling the retina with the STRONGER meridian's line nearest, so the darkest line runs along
+ * the axis meridian — the rule of 30 is then 90° off (glasses-free simulation: ≥ 90 % of detections). With
+ * `fogged: false` the axis is taken from the perpendicular line. Only an uncorrected eye viewing the dial from
+ * beyond its far point is fogged (see isFoggedAt).
+ * @param {number} phi @param {{fogged?: boolean}} [o]
  */
-export function axisFromLineAngle(phi) {
-  const [lower] = clockHoursForLine(phi);
+export function axisFromLineAngle(phi, { fogged = true } = {}) {
+  const [lower] = clockHoursForLine(fogged ? phi : phi + 90);
   const snapped = Math.round(lower * 2) / 2;
   const axis = 30 * snapped;
   return axis === 0 ? 180 : axis;
+}
+
+/**
+ * Is the eye "fogged" (focus in front of the retina) while looking at the dial? True only when the focus-range
+ * test measured a credible far point nearer than the dial. Not credible: a far point at the far sweep's start
+ * (≤ 1.25 × 20 cm) — constant blur from astigmatism ends the sweep right there (glasses-free simulation: every
+ * 1.5–2.5 D cylinder) — or one not beyond the near point. Strong myopes (≥ ~4 D) are therefore treated as
+ * unfogged; their blur makes all spokes look alike, so they rarely give a consistent answer anyway.
+ * @param {{nearPointMm?: number|null, farPointMm?: number|null}|null|undefined} focus  focus-range result (binocular)
+ * @param {number} dialDistanceMm
+ */
+export function isFoggedAt(focus, dialDistanceMm) {
+  const fin = (/** @type {unknown} */ v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+  const far = focus?.farPointMm;
+  const near = focus?.nearPointMm;
+  if (!fin(far) || !Number.isFinite(dialDistanceMm)) return false;
+  const f = /** @type {number} */ (far);
+  if (f >= dialDistanceMm || f <= FAR_SWEEP_START_MM * 1.25) return false;
+  return !(fin(near) && /** @type {number} */ (near) >= f);
 }
 
 /**
@@ -98,11 +129,11 @@ export function meanLineAngle(angles) {
 /**
  * Infer from the answers of the presentations: a number (chosen line orientation) or 'equal'.
  * Consistent = at least 2 answers within ±15° of each other (§6.2). The axis uses the mean orientation of
- * the largest consistent group.
- * @param {Array<number|'equal'>} answers
+ * the largest consistent group (rule of 30 when fogged, perpendicular line otherwise — see axisFromLineAngle).
+ * @param {Array<number|'equal'>} answers @param {{fogged?: boolean}} [o]
  * @returns {DialInference}
  */
-export function inferFromAnswers(answers) {
+export function inferFromAnswers(answers, { fogged = true } = {}) {
   const lines = /** @type {number[]} */ (answers.filter((a) => typeof a === 'number'));
   const equalCount = answers.length - lines.length;
   /** @type {number[]} */
@@ -113,7 +144,7 @@ export function inferFromAnswers(answers) {
   }
   if (group.length < 2) return { suspected: false, axisDeg: null, lineAngleDeg: null, equalCount };
   const lineAngleDeg = meanLineAngle(group);
-  return { suspected: true, axisDeg: axisFromLineAngle(lineAngleDeg), lineAngleDeg, equalCount };
+  return { suspected: true, axisDeg: axisFromLineAngle(lineAngleDeg, { fogged }), lineAngleDeg, equalCount };
 }
 
 /**

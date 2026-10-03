@@ -11,7 +11,7 @@
 /** ServiceWorkerGlobalScope (typed loosely: the project tsconfig uses the DOM lib, not webworker). */
 const sw = /** @type {any} */ (self);
 
-const VERSION = '0.1.0-2';
+const VERSION = '0.1.0-3';
 const SHELL_CACHE = `va-shell-${VERSION}`;
 const VENDOR_CACHE = 'va-vendor-v1';
 const SHARE_CACHE = 'va-share-v1';
@@ -42,6 +42,18 @@ const PRECACHE = [
   'js/engine/profile.js', 'js/engine/system-guide.js', 'js/engine/color-math.js',
   'js/render/apply-ui.js', 'js/render/filter-renderer.js',
   'js/viewers/photo-viewer.js', 'js/viewers/video-viewer.js', 'js/viewers/live-magnifier.js', 'js/viewers/reader.js', 'js/viewers/viewers.css',
+  // Their dependencies (statically imported; without them a first offline start/retest fails to load a view).
+  // test/unit/shell/sw-precache.test.js checks this list against public/app/js (the research simulator js/sim/** is not shipped).
+  'js/calibration/calibration-ui.js', 'js/calibration/face-iris.js', 'js/calibration/strings.js',
+  'js/engine/summary.js', 'js/engine/strings/flag-strings.js', 'js/engine/strings/glasses-free-strings.js',
+  'js/engine/strings/guide-strings.js', 'js/engine/strings/summary-strings.js',
+  'js/render/filter-math.js', 'js/render/view-math.js',
+  'js/tests/acuity/acuity-math.js', 'js/tests/acuity/acuity-procedure.js', 'js/tests/acuity/optotype.js', 'js/tests/acuity/quest.js',
+  'js/tests/acuity/random.js', 'js/tests/acuity/stimulus-canvas.js', 'js/tests/acuity/view-kit.js',
+  'js/tests/astigmatism/astigmatism-math.js', 'js/tests/color/color-plates.js', 'js/tests/color/color-procedure.js',
+  'js/tests/contrast/contrast-math.js', 'js/tests/contrast/contrast-procedure.js',
+  'js/tests/reading/reading-math.js', 'js/tests/reading/sentences.js',
+  'js/viewers/reader-text.js', 'js/viewers/viewer-kit.js', 'js/viewers/viewer-math.js',
 ];
 
 const scope = () => new URL(sw.registration.scope);

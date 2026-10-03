@@ -1656,3 +1656,15 @@ The claims specific to "vision-correcting display" are in §11.3. The table belo
 | Privacy (engineering fact) | "Camera images are processed on your device and are not uploaded." (Only if true in the build.) | Any privacy claim the implementation does not enforce |
 
 *End of document.*
+
+---
+
+## ERRATA AND IMPLEMENTATION UPDATES (2026-10-03, from simulation and bug-hunt work)
+
+These supersede the matching parts of the sections above. Details and evidence: `docs/validation/SIMULATION-REPORT.md`.
+
+1. **§9.5 comfortable near limit.** For an uncorrected myope with far point F (dioptres) the comfortable near limit is `1000 / (F + Amp/2)` mm, not `1000 / (Amp/2)`. A near point at the camera floor (15 cm) is a lower bound, not a measurement. Without this, young myopes were wrongly advised to get reading glasses.
+2. **§6.2 clock-dial axis.** The rule of 30 (darkest line clock-hour × 30 ≈ minus-cylinder axis) holds only when the eye is fogged (target beyond the far point). Unfogged at phone distance, accommodative lag makes the other meridian's line the sharpest and the inferred axis is 90° off. The app now uses the measured far point to decide which rule applies. The axis stays internal and is never shown.
+3. **§4.4 reading word check.** The comprehension check is 3-choice (was 2-choice), and a print size counts as read only when the next larger size also passed. This cut implausibly small reading results from about 11% to under 1% in simulation.
+4. **Glasses-free sizing.** When the profile is built without glasses, text is sized for the predicted threshold at the recommended distance (inside the user's sharp range), not the threshold measured at the test distance. Under-18s are never given a glasses-free recommendation.
+5. **Measurement bias to keep in mind.** With the §9.2–9.3 target sizes, the simulated far point reads about 0.6 D too far and the near point about 1.1 D too close; the engine corrects for both. Far points are detectable only from about −2.25 D.

@@ -24,7 +24,7 @@ import {
   printSizeForFontPx, standardWords, wordsPerMinute, analyseReading, shouldStopReading,
 } from '../tests/reading/reading-math.js';
 import { SENTENCES } from '../tests/reading/sentences.js';
-import { DIAL, spokeAngles, inferFromAnswers } from '../tests/astigmatism/astigmatism-math.js';
+import { DIAL, spokeAngles, inferFromAnswers, isFoggedAt } from '../tests/astigmatism/astigmatism-math.js';
 import {
   CARD_WIDTH_MM, BLIND_SPOT, FOCUS, cssPxPerMmFromCard, evaluateCardMatches, offsetMmForAngle, distanceFromBlindSpot,
   nearTargetLogMAR, farTargetLogMAR, combineNearPointRuns, combineFarPointRuns, median,
@@ -144,14 +144,25 @@ export function runContrast(c) {
   return { eye: /** @type {const} */ ('both'), logCS: est.logCS, reliable: est.reliable };
 }
 
-/** Line-dial check (one eye), mirroring astigmatism-view.js. @param {SimContext} c @param {'right'|'left'} eye */
+/**
+ * Line-dial check (one eye), mirroring astigmatism-view.js: the person's answers now; the inference later via
+ * `finish(focusResult)`, because the view knows the far point when the focus-range test ran before it (glasses-free
+ * onboarding) — the simulation runs focus afterwards only to keep the random stream unchanged.
+ * @param {SimContext} c @param {'right'|'left'} eye
+ */
 export function runDial(c, eye) {
   const obs = dialObserver({ eye: c.eyes[eye], dTrue: c.dTrue, rng: c.rng });
   /** @type {Array<number|'equal'>} */
   const results = [];
   for (let n = 1; n <= DIAL.presentations; n++) results.push(obs(spokeAngles(c.rng() * DIAL.spokeStepDeg)));
-  const inf = inferFromAnswers(results);
-  return { eye, suspected: inf.suspected, axisDeg: inf.axisDeg };
+  return {
+    /** @param {{nearPointMm: number|null, farPointMm: number|null}|null} [focus] */
+    finish(focus = null) {
+      const fogged = isFoggedAt(focus, c.dApp);
+      const inf = inferFromAnswers(results, { fogged });
+      return { eye, suspected: inf.suspected, axisDeg: inf.axisDeg, consistent: inf.suspected, lineAngleDeg: inf.lineAngleDeg, fogged };
+    },
+  };
 }
 
 /**
@@ -223,9 +234,11 @@ export function simulateUser(user, { rep = 0, lang = 'he', withFocus = true, eng
   results['acuity-left'] = runAcuity(c, 'left');
   results.reading = runReading(c, lang);
   results.contrast = runContrast(c);
-  results['astig-right'] = runDial(c, 'right');
-  results['astig-left'] = runDial(c, 'left');
+  const dialR = runDial(c, 'right');
+  const dialL = runDial(c, 'left');
   if (withFocus) results.focus = runFocus(c, criterion);
+  results['astig-right'] = dialR.finish(results.focus ?? null);
+  results['astig-left'] = dialL.finish(results.focus ?? null);
   const acuityBoth = runAcuity(c, 'both');
 
   const draft = /** @type {import('../flows/onboarding-plan.js').OnboardingDraft} */ ({

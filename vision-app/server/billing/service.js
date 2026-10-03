@@ -226,6 +226,23 @@ export function createBillingService({ db, config, providers, now, logger, audit
     if (!sub || !ent.hasAccess || !(ent.status === 'active' || ent.status === 'canceled' || ent.status === 'past_due')) {
       throw new HttpError(409, 'NO_ACTIVE_SUBSCRIPTION', 'There is no active subscription to cancel');
     }
+    // A double-click (two concurrent requests) must not refund the same charge twice: while a refund for this
+    // subscription is in flight, later requests share its outcome.
+    const inflight = refundsInFlight.get(sub.id);
+    if (inflight) return inflight;
+    const run = cancelNowWithRefund(user, sub, reference);
+    refundsInFlight.set(sub.id, run);
+    try { return await run; } finally { refundsInFlight.delete(sub.id); }
+  }
+
+  /** @type {Map<string, Promise<{entitlement: any, refund: any}>>} */
+  const refundsInFlight = new Map();
+
+  /**
+   * @param {{id: string, email: string, lang: string, trial_ends_at: number}} user
+   * @param {SubscriptionRow} sub @param {string} reference
+   */
+  async function cancelNowWithRefund(user, sub, reference) {
     const charge = refundableCharge(sub);
     if (!charge) {
       throw new HttpError(400, 'REFUND_WINDOW_PASSED',

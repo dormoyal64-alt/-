@@ -8,7 +8,7 @@ import { h, runView, throwIfAborted } from '../../core/dom.js';
 import { makeT } from '../../core/i18n.js';
 import { coverEyeScreen, instructionScreen, button, focusTitle } from '../../core/ui.js';
 import { DEFAULT_CSS_PX_PER_MM } from '../../core/types.js';
-import { DIAL, spokeAngles, spokeIndexForTap, dialGeometry, spokeQuads, inferFromAnswers } from './astigmatism-math.js';
+import { DIAL, spokeAngles, spokeIndexForTap, dialGeometry, spokeQuads, inferFromAnswers, isFoggedAt } from './astigmatism-math.js';
 import { createStimulusCanvas } from '../acuity/stimulus-canvas.js';
 import { createAnswerChannel, createDistanceSource, squareStimulusSize } from '../acuity/view-kit.js';
 import { mulberry32 } from '../acuity/random.js';
@@ -189,7 +189,13 @@ export function runAstigmatismTest(container, ctx) {
       ctx.onProgress?.(n / DIAL.presentations);
       if (n < DIAL.presentations) focusTitle(container);
     }
-    const inf = inferFromAnswers(results);
-    return /** @type {AstigmatismResult} */ ({ eye, suspected: inf.suspected, axisDeg: inf.axisDeg });
+    // The rule of 30 needs a fogged eye; at phone distance only an eye beyond its measured far point is fogged.
+    const fogged = isFoggedAt(ctx.focusRange, distance.current());
+    const inf = inferFromAnswers(results, { fogged });
+    // consistent: the view only reports `suspected` for ≥ 2 of 3 agreeing answers. lineAngleDeg + fogged keep the raw
+    // observation so the internal axis can be recomputed if the fog decision is ever revised.
+    return /** @type {AstigmatismResult} */ ({
+      eye, suspected: inf.suspected, axisDeg: inf.axisDeg, consistent: inf.suspected, lineAngleDeg: inf.lineAngleDeg, fogged,
+    });
   });
 }

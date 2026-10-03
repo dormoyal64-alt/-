@@ -1,9 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DIAL, axisFromLineAngle, clockHoursForLine, lineAngleDiff, spokeAngles, spokeIndexForTap, inferFromAnswers,
+  DIAL, axisFromLineAngle, clockHoursForLine, lineAngleDiff, spokeAngles, spokeIndexForTap, inferFromAnswers, isFoggedAt,
   meanLineAngle, dialGeometry, spokeQuads,
 } from '../../../public/app/js/tests/astigmatism/astigmatism-math.js';
+import { createEye, farPointMm } from '../../../public/app/js/sim/eye-model.js';
+import { dialObserver } from '../../../public/app/js/sim/observers.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b} ± ${tol}, got ${a}`);
 
@@ -63,4 +65,46 @@ test('geometry: 1.5′ lines with 1.5′ gaps, 5° spoke length (at 35 cm on 460
   const ys = quads.map((q) => (q[0].y + q[3].y) / 2);
   assert.deepEqual([...new Set(ys.map((y) => Math.round(y)))].sort((a, b) => a - b), [-4, 0, 4], 'pitch = width + gap');
   close(Math.abs(quads[0][0].y - quads[0][3].y), 2, 1e-9, 'line width');
+});
+
+test('axis: rule of 30 only for a fogged eye; unfogged (phone distance, accommodative lag) uses the perpendicular line', () => {
+  assert.equal(axisFromLineAngle(60, { fogged: true }), 30, 'fogged 1–7 → 30°');
+  assert.equal(axisFromLineAngle(60, { fogged: false }), 120, 'unfogged: darkest line runs along the axis meridian');
+  assert.equal(axisFromLineAngle(90, { fogged: false }), 90);
+  assert.equal(axisFromLineAngle(0, { fogged: false }), 180);
+  assert.equal(inferFromAnswers([62, 55, 'equal'], { fogged: false }).axisDeg, 120);
+  assert.equal(isFoggedAt({ nearPointMm: 150, farPointMm: 280 }, 350), true, 'far point nearer than the dial');
+  assert.equal(isFoggedAt({ nearPointMm: null, farPointMm: 280 }, 350), true);
+  assert.equal(isFoggedAt({ nearPointMm: 150, farPointMm: 205 }, 350), false, 'far sweep ended at its 20 cm start (constant blur)');
+  assert.equal(isFoggedAt({ nearPointMm: 150, farPointMm: 500 }, 350), false);
+  assert.equal(isFoggedAt({ nearPointMm: 150, farPointMm: null }, 350), false, 'beyond arm’s length');
+  assert.equal(isFoggedAt({ nearPointMm: 400, farPointMm: 200 }, 350), false, 'constant blur: both sweeps ended at their start');
+  assert.equal(isFoggedAt(null, 350), false, 'not measured');
+  assert.equal(isFoggedAt(undefined, 350), false);
+  assert.equal(isFoggedAt({ nearPointMm: 150, farPointMm: Number.NaN }, 350), false);
+});
+
+test('axis agrees with the optics of the simulated observer, fogged and unfogged (A14: was ~90° off)', () => {
+  let seed = 7;
+  const rng = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const cases = [
+    { sphere: 0, cyl: -1.5, axisDeg: 30, d: 400 },    // emmetropic astigmat, not fogged
+    { sphere: 0.5, cyl: -2, axisDeg: 165, d: 350 },   // low hyperope, not fogged
+    { sphere: -1, cyl: -1.5, axisDeg: 90, d: 350 },   // low myope inside its far point, not fogged
+    { sphere: -2.5, cyl: -1.5, axisDeg: 45, d: 400 }, // myope beyond its far point (31 cm): fogged
+  ];
+  for (const k of cases) {
+    const eye = createEye({ sphere: k.sphere, cyl: k.cyl, axisDeg: k.axisDeg, age: 30 });
+    const fogged = isFoggedAt({ nearPointMm: 150, farPointMm: farPointMm(eye) }, k.d);
+    assert.equal(fogged, k.sphere + k.cyl / 2 < -1000 / k.d, `fogged state for ${JSON.stringify(k)}`);
+    const obs = dialObserver({ eye, dTrue: k.d, rng });
+    const errs = [];
+    for (let n = 0; n < 30; n++) {
+      const inf = inferFromAnswers([0, 1, 2].map(() => obs(spokeAngles(rng() * DIAL.spokeStepDeg))), { fogged });
+      if (inf.axisDeg !== null) errs.push(lineAngleDiff(inf.axisDeg, k.axisDeg));
+    }
+    assert.ok(errs.length >= 15, `detected ${errs.length}/30 for ${JSON.stringify(k)}`);
+    const median = [...errs].sort((a, b) => a - b)[errs.length >> 1];
+    assert.ok(median <= 15, `median axis error ${median}° for ${JSON.stringify(k)}`);
+  }
 });

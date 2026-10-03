@@ -190,6 +190,7 @@ export function mount(ctx) {
     const tctx = {
       lang: ctx.lang, screen: draft.results.screen, distance: draft.results.distance, eye: step.eye, signal: controller.signal,
       distanceTracker: tracker, onProgress: (f) => stage.setProgress(f), age: draft.basics?.age ?? undefined,
+      focusRange: draft.results.focus ?? undefined,
     };
     clear(body);
     running = true;

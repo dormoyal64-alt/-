@@ -192,6 +192,22 @@ describe('renewal scheduler and Israeli plan rules (mock provider)', () => {
     assert.equal(normal.data.refund, undefined);
   });
 
+  test('cancel mode "now" double-click: two concurrent requests refund the charge once (A14)', async () => {
+    const a = await subscribed('monthly');
+    const refundsBefore = mock.refunds.length;
+    const original = mock.refund;
+    // a real provider answers after a network round trip: let the second request arrive meanwhile
+    mock.refund = async (req) => { await new Promise((r) => setTimeout(r, 50)); return original.call(mock, req); };
+    try {
+      const [r1, r2] = await Promise.all([a.client.post('/api/billing/cancel', { mode: 'now' }), a.client.post('/api/billing/cancel', { mode: 'now' })]);
+      assert.equal(r1.status, 200);
+      assert.equal(r2.status, 200);
+      assert.deepEqual(r2.data.refund, r1.data.refund);
+    } finally { mock.refund = original; }
+    assert.equal(mock.refunds.length, refundsBefore + 1, 'refunded exactly once');
+    assert.equal(mails('refund_confirmation', a.email).length, 1);
+  });
+
   test('plans: region by country/currency; INTL plans all auto-renew in USD', async () => {
     const il = (await t.client().get('/api/plans')).data;
     assert.deepEqual([il.region, il.currency], ['IL', 'ILS']);
