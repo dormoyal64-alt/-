@@ -51,7 +51,7 @@ async function main() {
   // App (without dev harness, self-hosted camera model and service worker).
   await cp(join(pub, 'app'), join(out, 'app'), {
     recursive: true,
-    filter: (src) => !/[\\/]app[\\/](vendor|dev)([\\/]|$)/.test(src) && !/[\\/]app[\\/]sw\.js$/.test(src),
+    filter: (src) => !/[\\/]app[\\/](vendor|dev|js[\\/]sim)([\\/]|$)/.test(src) && !/[\\/]app[\\/]sw\.js$/.test(src),
   });
   await cp(join(root, 'scripts/demo/demo-api.js'), join(out, 'app/js/demo-api.js'));
 
