@@ -79,6 +79,27 @@ function glassesFreeCard(info, text, t, lang) {
   return card({ title: t('gf.title'), iconName: 'glasses', testId: 'results-glasses-free', className: `va-card--full va-gf va-gf--${v}`, children });
 }
 
+/**
+ * Pilot study hook: a tester session (public/pilot/session.html) sets localStorage 'va.pilot.active' =
+ * {code, returnUrl, startedAt} before opening the check; offer the way back. Same-origin pilot page only, < 24 h old.
+ * @param {(key: string, params?: Record<string, string|number>) => string} t
+ */
+function pilotContinue(t) {
+  /** @type {any} */
+  let marker = null;
+  try { marker = JSON.parse(localStorage.getItem('va.pilot.active') || 'null'); } catch { return null; }
+  if (!marker || typeof marker.returnUrl !== 'string' || typeof marker.code !== 'string') return null;
+  const started = Date.parse(marker.startedAt);
+  if (!Number.isFinite(started) || Date.now() - started > 86_400_000) return null;
+  let url;
+  try { url = new URL(marker.returnUrl, location.href); } catch { return null; }
+  if (url.origin !== location.origin || !url.pathname.endsWith('/pilot/session.html')) return null;
+  return notice('info', t('pilot.continueBody', { code: marker.code.slice(0, 12) }), {
+    title: t('pilot.continueTitle'), testId: 'results-pilot', iconName: 'forward',
+    actions: [linkButton(t('pilot.continue'), url.href, { testId: 'results-pilot-continue', iconName: 'forward' })],
+  });
+}
+
 /** @param {import('../shell/screen-types.js').ScreenContext} ctx */
 export async function mount(ctx) {
   const t = makeT(SCREEN_STRINGS, ctx.lang);
@@ -223,6 +244,7 @@ export async function mount(ctx) {
         input.wearsCorrection === true ? ' ' + t('results.withGlasses') : input.wearsCorrection === false ? ' ' + t('results.withoutGlasses') : ''],
     }),
     ctx.route.query.fresh ? notice('success', t('results.fresh'), { role: 'status', testId: 'results-fresh' }) : null,
+    pilotContinue(t),
     gfCard,
     tryGlassesFree,
     h('div', { class: 'va-grid-2 va-results__grid' }, ...sections),

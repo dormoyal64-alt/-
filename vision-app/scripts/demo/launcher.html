@@ -1,4 +1,5 @@
 <title>SeeTuned</title>
+<!-- @pilot-css: scripts/build-demo.js inlines public/pilot/pilot.css + hub.css here -->
 <style>
   /* Layout: one narrow column, brand header, primary actions first, then what the preview can and cannot do. */
   :root {
@@ -43,6 +44,8 @@
   .note { background: var(--tint); border-radius: 12px; padding: 12px 14px; margin: 0; }
   .muted { color: var(--muted); font-size: 0.95rem; margin: 0; }
   @media (max-width: 360px) { .row { grid-template-columns: 1fr; } }
+  .pilot-launch { border-block-start: 2px solid var(--line); padding-block-start: 20px; }
+  .pilot-launch .pilot-fallback { display: flex; flex-direction: column; gap: 10px; }
 </style>
 
 <main class="wrap" dir="rtl" lang="he">
@@ -64,6 +67,17 @@
       <a class="btn" href="app/index.html#/welcome" data-lang="en" id="open-app-en" lang="en" dir="ltr">Open in English</a>
     </div>
   </div>
+
+  <section class="pilot-launch" aria-label="מחקר פיילוט">
+    <div id="pilot-hub">
+      <div class="pilot-fallback">
+        <h2>מחקר פיילוט</h2>
+        <p class="lead">בודקים עם אנשים אמיתיים אם אפשר לקרוא בטלפון בנוחות בלי משקפיים עם SeeTuned, לעומת טלפון רגיל ולעומת המשקפיים שלהם.</p>
+        <a class="btn btn--primary" href="pilot/session.html?lang=he" data-lang="he" id="pilot-start">סשן חדש לבודק/ת</a>
+        <a class="btn" href="pilot/session.html?lang=en" data-lang="en" lang="en" dir="ltr" id="pilot-start-en">New tester session (English)</a>
+      </div>
+    </div>
+  </section>
 
   <section>
     <h2>איך מתחילים</h2>
@@ -95,4 +109,10 @@
       try { localStorage.setItem('va.lang', a.getAttribute('data-lang')); } catch (e) { /* storage blocked: the app falls back to the browser language */ }
     });
   });
+</script>
+<script type="module">
+  // Pilot hub: sessions table, stats, import, CSV and (when the viewer grants it) db sync. Replaces the fallback above.
+  import { mountHub } from './pilot/js/hub.js';
+  const slot = document.getElementById('pilot-hub');
+  if (slot) mountHub(slot, { sessionUrl: 'pilot/session.html', useClaude: true });
 </script>

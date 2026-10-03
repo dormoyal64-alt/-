@@ -1,5 +1,6 @@
 // Builds a static, server-less DEMO of SeeTuned (app + marketing site + legal pages) with relative links,
-// so it can be hosted anywhere static (e.g. an Artifact preview link) and opened on a phone.
+// so it can be hosted anywhere static (e.g. an Artifact preview link) and opened on a phone. It also carries the
+// pilot study kit (public/pilot: tester session + results hub; the hub is embedded in the launcher page).
 // The API is replaced by scripts/demo/demo-api.js (in-browser, localStorage). Camera features and offline
 // caching are not part of the demo. Usage: node scripts/build-demo.js [outDir]   (default: dist-demo/)
 import { cp, mkdir, readFile, writeFile, rm, readdir } from 'node:fs/promises';
@@ -80,7 +81,29 @@ async function main() {
     await writeFile(p, rewriteHtml(await readFile(p, 'utf8'), rel));
   }
 
-  await cp(join(root, 'scripts/demo/launcher.html'), join(out, 'index.html'));
+  // Pilot study (public/pilot): tester session + hub. The session page gets the in-browser demo API (it registers an
+  // anonymous pilot account before opening the app) and links back to the launcher, which hosts the hub.
+  await cp(join(pub, 'pilot'), join(out, 'pilot'), { recursive: true });
+  const sessionPath = join(out, 'pilot/session.html');
+  let session = await readFile(sessionPath, 'utf8');
+  const pilotMarkers = ['<meta name="va-pilot-env" content="server">', '<meta name="va-pilot-hub" content="hub.html">', '<script type="module" src="js/session.js"></script>'];
+  for (const m of pilotMarkers) if (!session.includes(m)) throw new Error(`pilot/session.html layout changed: missing ${m}`);
+  session = session
+    .replace(pilotMarkers[0], '<meta name="va-pilot-env" content="demo">')
+    .replace(pilotMarkers[1], '<meta name="va-pilot-hub" content="../">')
+    .replace(pilotMarkers[2], `<script src="../app/js/demo-api.js"></script>\n  ${pilotMarkers[2]}`);
+  await writeFile(sessionPath, session);
+
+  // Launcher = the published page. It loads ./pilot/js/hub.js as a module; the hub's styles are inlined (before the
+  // launcher's own <style>, so the launcher's rules win) because the launcher is wrapped in a document skeleton.
+  let launcher = await readFile(join(root, 'scripts/demo/launcher.html'), 'utf8');
+  const cssSlot = /<!-- @pilot-css[^>]*-->/;
+  if (!cssSlot.test(launcher)) throw new Error('launcher.html: missing the <!-- @pilot-css --> slot');
+  if (!launcher.includes("from './pilot/js/hub.js'")) throw new Error('launcher.html: the pilot hub module import is missing');
+  const pilotCss = [await readFile(join(pub, 'pilot/pilot.css'), 'utf8'), await readFile(join(pub, 'pilot/hub.css'), 'utf8')]
+    .join('\n').replace(/<\/style/gi, '<\\/style');
+  launcher = launcher.replace(cssSlot, () => `<style>\n${pilotCss}</style>`);
+  await writeFile(join(out, 'index.html'), launcher);
   console.log(`[demo] built ${out}`);
 }
 

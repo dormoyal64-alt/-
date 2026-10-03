@@ -1,0 +1,57 @@
+/* Pilot hub (public/pilot/hub.html and, inlined by scripts/build-demo.js, the demo launcher).
+   Relies on the shared tokens (--bg, --surface, --ink, --muted, --line, --teal, --amber, --tint …) and the p-* classes. */
+.ph { display: flex; flex-direction: column; gap: 14px; }
+.ph-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.ph-title { margin: 0; font-size: 1.35rem; }
+.ph-lead { margin: 0; }
+.ph-sync { display: flex; align-items: flex-start; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 0.95rem; }
+.ph-dot { flex: none; width: 12px; height: 12px; margin-block-start: 6px; border-radius: 50%; background: var(--muted); }
+.ph-dot--synced { background: var(--teal); }
+.ph-dot--busy { background: var(--amber); }
+.ph-dot--error { background: #c2410c; }
+.ph-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ph-stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+.ph-stat p { margin: 0; }
+.ph-stat__value { font-size: 1.6rem; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.ph-stat__label { font-size: 0.9rem; color: var(--muted); }
+.ph-stat__sub { font-size: 0.85rem; color: var(--muted); }
+.ph-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.ph-table-wrap:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+.ph-table { border-collapse: collapse; min-width: 980px; width: 100%; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.ph-table th, .ph-table td { padding: 8px 10px; border-block-end: 1px solid var(--line); text-align: start; vertical-align: middle; white-space: nowrap; }
+.ph-table thead th { background: var(--tint); font-size: 0.8rem; white-space: normal; min-width: 64px; }
+.ph-table tbody tr:last-child > * { border-block-end: 0; }
+.ph-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 700; font-size: 0.85rem; border: 1px solid var(--line); }
+.ph-badge--success { background: #e3f4ea; color: #17663a; border-color: #17663a; }
+.ph-badge--partial { background: #fdf1dc; color: #7a4f00; border-color: #c98a1a; }
+.ph-badge--notyet { background: #fbe7e7; color: #a3262a; border-color: #a3262a; }
+.ph-badge--incomplete { background: transparent; color: var(--muted); }
+.ph-where { font-size: 0.85rem; color: var(--muted); }
+.ph-where--synced { color: var(--teal); font-weight: 700; }
+.ph-tools { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.ph-box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.ph-box textarea { font: inherit; font-size: 0.95rem; color: var(--ink); background: var(--bg); border: 2px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; min-height: 48px; resize: vertical; }
+.ph-box .p-code-box { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.8rem; }
+.ph-msg--error { color: #a3262a; font-weight: 600; }
+.ph-msg--ok { color: var(--teal); font-weight: 600; }
+.ph-rules p { margin: 0; }
+.ph-rules[open] p + p { margin-block-start: 8px; }
+.p-main--hub { max-width: 1100px; }
+.p-hub-brand { display: flex; align-items: center; gap: 12px; margin-block-end: 16px; }
+.p-hub-brand p { margin: 0; }
+.p-hub-brand__name { font-weight: 800; font-size: 1.3rem; }
+.p-hub-brand__sub { color: var(--muted); font-size: 0.9rem; }
+@media (min-width: 720px) {
+  .ph-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ph-tools { grid-template-columns: 1fr 1fr; }
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ph-badge--success { background: #12301f; color: #6fd69a; border-color: #6fd69a; }
+  :root:not([data-theme="light"]) .ph-badge--partial { background: #33260d; color: #f2c06b; border-color: #f2c06b; }
+  :root:not([data-theme="light"]) .ph-badge--notyet { background: #3a1616; color: #ff9c9c; border-color: #ff9c9c; }
+  :root:not([data-theme="light"]) .ph-msg--error { color: #ff9c9c; }
+}
+:root[data-theme="dark"] .ph-badge--success { background: #12301f; color: #6fd69a; border-color: #6fd69a; }
+:root[data-theme="dark"] .ph-badge--partial { background: #33260d; color: #f2c06b; border-color: #f2c06b; }
+:root[data-theme="dark"] .ph-badge--notyet { background: #3a1616; color: #ff9c9c; border-color: #ff9c9c; }
+:root[data-theme="dark"] .ph-msg--error { color: #ff9c9c; }
