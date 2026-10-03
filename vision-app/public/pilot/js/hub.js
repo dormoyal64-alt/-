@@ -110,7 +110,7 @@ export async function mountHub(container, opts = {}) {
     clear(statsEl);
     const sum = core.summarize(rows().map((r) => r.session));
     const tile = (/** @type {string} */ id, /** @type {string} */ label, /** @type {string} */ value, /** @type {string|null} */ sub) => h('div', { class: 'ph-stat', 'data-testid': `stat-${id}` },
-      h('p', { class: 'ph-stat__value' }, value), h('p', { class: 'ph-stat__label' }, label), sub ? h('p', { class: 'ph-stat__sub' }, sub) : null);
+      h('p', { class: 'ph-stat__value', dir: 'ltr' }, value), h('p', { class: 'ph-stat__label' }, label), sub ? h('p', { class: 'ph-stat__sub' }, sub) : null);
     statsEl.append(
       tile('n', t('hub.stats.n'), nf(sum.n), sum.incomplete ? t('hub.stats.incomplete', { n: sum.incomplete }) : null),
       tile('success', t('hub.stats.success'), sum.successRate === null ? '–' : nf(sum.successRate, { style: 'percent' }),
@@ -125,7 +125,8 @@ export async function mountHub(container, opts = {}) {
     clear(tableEl);
     const list = rows();
     if (!list.length) { tableEl.append(h('p', { class: 'p-note', 'data-testid': 'hub-empty' }, t('hub.empty'))); return; }
-    const heads = ['th.code', 'th.date', 'th.age', 'th.correction', 'th.wpmDefault', 'th.wpmSeetuned', 'th.wpmGlasses', 'th.comprehension', 'th.clarity', 'th.appVerdict', 'th.outcome', 'th.where', 'th.actions'];
+    // Key results first, so they are visible on a phone without scrolling the table sideways.
+    const heads = ['th.code', 'th.outcome', 'th.wpmDefault', 'th.wpmSeetuned', 'th.wpmGlasses', 'th.comprehension', 'th.clarity', 'th.appVerdict', 'th.age', 'th.correction', 'th.date', 'th.where', 'th.actions'];
     const df = new Intl.DateTimeFormat(lang === 'he' ? 'he-IL' : 'en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
     tableEl.append(h('div', { class: 'p-table-wrap ph-table-wrap', tabindex: '0', role: 'region', 'aria-label': t('hub.title') }, h('table', { class: 'p-table ph-table' },
       h('thead', null, h('tr', null, heads.map((k) => h('th', { scope: 'col' }, t(k))))),
@@ -135,16 +136,16 @@ export async function mountHub(container, opts = {}) {
         const b = s.background;
         return h('tr', { 'data-testid': `hub-row-${s.code}`, 'data-outcome': o.verdict, 'data-where': where },
           h('th', { scope: 'row', dir: 'ltr' }, s.code),
-          h('td', null, df.format(new Date(s.startedAt))),
-          h('td', { dir: 'ltr' }, b.ageBand === '75+' ? '75+' : b.ageBand || '–'),
-          h('td', null, b.correction ? t(`corr.${b.correction}`) : '–'),
+          h('td', { 'data-testid': 'cell-outcome' }, h('span', { class: `ph-badge ph-badge--${o.verdict}`, title: o.reasons.map((r) => t(`reason.${r}`)).join('; ') }, t(`outcome.${o.verdict}`))),
           h('td', { 'data-testid': 'cell-wpm-default' }, wpm(c.withoutGlasses)),
           h('td', { 'data-testid': 'cell-wpm-seetuned' }, wpm(c.seetuned)),
           h('td', { 'data-testid': 'cell-wpm-glasses' }, c.withGlasses ? wpm(c.withGlasses) : s.withGlassesSkipped ? t('skipped') : '–'),
           h('td', { 'data-testid': 'cell-comprehension', dir: 'ltr' }, `${mark(c.withGlasses)} / ${mark(c.withoutGlasses)} / ${mark(c.seetuned)}`),
           h('td', { 'data-testid': 'cell-clarity', dir: 'ltr' }, `${c.withoutGlasses?.clarity ?? '–'} → ${c.seetuned?.clarity ?? '–'}`),
           h('td', null, s.profile?.verdict ? t(`verdict.${s.profile.verdict}`) : t('verdict.none'), s.profile?.fromEarlierCheck ? ' *' : ''),
-          h('td', { 'data-testid': 'cell-outcome' }, h('span', { class: `ph-badge ph-badge--${o.verdict}`, title: o.reasons.map((r) => t(`reason.${r}`)).join('; ') }, t(`outcome.${o.verdict}`))),
+          h('td', { dir: 'ltr' }, b.ageBand === '75+' ? '75+' : b.ageBand || '–'),
+          h('td', null, b.correction ? t(`corr.${b.correction}`) : '–'),
+          h('td', null, df.format(new Date(s.startedAt))),
           h('td', { 'data-testid': 'cell-where' }, h('span', { class: `ph-where ph-where--${where}` }, t(`where.${where}`))),
           h('td', null, button(t('hub.delete'), {
             variant: 'danger', className: 'p-btn--small', testId: `hub-delete-${s.code}`, ariaLabel: t('hub.deleteLabel', { code: s.code }),
@@ -380,6 +381,7 @@ export async function mountHub(container, opts = {}) {
         h('p', null, h('strong', null, t('rule.title') + ': '), t('rule.body')),
         h('p', null, t('hub.rule.speed')),
         h('p', null, t('hub.rule.gain')),
+        h('p', null, t('hub.rule.star')),
         h('p', null, t('hub.rule.honest'))),
     );
     container.append(root);

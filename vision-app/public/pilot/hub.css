@@ -17,7 +17,7 @@
 .ph-stat__sub { font-size: 0.85rem; color: var(--muted); }
 .ph-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .ph-table-wrap:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
-.ph-table { border-collapse: collapse; min-width: 980px; width: 100%; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.ph-table { border-collapse: collapse; min-width: 900px; width: 100%; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
 .ph-table th, .ph-table td { padding: 8px 10px; border-block-end: 1px solid var(--line); text-align: start; vertical-align: middle; white-space: nowrap; }
 .ph-table thead th { background: var(--tint); font-size: 0.8rem; white-space: normal; min-width: 64px; }
 .ph-table tbody tr:last-child > * { border-block-end: 0; }

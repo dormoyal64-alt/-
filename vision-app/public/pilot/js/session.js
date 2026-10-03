@@ -122,8 +122,8 @@ function renderTop() {
   const other = /** @type {'he'|'en'} */ (t('lang.otherCode'));
   top.append(
     h('div', { class: 'p-top__brand' },
-      h('img', { src: '../brand/logo-mark.svg', alt: '', width: 32, height: 32 }),
-      h('span', null, h('strong', null, 'SeeTuned'), ' · ', t('pilot'))),
+      h('img', { src: '../brand/logo-mark.svg', alt: 'SeeTuned', width: 32, height: 32 }),
+      h('strong', null, t('pilot'))),
     h('div', { class: 'p-top__tools' },
       n ? h('span', { class: 'p-top__progress', 'data-testid': 'pilot-progress' }, t('progress', { n, total: TOTAL_STEPS })) : null,
       canSwitchLang ? button(t('lang.other'), {
@@ -293,12 +293,12 @@ function renderBackground() {
     choiceGroup({
       name: 'age', legend: t('bg.age'), value: b.ageBand, testId: 'bg-age', compact: true,
       options: core.AGE_BANDS.map((a) => ({ value: a, label: a === '75+' ? t('age.75+') : a })),
-      onChange: (v) => { b.ageBand = v; persist(); },
+      onChange: (v) => { b.ageBand = v; error.hidden = true; persist(); },
     }),
     choiceGroup({
       name: 'correction', legend: t('bg.correction'), value: b.correction, testId: 'bg-correction',
       options: core.CORRECTIONS.map((c) => ({ value: c, label: t(`corr.${c}`) })),
-      onChange: (v) => { b.correction = v; persist(); },
+      onChange: (v) => { b.correction = v; error.hidden = true; persist(); },
     }),
     h('details', { class: 'p-details', open: !!b.rx },
       h('summary', null, t('bg.rx')),
@@ -307,7 +307,7 @@ function renderBackground() {
     choiceGroup({
       name: 'holding', legend: t('bg.holding'), value: b.holding, testId: 'bg-holding',
       options: core.HOLDING.map((x) => ({ value: x, label: t(`hold.${x}`) })),
-      onChange: (v) => { b.holding = v; persist(); },
+      onChange: (v) => { b.holding = v; error.hidden = true; persist(); },
     }),
     h('div', { class: 'p-field' },
       h('label', { for: 'bg-device', class: 'p-legend' }, t('bg.device')),
@@ -361,14 +361,16 @@ function howToList() {
 
 /**
  * Show Start -> passage -> Done. Resolves with the reading time in ms and the passage element's font size.
- * @param {HTMLElement} area @param {string} text @param {boolean} tuned
+ * The instructions above (onStart hides them) are gone while reading, so the passage starts at the top of the screen.
+ * @param {HTMLElement} area @param {string} text @param {boolean} tuned @param {() => void} [onStart]
  * @returns {Promise<{ms: number, fontPx: number}>}
  */
-function readOnce(area, text, tuned) {
+function readOnce(area, text, tuned, onStart) {
   return new Promise((resolve) => {
     const start = button(t('read.start'), {
       testId: 'read-start', className: 'p-btn--big',
       onClick: () => {
+        onStart?.();
         clear(area);
         const passage = h('article', {
           class: `p-passage${tuned ? ' p-passage--tuned' : ''}`, 'data-testid': 'passage', 'aria-label': t('read.label'), lang: /** @type {Draft} */ (draft)?.session.lang || lang,
@@ -398,14 +400,11 @@ function renderPractice() {
     if (s.background.correction === 'none') { s.withGlassesSkipped = 'no-correction'; go('withoutGlasses'); } else go('withGlasses');
   };
   const area = h('div', { class: 'p-area' });
-  mount('practice', t('practice.title'),
-    h('p', { class: 'p-lead' }, t('practice.lead')),
-    howToList(),
-    area,
-    h('div', { class: 'p-actions p-actions--minor' }, button(t('practice.skip'), { variant: 'ghost', testId: 'practice-skip', onClick: next })));
-  void readOnce(area, PASSAGES[s.lang].practice, false).then(() => {
+  const intro = h('div', { class: 'p-intro' }, h('p', { class: 'p-lead' }, t('practice.lead')), howToList());
+  const skip = h('div', { class: 'p-actions p-actions--minor' }, button(t('practice.skip'), { variant: 'ghost', testId: 'practice-skip', onClick: next }));
+  mount('practice', t('practice.title'), intro, area, skip);
+  void readOnce(area, PASSAGES[s.lang].practice, false, () => { intro.hidden = true; skip.hidden = true; }).then(() => {
     clear(area);
-    main.querySelector('[data-testid="practice-skip"]')?.remove();
     area.append(h('p', { class: 'p-success', role: 'status' }, t('practice.done')),
       h('div', { class: 'p-actions' }, button(t('next'), { testId: 'practice-next', onClick: next })));
   });
@@ -439,15 +438,16 @@ function renderCondition(cond) {
       distanceMm ? t('cond.distance', { cm: Math.round(distanceMm / 10) }) : t('cond.distanceUsual')));
   }
 
+  const distanceLine = intro.find((el) => el.classList.contains('p-distance')) || null;
+  const introBox = h('div', { class: 'p-intro' }, intro.filter((el) => el !== distanceLine), howToList());
+  const skip = cond === 'withGlasses' ? h('div', { class: 'p-actions p-actions--minor' }, button(t('cond.withGlasses.skip'), {
+    variant: 'ghost', testId: 'cond-skip',
+    onClick: () => { s.withGlassesSkipped = 'not-with-me'; s.conditions.withGlasses = null; go('withoutGlasses'); },
+  })) : null;
   const area = h('div', { class: 'p-area' });
-  mount(cond, t(`cond.${cond}.title`), ...intro, howToList(), area,
-    cond === 'withGlasses' ? h('div', { class: 'p-actions p-actions--minor' }, button(t('cond.withGlasses.skip'), {
-      variant: 'ghost', testId: 'cond-skip',
-      onClick: () => { s.withGlassesSkipped = 'not-with-me'; s.conditions.withGlasses = null; go('withoutGlasses'); },
-    })) : null);
+  mount(cond, t(`cond.${cond}.title`), introBox, distanceLine, area, skip);
 
-  void readOnce(area, passage.text, tuned).then(({ ms, fontPx }) => {
-    main.querySelector('[data-testid="cond-skip"]')?.remove();
+  void readOnce(area, passage.text, tuned, () => { introBox.hidden = true; if (skip) skip.hidden = true; }).then(({ ms, fontPx }) => {
     askQuestion(area, passage, (correct) => {
       askRatings(area, (clarity, effort) => {
         s.conditions[cond] = {
@@ -633,9 +633,9 @@ function renderFinal() {
     choiceGroup({
       name: 'comfortable', legend: t('final.comfortable'), value: f.comfortable, testId: 'final-comfortable', compact: true,
       options: core.COMFORT.map((c) => ({ value: c, label: t(`comf.${c}`) })),
-      onChange: (v) => { f.comfortable = v; persist(); },
+      onChange: (v) => { f.comfortable = v; error.hidden = true; persist(); },
     }),
-    scale5({ name: 'wouldUse', legend: t('final.wouldUse'), lo: t('final.wouldUse.lo'), hi: t('final.wouldUse.hi'), value: f.wouldUse, testId: 'final-would-use', onChange: (v) => { f.wouldUse = v; persist(); } }),
+    scale5({ name: 'wouldUse', legend: t('final.wouldUse'), lo: t('final.wouldUse.lo'), hi: t('final.wouldUse.hi'), value: f.wouldUse, testId: 'final-would-use', onChange: (v) => { f.wouldUse = v; error.hidden = true; persist(); } }),
     h('div', { class: 'p-field' },
       h('label', { for: 'final-comment', class: 'p-legend' }, t('final.comment')),
       h('p', { class: 'p-hint', id: 'final-comment-hint' }, t('final.commentHint')),

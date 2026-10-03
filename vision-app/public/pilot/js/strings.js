@@ -17,7 +17,7 @@ export const PILOT_STRINGS = {
     'next': 'המשך',
     'progress': 'שלב {n} מתוך {total}',
     'code.label': 'קוד הבודק/ת האנונימי: {code}',
-    'required': 'חסרה תשובה כאן',
+    'required': 'צריך לענות על כל השאלות שלא מסומנות ״לא חובה״.',
 
     'consent.title': 'מחקר פיילוט: קריאה בטלפון בלי משקפיים',
     'consent.lead': 'אנחנו בודקים אם ההגדרות של SeeTuned מאפשרות לקרוא בטלפון בנוחות בלי משקפיים או עדשות. תודה שאתם עוזרים.',
@@ -141,7 +141,7 @@ export const PILOT_STRINGS = {
     'done.thanks': 'הסשן נשמר בטלפון הזה. אפשר להחזיר את המשקפיים.',
     'done.code': 'קוד הבודק/ת: {code}',
     'col.reading': 'קריאה',
-    'col.speed': 'מהירות',
+    'col.speed': 'מהירות (מילים לדקה)',
     'col.answer': 'תשובה',
     'col.clarity': 'בהירות',
     'col.effort': 'מאמץ',
@@ -257,6 +257,7 @@ export const PILOT_STRINGS = {
     'hub.rule.speed': 'המהירות היא במילים סטנדרטיות לדקה (6 תווים למילה). משווים רק בתוך אותו אדם, כי לכל שפה ולכל אדם קצב משלו.',
     'hub.rule.gain': '״שיפור לעומת טלפון רגיל״ = מהירות עם SeeTuned חלקי מהירות בלי משקפיים בטלפון רגיל, פחות 1. ״לעומת המשקפיים״ = מהירות עם SeeTuned חלקי מהירות עם משקפיים (1.00 = אותה מהירות).',
     'hub.rule.honest': 'זה פיילוט לבדיקת נוחות שימוש, לא מחקר קליני. אין להסיק ממנו טענות רפואיות.',
+    'hub.rule.star': 'כוכבית (*) ליד הערכת האפליקציה = נעשה שימוש בפרופיל שכבר היה שמור בטלפון, ולא בבדיקה מהסשן עצמו.',
   },
 
   en: {
@@ -273,7 +274,7 @@ export const PILOT_STRINGS = {
     'next': 'Continue',
     'progress': 'Step {n} of {total}',
     'code.label': 'Anonymous tester code: {code}',
-    'required': 'Please answer this',
+    'required': 'Please answer every question not marked “optional”.',
 
     'consent.title': 'Pilot study: reading on your phone without glasses',
     'consent.lead': 'We are checking whether SeeTuned’s settings let people read comfortably on a phone without glasses or contact lenses. Thank you for helping.',
@@ -397,7 +398,7 @@ export const PILOT_STRINGS = {
     'done.thanks': 'The session is saved on this phone. You can put your glasses back on.',
     'done.code': 'Tester code: {code}',
     'col.reading': 'Reading',
-    'col.speed': 'Speed',
+    'col.speed': 'Speed (words/min)',
     'col.answer': 'Answer',
     'col.clarity': 'Clarity',
     'col.effort': 'Effort',
@@ -512,5 +513,6 @@ export const PILOT_STRINGS = {
     'hub.rule.speed': 'Speed is in standard words per minute (6 characters per word). Compare only within the same person: every language and every person has their own pace.',
     'hub.rule.gain': '“Gain vs normal phone” = SeeTuned speed ÷ no-glasses normal-phone speed, minus 1. “vs own glasses” = SeeTuned speed ÷ with-glasses speed (1.00 = same speed).',
     'hub.rule.honest': 'This is a usability pilot, not a clinical study. Do not draw medical claims from it.',
+    'hub.rule.star': 'An asterisk (*) next to the app verdict = the session used a profile already saved on the phone, not a check from the session itself.',
   },
 };

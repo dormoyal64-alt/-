@@ -47,7 +47,7 @@ img { max-width: 100%; }
 /* Header */
 .p-top { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
   padding: 8px 16px; background: var(--surface); border-block-end: 1px solid var(--line); }
-.p-top__brand { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.p-top__brand { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; white-space: nowrap; }
 .p-top__brand img { width: 32px; height: 32px; }
 .p-top__tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .p-top__progress { color: var(--muted); font-size: 0.9rem; margin-inline-end: 4px; }
@@ -93,7 +93,8 @@ fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 .p-legend { display: block; font-weight: 700; margin-block-end: 8px; padding: 0; font-size: 1.05rem; }
 .p-choices { display: flex; flex-direction: column; gap: 4px; }
 .p-choices__list { display: flex; flex-direction: column; gap: 8px; }
-.p-choices--compact .p-choices__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+.p-choices--compact .p-choices__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+.p-choices--compact .p-choice { white-space: nowrap; }
 .p-choice, .p-scale__opt { position: relative; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 14px;
   background: var(--surface); border: 2px solid var(--line); border-radius: 12px; cursor: pointer; }
 .p-choice input, .p-scale__opt input { width: 22px; height: 22px; margin: 0; flex: none; accent-color: var(--teal); }
@@ -118,6 +119,7 @@ textarea { resize: vertical; }
 
 /* Reading task */
 .p-area { display: flex; flex-direction: column; gap: 16px; }
+.p-intro { display: flex; flex-direction: column; gap: 18px; }
 /* Normal phone text: 16 px, regular weight (the reference conditions). */
 .p-passage { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 16px;
   font-size: 16px; font-weight: 400; line-height: 1.5; letter-spacing: normal; word-spacing: normal; overflow-wrap: break-word; }
