@@ -396,6 +396,8 @@ img, svg { max-width: 100%; }
 .va-checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .va-checklist li { display: flex; gap: 10px; align-items: flex-start; }
 .va-checklist .va-icon { margin-block-start: 2px; color: var(--va-primary); }
+.va-checklist li > span { min-inline-size: 0; overflow-wrap: anywhere; }
+.va-checklist .va-icon { flex: none; }
 .va-checklist.is-no .va-icon { color: var(--va-danger); }
 .va-paywall__foot { justify-content: center; }
 
@@ -554,6 +556,55 @@ img, svg { max-width: 100%; }
 .va-app[data-layout="viewer"] .va-main { padding-block-end: 0; display: flex; flex-direction: column; }
 .va-viewer-host { flex: 1; display: flex; flex-direction: column; }
 .va-viewer-container { flex: 1; display: flex; flex-direction: column; min-block-size: 0; }
+
+/* ---------- Glasses-free (results card, home strip, onboarding) ---------- */
+.va-gf { border: 2px solid var(--va-primary); gap: 14px; }
+.va-gf__verdict {
+  display: inline-flex; align-items: center; gap: 8px; inline-size: fit-content; max-inline-size: 100%; margin: 0;
+  padding: 6px 14px; border-radius: 999px; font-weight: 800; background: var(--app-tint); color: var(--app-tint-text);
+  overflow-wrap: anywhere; text-decoration: none;
+}
+.va-gf__verdict .va-icon { flex: none; }
+.va-gf__verdict--yes { background: var(--app-success-bg); color: var(--va-success); }
+.va-gf__verdict--partial { background: var(--app-warn-bg); color: var(--va-warning); }
+.va-gf__verdict--no { background: var(--app-danger-bg); color: var(--va-danger); }
+.va-gf__verdict--link { min-block-size: var(--va-tap); padding-inline: 16px; }
+.va-gf__verdict--link:hover { text-decoration: underline; }
+.va-gf__headline { margin: 0; font-weight: 800; font-size: 1.125rem; }
+.va-gf__distance {
+  display: flex; align-items: center; gap: 12px; margin: 0; padding: 14px 16px; border-radius: var(--va-radius-sm);
+  background: var(--app-tint); color: var(--va-text); font-size: 1.25rem; font-weight: 800; line-height: 1.3;
+}
+.va-gf__distance .va-icon { flex: none; color: var(--app-tint-text); }
+.va-gf__distance > span { min-inline-size: 0; overflow-wrap: anywhere; }
+.va-gf__tips-title { margin: 0; font-size: 1.0625rem; }
+.va-gf-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.va-chip {
+  display: inline-flex; align-items: center; gap: 8px; min-block-size: var(--va-tap); padding: 6px 16px; border-radius: 999px;
+  background: var(--va-surface); border: 1px solid var(--va-border); font-weight: 700; max-inline-size: 100%; overflow-wrap: anywhere;
+}
+.va-chip .va-icon { flex: none; color: var(--va-primary); }
+.va-ill-glasses { fill: none; stroke: var(--va-primary); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.va-ill-arrow { fill: none; stroke: var(--va-text); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.va-choice__text > .va-badge { margin: 2px 0; border: 1px solid currentColor; }
+
+/* ---------- Distance coach (viewers) ---------- */
+.va-coach {
+  display: flex; flex-direction: column; gap: 8px; margin: 8px 12px 0; padding-block: 8px; padding-inline: 12px 4px;
+  border-radius: var(--va-radius-sm); background: var(--app-tint); color: var(--va-text);
+}
+.va-coach__row { display: flex; align-items: center; gap: 10px; }
+.va-coach__icon { display: inline-flex; flex: none; color: var(--app-tint-text); }
+.va-coach__text { margin: 0; flex: 1; min-inline-size: 0; font-weight: 700; overflow-wrap: anywhere; }
+.va-coach__close { flex: none; }
+.va-coach__live { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding-inline-end: 8px; }
+.va-coach__live[hidden], .va-coach__privacy[hidden] { display: none; }
+.va-coach__state { margin: 0; font-weight: 800; font-size: 1.125rem; }
+.va-coach__live[data-state="good"] .va-coach__state { color: var(--va-success); }
+.va-coach__live[data-state="closer"] .va-coach__state, .va-coach__live[data-state="farther"] .va-coach__state { color: var(--va-warning); }
+.va-coach__now { color: var(--va-text-muted); font-variant-numeric: tabular-nums; }
+.va-coach__privacy { margin: 0; }
+.va-coach__btn { align-self: flex-start; margin-inline-end: 8px; }
 
 /* ---------- Help ---------- */
 .va-faq { gap: 0; }

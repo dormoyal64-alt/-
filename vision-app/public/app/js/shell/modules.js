@@ -21,6 +21,7 @@ export const MODULE_PATHS = Object.freeze({
   astigmatism: '../tests/astigmatism/astigmatism-view.js',
   color: '../tests/color/color-view.js',
   profile: '../engine/profile.js',
+  engineSummary: '../engine/summary.js',
   systemGuide: '../engine/system-guide.js',
   applyUi: '../render/apply-ui.js',
   photoViewer: '../viewers/photo-viewer.js',

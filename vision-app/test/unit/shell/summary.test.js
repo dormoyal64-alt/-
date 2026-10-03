@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { detailScore, detailBand, contrastBand, colorFinding, textScalePercent, eyeSummaries, sortFlags } from '../../../public/app/js/screens/summary.js';
+import {
+  detailScore, detailBand, contrastBand, colorFinding, textScalePercent, eyeSummaries, sortFlags, glassesFreeInfo, recommendedDistanceMm, coachState,
+} from '../../../public/app/js/screens/summary.js';
 import { describeFlag } from '../../../public/app/js/screens/flag-messages.js';
 import { passwordStrength, looksLikeEmail } from '../../../public/app/js/account/password.js';
 import { guideProgress } from '../../../public/app/js/screens/guide-progress.js';
@@ -70,4 +72,34 @@ test('guide progress counts recommended sections; money in minor units', () => {
   assert.equal(fromMinor(2490, 'ILS'), 24.9);
   assert.match(formatMinor(17990, 'ILS', 'en'), /179\.90/);
   assert.match(formatMinor(2400, 'ILS', 'he'), /24/);
+});
+
+test('glassesFreeInfo: engine assessment first, honest fallback otherwise', () => {
+  const base = { id: 'p', viewing: { recommendedDistanceMm: 360 }, input: { wearsCorrection: false, focus: { eye: 'both', nearPointMm: 150, farPointMm: null } } };
+  const fb = glassesFreeInfo(/** @type {any} */ (base));
+  assert.equal(fb.verdict, null);
+  assert.equal(fb.distanceMm, 360);
+  assert.equal(fb.sharpFromMm, 150);
+  assert.equal(fb.sharpToMm, null);
+  assert.equal(fb.sharpToBeyond, true);
+  const gf = { feasible: 'partial', recommendedDistanceMm: 300, sharpFromMm: 120, sharpToMm: 330, charsPerLine: 24, reasons: [] };
+  const withEngine = glassesFreeInfo(/** @type {any} */ ({ ...base, glassesFree: gf }));
+  assert.equal(withEngine.verdict, 'partial');
+  assert.equal(withEngine.distanceMm, 300);
+  assert.equal(withEngine.sharpToMm, 330);
+  assert.equal(withEngine.sharpToBeyond, false);
+  assert.equal(glassesFreeInfo(/** @type {any} */ ({ ...base, input: { wearsCorrection: true } })), null);
+  assert.equal(glassesFreeInfo(null), null);
+  assert.equal(recommendedDistanceMm(/** @type {any} */ ({ viewing: { recommendedDistanceMm: 400 }, input: { wearsCorrection: true } })), 400);
+  assert.equal(recommendedDistanceMm(/** @type {any} */ ({ viewing: { recommendedDistanceMm: null }, input: {} })), null);
+});
+
+test('coachState: closer / farther / good with a ±12 % (min 3 cm) band', () => {
+  assert.equal(coachState(null, 350), 'noface');
+  assert.equal(coachState(350, 350), 'good');
+  assert.equal(coachState(390, 350), 'good');
+  assert.equal(coachState(400, 350), 'closer');
+  assert.equal(coachState(300, 350), 'farther');
+  assert.equal(coachState(180, 200), 'good');
+  assert.equal(coachState(160, 200), 'farther');
 });

@@ -1,18 +1,22 @@
 // @ts-check
 /**
  * A10 — full customer journey in Hebrew, against the real server (mock payments):
- * landing -> register -> onboarding (every measurement step, scripted observer) -> results (no clinical notation)
- * -> home -> guide -> reader -> settings (adapt UI) -> paywall -> mock checkout -> active -> cancel -> logout -> login.
+ * landing -> register -> onboarding (glasses-free mode: mode choice -> basics -> "take your glasses off" -> every
+ * measurement step incl. the REQUIRED focus range via the manual ruler path, scripted observer) -> results with the
+ * "your screen without glasses" card (no clinical notation) -> home (distance chip) -> guide -> reader (distance coach)
+ * -> settings (adapt UI) -> paywall -> mock checkout -> active -> cancel -> logout -> login.
  */
 import { test, expect } from '@playwright/test';
 import { collectErrors, uniqueEmail, PASSWORD, autopilot, waitForApp, apiRegister, seedProfile, gotoRoute } from './helpers.js';
 
 const HE = {
   startFree: 'התחילו חודש חינם',
+  // Glasses-free plan: the focus range comes right after the detail checks.
   stepTitles: [
-    'כיול גודל המסך', 'מרחק הצפייה שלכם', 'פרטים קטנים – עין ימין', 'פרטים קטנים – עין שמאל', 'קריאה',
-    'ניגודיות', 'צבעים', 'חדות קווים – עין ימין', 'חדות קווים – עין שמאל', 'טווח המיקוד',
+    'כיול גודל המסך', 'מרחק הצפייה שלכם', 'פרטים קטנים – עין ימין', 'פרטים קטנים – עין שמאל', 'טווח המיקוד',
+    'קריאה', 'ניגודיות', 'צבעים', 'חדות קווים – עין ימין', 'חדות קווים – עין שמאל',
   ],
+  glassesOff: 'הורדת המשקפיים',
   statusActive: 'פעיל',
   statusCanceled: 'בוטל',
   mockPay: 'תשלום (מצב בדיקה)',
@@ -100,13 +104,24 @@ test('full Hebrew customer journey: landing → onboarding → results → tools
     await expect(page).toHaveURL(/#\/onboarding/);
   });
 
-  await test.step('onboarding basics: name, age, glasses, glare; skip prescription', async () => {
+  await test.step('onboarding mode: "without glasses" is recommended and preselected', async () => {
     await page.getByTestId('intro-start').click();
+    await expect(page.getByTestId('onboarding-mode')).toBeVisible();
+    await expect(page.getByTestId('mode-none')).toBeChecked();
+    await expect(page.getByTestId('mode-wear')).not.toBeChecked();
+    await expect(page.getByTestId('mode-recommended')).toBeVisible();
+    await page.getByTestId('mode-continue').click();
+    const mode = await page.evaluate(() => JSON.parse(localStorage.getItem('va.draft.onboarding') || '{}').mode);
+    expect(mode).toBe('none');
+  });
+
+  await test.step('onboarding basics: name, age, glare; skip prescription', async () => {
     await expect(page.getByTestId('onboarding-basics')).toBeVisible();
+    await expect(page.locator('[data-testid^="basics-glasses"]')).toHaveCount(0);
     await page.getByTestId('basics-name').fill('דנה');
     await page.getByTestId('basics-age').fill('52');
-    await page.getByTestId('basics-glasses-yes').check();
-    await expect(page.getByTestId('glasses-note')).toBeVisible();
+    await expect(page.getByTestId('minor-note')).toBeHidden();
+    await expect(page.getByTestId('glasses-note')).toBeHidden();
     await page.getByTestId('basics-glare-high').check();
     await page.getByTestId('basics-hasrx').check();
     await page.getByTestId('basics-continue').click();
@@ -133,6 +148,15 @@ test('full Hebrew customer journey: landing → onboarding → results → tools
     await page.getByTestId('confirm-yes').click();
   });
 
+  await test.step('"take your glasses off" before the viewing distance and the eye checks', async () => {
+    await expect(page.getByTestId('glasses-off')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('stage-title')).toHaveText(HE.glassesOff);
+    await expect(page.getByTestId('glasses-off')).toContainText('עדשות מגע');
+    await page.getByTestId('glasses-off-continue').click();
+    const off = await page.evaluate(() => JSON.parse(localStorage.getItem('va.draft.onboarding') || '{}').glassesOffDone);
+    expect(off).toBe(true);
+  });
+
   await test.step('distance: manual entry of 40 cm (400 mm)', async () => {
     await expect(page.getByTestId('stage-title')).toHaveText(HE.stepTitles[1]);
     await page.getByTestId('distance-manual-choice').click();
@@ -148,16 +172,65 @@ test('full Hebrew customer journey: landing → onboarding → results → tools
     expect(draftDistance).toBe(400);
   });
 
-  await test.step('acuity R/L, reading, contrast, colour, line sharpness ("all the same"), focus skipped', async () => {
-    const titles = await autopilot(page, { untilHash: /#\/results/ });
+  await test.step('acuity R/L, focus range (required, ruler path), reading, contrast, colour, line sharpness', async () => {
+    const focusSeen = [];
+    const titles = await autopilot(page, {
+      untilHash: /#\/results/,
+      // The focus range is REQUIRED without glasses (no skip), and without a camera it uses the manual ruler path.
+      onScreen: async (ids) => {
+        const has = (/** @type {string} */ id) => ids.split(' ').includes(id);
+        if (has('optional-focus')) throw new Error('the focus range must not be optional in glasses-free mode');
+        if (has('focus-intro')) {
+          await expect(page.getByTestId('focus-skip')).toHaveCount(0);
+          focusSeen.push('intro');
+          await page.getByTestId('focus-start').click();
+          return true;
+        }
+        if (has('focus-camera-consent')) { await page.getByTestId('focus-camera-no').click(); return true; }
+        if (has('focus-manual-near-screen')) {
+          await expect(page.getByTestId('focus-no-camera')).toBeVisible();
+          focusSeen.push('near');
+          await page.getByTestId('focus-manual-near').fill('25');
+          await page.getByTestId('focus-manual-near-continue').click();
+          return true;
+        }
+        if (has('focus-manual-far-screen')) {
+          // "It never gets blurry within my arm's reach"
+          await expect(page.getByTestId('focus-manual-far-sharp')).toContainText('מרחק יד');
+          focusSeen.push('far');
+          await page.getByTestId('focus-manual-far-sharp').click();
+          return true;
+        }
+        if (has('focus-result')) {
+          await expect(page.getByTestId('focus-result')).toContainText('בלי משקפיים');
+          focusSeen.push('result');
+          await page.getByTestId('focus-result-continue').click();
+          return true;
+        }
+        return false;
+      },
+    });
+    expect(focusSeen).toEqual(['intro', 'near', 'far', 'result']);
     // Every measurement step was visited, in plan order.
     const seen = HE.stepTitles.slice(2).map((s) => titles.indexOf(s));
     expect(seen.every((i) => i >= 0), `titles seen: ${titles.join(' | ')}`).toBe(true);
     expect([...seen].sort((a, b) => a - b)).toEqual(seen);
   });
 
-  await test.step('results: functional scores and NO clinical notation', async () => {
+  await test.step('results: "your screen without glasses" card, functional scores and NO clinical notation', async () => {
     await expect(page.getByTestId('screen-results')).toBeVisible();
+    const gf = page.getByTestId('results-glasses-free');
+    await expect(gf).toBeVisible();
+    await expect(page.getByTestId('gf-verdict')).toBeVisible();
+    await expect(page.getByTestId('gf-distance')).toContainText('החזיקו את הטלפון');
+    await expect(page.getByTestId('gf-distance')).toContainText('ס״מ');
+    await expect(page.getByTestId('gf-honest')).toBeVisible();
+    expect(await page.getByTestId('gf-tips').locator('li').count()).toBeGreaterThan(0);
+    const saved = JSON.parse(await page.evaluate(() => localStorage.getItem('va.profiles.v1') || '[]'));
+    const dana = (Array.isArray(saved) ? saved : []).find((x) => x && x.name === 'דנה');
+    expect(dana?.input?.wearsCorrection).toBe(false);
+    expect(dana?.input?.focus?.nearPointMm).toBe(250);
+    expect(dana?.input?.focus?.farPointMm ?? null).toBe(null);
     await expect(page.getByTestId('result-textsize')).toBeVisible();
     await expect(page.getByTestId('results-disclaimer')).toBeVisible();
     await expect(page.getByTestId('results-tech')).toHaveCount(0);
@@ -176,6 +249,8 @@ test('full Hebrew customer journey: landing → onboarding → results → tools
     await page.locator('a[href="#/home"]').first().click();
     await expect(page.getByTestId('screen-home')).toBeVisible();
     await expect(page.getByTestId('home-summary')).toBeVisible();
+    await expect(page.getByTestId('home-distance-chip')).toContainText('ס״מ');
+    await expect(page.getByTestId('home-gf-verdict')).toBeVisible();
     for (const id of ['qa-photo', 'qa-video', 'qa-magnifier', 'qa-reader', 'qa-guide']) await expect(page.getByTestId(id)).toBeVisible();
   });
 
@@ -195,6 +270,9 @@ test('full Hebrew customer journey: landing → onboarding → results → tools
     await page.evaluate(() => { location.hash = '#/home'; });
     await page.getByTestId('qa-reader').click();
     await expect(page.getByTestId('reader')).toBeVisible();
+    // Distance coach: a small, dismissible reminder; no camera without a tap (none here: manual distance, no focal length).
+    await expect(page.getByTestId('coach-text')).toContainText('ס״מ');
+    await expect(page.getByTestId('coach-camera')).toHaveCount(0);
     const sample = 'שלום עולם. זהו טקסט לבדיקה של הקורא.';
     await page.getByTestId('reader-input').fill(sample);
     await page.getByTestId('reader-show').click();
@@ -202,6 +280,8 @@ test('full Hebrew customer journey: landing → onboarding → results → tools
     const before = await page.getByTestId('reader-surface').evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
     await page.getByTestId('reader-larger').click();
     await expect.poll(() => page.getByTestId('reader-surface').evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThan(before);
+    await page.getByTestId('coach-dismiss').click();
+    await expect(page.getByTestId('distance-coach')).toHaveCount(0);
   });
 
   await test.step('settings: toggling "adapt this app" changes --va-font-scale on :root', async () => {
@@ -259,6 +339,29 @@ test('full Hebrew customer journey: landing → onboarding → results → tools
     await expect(page.getByTestId('home-summary')).toBeVisible();
   });
 
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
+test('under 18: "without glasses" is replaced by the eye-care professional\'s advice (no glasses-off step)', async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto('/app/');
+  await waitForApp(page);
+  await apiRegister(page, { lang: 'he' });
+  await page.reload();
+  await waitForApp(page);
+  await gotoRoute(page, '/onboarding');
+  await page.getByTestId('intro-start').click();
+  await expect(page.getByTestId('mode-none')).toBeChecked();
+  await page.getByTestId('mode-continue').click();
+  await page.getByTestId('basics-name').fill('נועה');
+  await page.getByTestId('basics-age').fill('12');
+  await expect(page.getByTestId('minor-note')).toBeVisible();
+  await expect(page.getByTestId('minor-note')).toContainText('איש המקצוע');
+  await page.getByTestId('basics-continue').click();
+  await expect(page.getByTestId('stage-title')).toHaveText(HE.stepTitles[0]);
+  const draft = await page.evaluate(() => JSON.parse(localStorage.getItem('va.draft.onboarding') || '{}'));
+  expect(draft.mode).toBe('wear');
+  expect(draft.glassesOffDone).toBe(false);
   expect(errors, errors.join('\n')).toEqual([]);
 });
 });

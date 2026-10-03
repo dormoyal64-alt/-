@@ -7,7 +7,7 @@
  */
 import { h, clear, runView } from '../core/dom.js';
 import { makeT } from '../core/i18n.js';
-import { screen as uiScreen, button, coverEyeScreen } from '../core/ui.js';
+import { screen as uiScreen, button, coverEyeScreen, getCorrectionMode } from '../core/ui.js';
 import { DEFAULT_CSS_PX_PER_MM } from '../core/types.js';
 import {
   FOCUS, xHeightMmForLogMAR, fontPxForXHeight, nearTargetLogMAR, farTargetLogMAR, combineNearPointRuns,
@@ -76,6 +76,8 @@ export function runFocusRangeTest(container, ctx) {
     const cssPxPerMm = ctx.screen?.cssPxPerMm || DEFAULT_CSS_PX_PER_MM;
     const xr = measureXRatio(ctx.lang, getComputedStyle(container).fontFamily || 'sans-serif');
     const L = userLogMAR(ctx, eye);
+    // Glasses-free mode: this step is required (it finds where the user sees sharply without correction).
+    const glassesFree = getCorrectionMode() === 'none';
     ctx.onProgress?.(0);
 
     /** Sample sentence whose x-height is set physically. */
@@ -103,10 +105,10 @@ export function runFocusRangeTest(container, ctx) {
 
     // ---- intro ----
     const start = await choose(container, {
-      title: t('title'), illustration: focusIllustration('near'), paragraphs: [t('intro1'), t('intro2')], testId: 'focus-intro',
+      title: t('title'), illustration: focusIllustration('near'), paragraphs: [t('intro1'), t(glassesFree ? 'intro2None' : 'intro2')], testId: 'focus-intro',
       options: [
         { label: t('start'), value: 'start', testId: 'focus-start' },
-        { label: t('skip'), value: 'skip', variant: 'secondary', testId: 'focus-skip' },
+        ...(glassesFree ? [] : [{ label: t('skip'), value: 'skip', variant: /** @type {const} */ ('secondary'), testId: 'focus-skip' }]),
       ],
     });
     if (start === 'skip') { ctx.onProgress?.(1); return nothing(); }
@@ -269,13 +271,13 @@ export function runFocusRangeTest(container, ctx) {
       show(container, uiScreen({
         title: t(kind === 'near' ? 'manualNearTitle' : 'manualFarTitle'), testId: `focus-manual-${kind}-screen`,
         body: [
-          showNoCamera ? h('p', { class: 'va-notice', role: 'status' }, t('noCamera')) : null,
+          showNoCamera ? h('p', { class: 'va-notice', role: 'status', 'data-testid': 'focus-no-camera' }, t('noCamera')) : null,
           t(kind === 'near' ? 'manualNearBody' : 'manualFarBody'),
-          tgt.el, field.el, error,
+          tgt.el, field.el, h('p', { class: 'va-hint' }, t('rulerHint')), error,
         ].filter(Boolean),
         actions: [
           button(t('continue'), { testId: `focus-manual-${kind}-continue`, onClick: submit }),
-          button(t(kind === 'near' ? 'stillSharpClose' : 'stillSharp'), {
+          button(t(kind === 'near' ? 'stillSharpClose' : 'neverBlurry'), {
             variant: 'secondary', testId: `focus-manual-${kind}-sharp`,
             onClick: () => resolve(kind === 'near' ? FOCUS.cameraFloorMm : null),
           }),
@@ -302,7 +304,7 @@ export function runFocusRangeTest(container, ctx) {
     /** @type {Array<string|Node>} */
     const paragraphs = near === null
       ? [t('resultNone')]
-      : [t('resultRange', { near: floor ? t('nearFloor') : cm(near), far: far === null ? t('farBeyond') : cm(far) })];
+      : [t(glassesFree ? 'resultRangeNone' : 'resultRange', { near: floor ? t('nearFloor') : cm(near), far: far === null ? t('farBeyond') : cm(far) })];
     paragraphs.push(h('p', { class: 'va-hint' }, t('disclaimer')));
     await choose(container, {
       title: t('resultTitle'), paragraphs, testId: 'focus-result',

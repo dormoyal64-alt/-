@@ -22,19 +22,53 @@
  * @property {'screen'|'distance'} [fallback]  standard values available when the step can't run
  */
 
-/** @type {readonly PlanStep[]} */
+/**
+ * How the profile will be used: 'none' = the screen is tuned for use WITHOUT glasses/lenses (the main path; the checks
+ * are done with them off), 'wear' = with the user's usual glasses/lenses on.
+ * @typedef {'none'|'wear'} CorrectionMode
+ */
+
+/** Under this age the glasses-free path is not offered: children follow their eye-care professional's advice. */
+export const ADULT_AGE = 18;
+
+const S = /** @type {const} */ ({
+  screen: { id: 'screen', module: 'screenCalibration', fn: 'runScreenCalibration', fallback: 'screen' },
+  distance: { id: 'distance', module: 'distanceCalibration', fn: 'runDistanceCalibration', fallback: 'distance' },
+  acuityR: { id: 'acuity-right', module: 'acuity', fn: 'runAcuityTest', eye: 'right' },
+  acuityL: { id: 'acuity-left', module: 'acuity', fn: 'runAcuityTest', eye: 'left' },
+  reading: { id: 'reading', module: 'reading', fn: 'runReadingTest', eye: 'both' },
+  contrast: { id: 'contrast', module: 'contrast', fn: 'runContrastTest', eye: 'both' },
+  color: { id: 'color', module: 'color', fn: 'runColorTest', eye: 'both' },
+  astigR: { id: 'astig-right', module: 'astigmatism', fn: 'runAstigmatismTest', eye: 'right' },
+  astigL: { id: 'astig-left', module: 'astigmatism', fn: 'runAstigmatismTest', eye: 'left' },
+});
+
+/** With glasses ('wear'): the focus range is an optional last step. @type {readonly PlanStep[]} */
 export const PLAN = Object.freeze([
-  { id: 'screen', module: 'screenCalibration', fn: 'runScreenCalibration', fallback: 'screen' },
-  { id: 'distance', module: 'distanceCalibration', fn: 'runDistanceCalibration', fallback: 'distance' },
-  { id: 'acuity-right', module: 'acuity', fn: 'runAcuityTest', eye: 'right' },
-  { id: 'acuity-left', module: 'acuity', fn: 'runAcuityTest', eye: 'left' },
-  { id: 'reading', module: 'reading', fn: 'runReadingTest', eye: 'both' },
-  { id: 'contrast', module: 'contrast', fn: 'runContrastTest', eye: 'both' },
-  { id: 'color', module: 'color', fn: 'runColorTest', eye: 'both' },
-  { id: 'astig-right', module: 'astigmatism', fn: 'runAstigmatismTest', eye: 'right' },
-  { id: 'astig-left', module: 'astigmatism', fn: 'runAstigmatismTest', eye: 'left' },
+  S.screen, S.distance, S.acuityR, S.acuityL, S.reading, S.contrast, S.color, S.astigR, S.astigL,
   { id: 'focus', module: 'focusRange', fn: 'runFocusRangeTest', eye: 'both', optional: true },
 ]);
+
+/**
+ * Without glasses ('none'): the focus range is REQUIRED and comes right after the detail checks — it finds the
+ * distance range where the user sees sharply without correction (essential for near- and far-sighted users).
+ * @type {readonly PlanStep[]}
+ */
+export const PLAN_NONE = Object.freeze([
+  S.screen, S.distance, S.acuityR, S.acuityL,
+  { id: 'focus', module: 'focusRange', fn: 'runFocusRangeTest', eye: 'both' },
+  S.reading, S.contrast, S.color, S.astigR, S.astigL,
+]);
+
+/** @param {CorrectionMode|null|undefined} mode @returns {readonly PlanStep[]} */
+export function planFor(mode) {
+  return mode === 'wear' ? PLAN : PLAN_NONE;
+}
+
+/** @param {number|null|undefined} age */
+export function isMinor(age) {
+  return typeof age === 'number' && Number.isFinite(age) && age < ADULT_AGE;
+}
 
 export const DRAFT_KEY = 'onboarding';
 /** Drafts older than this are offered as "start over" first (results may no longer reflect today's vision). */
@@ -45,7 +79,7 @@ export const DEFAULT_DISTANCE_MM = 400;
  * @typedef {Object} Basics
  * @property {string} name
  * @property {number|null} age
- * @property {boolean} wearsCorrection
+ * @property {boolean} [wearsCorrection]  Legacy (drafts from before the mode choice): read only by modeOf().
  * @property {boolean} hasRx
  * @property {'low'|'normal'|'high'} [lightSensitivity]  How bright screens feel (drives warmth/dimming).
  */
@@ -57,6 +91,8 @@ export const DEFAULT_DISTANCE_MM = 400;
  * @property {string} updatedAt
  * @property {{mode: 'new'|'retest', profileId: string}} target
  * @property {boolean} introDone
+ * @property {CorrectionMode|null} [mode]           null/absent = not chosen yet
+ * @property {boolean} [glassesOffDone]             'none' mode: the "take your glasses off" step was confirmed
  * @property {Basics|null} basics
  * @property {{right?: Rx, left?: Rx}|null} rx     null = not answered yet ({} = skipped / nothing entered)
  * @property {Record<string, any>} results          keyed by PlanStep.id
@@ -65,7 +101,8 @@ export const DEFAULT_DISTANCE_MM = 400;
  */
 
 /**
- * @typedef {{kind: 'intro'} | {kind: 'basics'} | {kind: 'rx'} | {kind: 'step', step: PlanStep, index: number} | {kind: 'compute'}} Phase
+ * @typedef {{kind: 'intro'} | {kind: 'mode'} | {kind: 'basics'} | {kind: 'rx'} | {kind: 'glassesOff', step: PlanStep, index: number}
+ *   | {kind: 'step', step: PlanStep, index: number} | {kind: 'compute'}} Phase
  */
 
 /**
@@ -75,7 +112,28 @@ export const DEFAULT_DISTANCE_MM = 400;
  */
 export function newDraft(target, now) {
   const iso = new Date(now).toISOString();
-  return { v: 1, startedAt: iso, updatedAt: iso, target, introDone: false, basics: null, rx: null, results: {}, skipped: [], fallbacks: [] };
+  return {
+    v: 1, startedAt: iso, updatedAt: iso, target, introDone: false, mode: null, glassesOffDone: false, basics: null, rx: null,
+    results: {}, skipped: [], fallbacks: [],
+  };
+}
+
+/**
+ * The effective correction mode of a draft: under-18s are always 'wear'; drafts from before the mode choice
+ * derive it from the old "do you wear glasses" answer. null = not chosen yet.
+ * @param {OnboardingDraft} d
+ * @returns {CorrectionMode|null}
+ */
+export function modeOf(d) {
+  if (isMinor(d.basics?.age)) return 'wear';
+  if (d.mode === 'none' || d.mode === 'wear') return d.mode;
+  if (d.basics && typeof d.basics.wearsCorrection === 'boolean') return d.basics.wearsCorrection ? 'wear' : 'none';
+  return null;
+}
+
+/** The step plan for this draft (the glasses-free plan until a mode is chosen). @param {OnboardingDraft} d */
+export function planOf(d) {
+  return planFor(modeOf(d));
 }
 
 /** @param {unknown} d @returns {d is OnboardingDraft} */
@@ -98,16 +156,24 @@ function isDone(d, id) {
  */
 export function nextPhase(d) {
   if (!d.introDone) return { kind: 'intro' };
+  const mode = modeOf(d);
+  if (!mode) return { kind: 'mode' };
   if (!d.basics) return { kind: 'basics' };
   if (d.basics.hasRx && d.rx === null) return { kind: 'rx' };
-  const index = PLAN.findIndex((s) => !isDone(d, s.id));
-  if (index >= 0) return { kind: 'step', step: PLAN[index], index };
+  const plan = planFor(mode);
+  const index = plan.findIndex((s) => !isDone(d, s.id));
+  if (index >= 0) {
+    const step = plan[index];
+    // Glasses off once the screen is calibrated: the viewing distance and every eye check are done without them.
+    if (mode === 'none' && !d.glassesOffDone && step.id !== 'screen') return { kind: 'glassesOff', step, index };
+    return { kind: 'step', step, index };
+  }
   return { kind: 'compute' };
 }
 
 /** Number of measurement steps done (completed or skipped). @param {OnboardingDraft} d */
 export function completedSteps(d) {
-  return PLAN.filter((s) => isDone(d, s.id)).length;
+  return planOf(d).filter((s) => isDone(d, s.id)).length;
 }
 
 /** Has the user done anything worth resuming? @param {OnboardingDraft|null|undefined} d */
@@ -141,9 +207,26 @@ export function completeIntro(d, now) {
   return update(d, now, { introDone: true });
 }
 
-/** @param {OnboardingDraft} d @param {Basics} basics @param {number} now */
+/**
+ * Choose how the profile will be used. A known age under 18 always forces 'wear'.
+ * @param {OnboardingDraft} d @param {CorrectionMode} mode @param {number} now
+ */
+export function setMode(d, mode, now) {
+  const m = isMinor(d.basics?.age) || mode !== 'none' ? 'wear' : 'none';
+  return update(d, now, { mode: m, glassesOffDone: m === 'none' ? !!d.glassesOffDone : false });
+}
+
+/** @param {OnboardingDraft} d @param {number} now */
+export function completeGlassesOff(d, now) {
+  return update(d, now, { glassesOffDone: true });
+}
+
+/** Basics; an age under 18 forces the 'wear' mode (children are never guided to remove prescribed glasses). @param {OnboardingDraft} d @param {Basics} basics @param {number} now */
 export function setBasics(d, basics, now) {
-  return update(d, now, { basics, rx: basics.hasRx ? d.rx : null });
+  /** @type {Partial<OnboardingDraft>} */
+  const patch = { basics, rx: basics.hasRx ? d.rx : null };
+  if (isMinor(basics.age)) { patch.mode = 'wear'; patch.glassesOffDone = false; }
+  return update(d, now, patch);
 }
 
 /** @param {OnboardingDraft} d @param {{right?: Rx, left?: Rx}} rx @param {number} now */
@@ -169,10 +252,11 @@ export function recordResult(d, stepId, result, now, opts = {}) {
  * @param {OnboardingDraft} d @param {string} stepId @param {number} now @param {{wholeGroup?: boolean}} [opts]
  */
 export function recordSkip(d, stepId, now, opts = {}) {
-  const step = PLAN.find((s) => s.id === stepId);
+  const plan = planOf(d);
+  const step = plan.find((s) => s.id === stepId);
   const ids = [stepId];
   if (opts.wholeGroup && step?.group) {
-    for (const s of PLAN) if (s.group === step.group && s.id !== stepId && !isDone(d, s.id)) ids.push(s.id);
+    for (const s of plan) if (s.group === step.group && s.id !== stepId && !isDone(d, s.id)) ids.push(s.id);
   }
   return update(d, now, { skipped: [...new Set([...d.skipped, ...ids])] });
 }
@@ -181,7 +265,7 @@ export function recordSkip(d, stepId, now, opts = {}) {
 export function isGroupStart(d, step) {
   if (!step.optional) return false;
   if (!step.group) return true;
-  const first = PLAN.find((s) => s.group === step.group);
+  const first = planOf(d).find((s) => s.group === step.group);
   return first?.id === step.id;
 }
 
@@ -218,7 +302,8 @@ export function buildProfileInput(d, opts) {
     acuity: pick({ right: r['acuity-right'], left: r['acuity-left'] }),
   };
   if (typeof d.basics?.age === 'number') input.age = d.basics.age;
-  if (d.basics) input.wearsCorrection = !!d.basics.wearsCorrection;
+  const mode = modeOf(d);
+  if (mode) input.wearsCorrection = mode === 'wear';
   if (d.rx && (d.rx.right || d.rx.left)) input.rx = pick({ right: d.rx.right, left: d.rx.left });
   if (r.reading) input.reading = r.reading;
   if (r.contrast) input.contrast = r.contrast;

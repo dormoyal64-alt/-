@@ -9,11 +9,14 @@ import { SCREEN_STRINGS } from './strings.js';
 import { APP_VERSION } from '../shell/brand.js';
 import { getTheme, setTheme, getAdaptUi, setAdaptUi } from '../shell/prefs.js';
 import { pageHeader, radioGroup, switchField, card, linkButton, actionButton } from '../shell/components.js';
+import { glassesFreeInfo } from './summary.js';
 
 /** @param {import('../shell/screen-types.js').ScreenContext} ctx */
 export function mount(ctx) {
   const t = makeT(SCREEN_STRINGS, ctx.lang);
-  const hasProfile = !!getActiveProfile();
+  const active = getActiveProfile();
+  const hasProfile = !!active;
+  const glassesFree = !!glassesFreeInfo(active);
   const { user } = ctx.store.get();
 
   const lang = radioGroup({
@@ -31,7 +34,8 @@ export function mount(ctx) {
     },
   });
   const adapt = switchField({
-    label: t('settings.adapt'), description: hasProfile ? t('settings.adaptDesc') : t('settings.adaptNoProfile'),
+    label: t('settings.adapt'),
+    description: hasProfile ? `${t('settings.adaptDesc')}${glassesFree ? ' ' + t('settings.adaptGlassesFree') : ''}` : t('settings.adaptNoProfile'),
     checked: hasProfile && getAdaptUi(), disabled: !hasProfile, testId: 'settings-adapt',
     onChange: (on) => {
       setAdaptUi(on);

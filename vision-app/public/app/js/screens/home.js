@@ -8,12 +8,12 @@ import { getActiveProfile, loadDraft, onProfilesChanged } from '../core/storage.
 import { SCREEN_STRINGS } from './strings.js';
 import { ACCOUNT_STRINGS } from '../account/strings.js';
 import { shouldShowTrialBanner, trialDaysLeft } from '../account/entitlement.js';
-import { isValidDraft, completedSteps, hasProgress, PLAN, DRAFT_KEY } from '../flows/onboarding-plan.js';
+import { isValidDraft, completedSteps, hasProgress, planOf, DRAFT_KEY } from '../flows/onboarding-plan.js';
 import { brandName } from '../shell/brand.js';
-import { formatDate } from '../shell/format.js';
+import { formatDate, formatCm } from '../shell/format.js';
 import { icon } from '../shell/icons.js';
 import { linkButton, card, emptyState, notice } from '../shell/components.js';
-import { eyeSummaries, textScalePercent, colorFinding, sortFlags } from './summary.js';
+import { eyeSummaries, textScalePercent, colorFinding, sortFlags, glassesFreeInfo, recommendedDistanceMm } from './summary.js';
 
 /** @param {import('../shell/screen-types.js').ScreenContext} ctx */
 export function mount(ctx) {
@@ -41,7 +41,7 @@ export function mount(ctx) {
         iconName: 'eye', title: t('home.noProfileTitle'), body: t('home.noProfileBody', { brand: brandName(ctx.lang) }), testId: 'home-empty',
         actions: [linkButton(unfinished ? t('home.resume') : t('home.start'), '#/onboarding', { testId: 'home-start', className: 'va-btn--lg' })],
       }));
-      if (unfinished) parts.push(h('p', { class: 'va-hint va-center-text' }, t('home.resumeBody', { done: completedSteps(draft), total: PLAN.length })));
+      if (unfinished) parts.push(h('p', { class: 'va-hint va-center-text' }, t('home.resumeBody', { done: completedSteps(draft), total: planOf(draft).length })));
       el.replaceChildren(...parts);
       return;
     }
@@ -51,8 +51,19 @@ export function mount(ctx) {
       h('h1', { class: 'va-title', tabindex: '-1' }, t('home.hello', { name })),
       h('p', { class: 'va-lead' }, t('home.profileLine', { name, date: formatDate(profile.updatedAt, ctx.lang) }))));
 
+    // Glasses-free profile: "Hold at ~35 cm" + the verdict, right under the greeting.
+    const gf = glassesFreeInfo(profile);
+    const holdMm = recommendedDistanceMm(profile);
+    if (gf || holdMm) {
+      const v = gf ? gf.verdict || 'unknown' : null;
+      parts.push(h('div', { class: 'va-gf-strip', 'data-testid': 'home-glasses-free' },
+        holdMm ? h('span', { class: 'va-chip', 'data-testid': 'home-distance-chip' }, icon('phone', { size: 20 }), h('span', null, t('home.distanceChip', { cm: formatCm(holdMm, ctx.lang) }))) : null,
+        v ? h('a', { class: `va-gf__verdict va-gf__verdict--${v} va-gf__verdict--link`, href: '#/results', 'data-testid': 'home-gf-verdict', 'data-verdict': v },
+          icon(v === 'no' ? 'info' : 'glasses', { size: 20 }), h('span', null, t(`gf.badge.${v}`))) : null));
+    }
+
     if (unfinished) {
-      parts.push(notice('info', t('home.resumeBody', { done: completedSteps(draft), total: PLAN.length }), {
+      parts.push(notice('info', t('home.resumeBody', { done: completedSteps(draft), total: planOf(draft).length }), {
         title: t('home.resumeTitle'), testId: 'home-resume', iconName: 'retest',
         actions: [linkButton(t('home.resume'), '#/onboarding', { variant: 'secondary' })],
       }));

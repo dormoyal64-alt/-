@@ -13,11 +13,71 @@ import { formatDate, formatCm, formatFixed } from '../shell/format.js';
 import { icon } from '../shell/icons.js';
 import { linkButton, actionButton, card, emptyState, notice, pageHeader } from '../shell/components.js';
 import { loadModule } from '../shell/modules.js';
-import { eyeSummaries, textScalePercent, colorFinding, contrastBand, sortFlags } from './summary.js';
+import { eyeSummaries, textScalePercent, colorFinding, contrastBand, sortFlags, glassesFreeInfo } from './summary.js';
+import { isMinor } from '../flows/onboarding-plan.js';
 import { describeFlag } from './flag-messages.js';
 import { RX_FIELDS, formatRxValue } from '../flows/rx.js';
 
 /** @typedef {import('../core/types.js').ProfileFlag} ProfileFlag */
+/** @typedef {import('../core/types.js').GlassesFreeAssessment} GlassesFreeAssessment */
+/** @typedef {{title: string, body: string, tips: string[]}} GlassesFreeText */
+
+/**
+ * The engine's own glasses-free wording (engine/summary.js describeGlassesFree), when that export exists.
+ * @param {GlassesFreeAssessment|null} assessment @param {import('../core/types.js').Lang} lang
+ * @returns {Promise<GlassesFreeText|null>}
+ */
+async function engineGlassesFreeText(assessment, lang) {
+  if (!assessment) return null;
+  const res = await loadModule('engineSummary');
+  const fn = res.ok ? res.mod.describeGlassesFree : null;
+  if (typeof fn !== 'function') return null;
+  try {
+    const r = fn(assessment, lang);
+    if (!r || typeof r !== 'object') return null;
+    const str = (/** @type {unknown} */ v) => (typeof v === 'string' ? v.trim() : '');
+    const tips = Array.isArray(r.tips) ? r.tips.map(str).filter(Boolean) : [];
+    if (!str(r.title) && !str(r.body)) return null;
+    return { title: str(r.title), body: str(r.body), tips };
+  } catch (err) {
+    console.warn('describeGlassesFree failed', err);
+    return null;
+  }
+}
+
+/**
+ * "Your screen without glasses": verdict in plain words, where to hold the phone, the sharp range, tips and, for
+ * 'no', an honest "keep your glasses for long reading" message. Never shows clinical values.
+ * @param {import('./summary.js').GlassesFreeInfo} info @param {GlassesFreeText|null} text
+ * @param {(key: string, params?: Record<string, string|number>) => string} t @param {import('../core/types.js').Lang} lang
+ */
+function glassesFreeCard(info, text, t, lang) {
+  const v = info.verdict || 'unknown';
+  const cm = (/** @type {number} */ mm) => formatCm(mm, lang);
+  /** @type {Array<Node|null>} */
+  const children = [
+    h('p', { class: `va-gf__verdict va-gf__verdict--${v}`, 'data-testid': 'gf-verdict', 'data-verdict': v },
+      icon(v === 'no' ? 'info' : 'check', { size: 20 }), h('span', null, t(`gf.badge.${v}`))),
+    text?.title ? h('p', { class: 'va-gf__headline' }, text.title) : null,
+    h('p', { class: 'va-text' }, text?.body || t(`gf.text.${v}`)),
+  ];
+  if (info.distanceMm) {
+    children.push(h('p', { class: 'va-gf__distance', 'data-testid': 'gf-distance' },
+      icon('phone', { size: 28 }), h('span', null, t('gf.distance', { cm: cm(info.distanceMm) }))));
+  }
+  if (info.sharpFromMm && (info.sharpToMm || info.sharpToBeyond)) {
+    children.push(h('p', { class: 'va-result-line', 'data-testid': 'gf-range' }, info.sharpToMm
+      ? t('gf.range', { from: cm(info.sharpFromMm), to: cm(info.sharpToMm) })
+      : t('gf.rangeBeyond', { from: cm(info.sharpFromMm) })));
+  }
+  if (v === 'no') children.push(notice('warning', t('gf.no'), { testId: 'gf-no', iconName: 'glasses' }));
+  const tips = text?.tips?.length ? text.tips
+    : ['gf.tip.guide', ...(info.distanceMm ? ['gf.tip.coach'] : []), 'gf.tip.light', 'gf.tip.breaks'].map((k) => t(k));
+  children.push(h('h3', { class: 'va-gf__tips-title' }, t('gf.tipsTitle')),
+    h('ul', { class: 'va-checklist va-gf__tips', 'data-testid': 'gf-tips' }, tips.map((x) => h('li', null, icon('sparkle', { size: 20 }), h('span', null, x)))),
+    h('p', { class: 'va-hint', 'data-testid': 'gf-honest' }, t('gf.honest')));
+  return card({ title: t('gf.title'), iconName: 'glasses', testId: 'results-glasses-free', className: `va-card--full va-gf va-gf--${v}`, children });
+}
 
 /** @param {import('../shell/screen-types.js').ScreenContext} ctx */
 export async function mount(ctx) {
@@ -55,6 +115,16 @@ export async function mount(ctx) {
   const input = profile.input || /** @type {any} */ ({});
   const distanceMm = input.distance?.distanceMm;
   const sections = [];
+
+  const gfInfo = glassesFreeInfo(profile);
+  const gfCard = gfInfo ? glassesFreeCard(gfInfo, await engineGlassesFreeText(gfInfo.assessment, lang), t, lang) : null;
+  // Built with glasses: offer the glasses-free check to adults (never to children).
+  const tryGlassesFree = !gfInfo && input.wearsCorrection === true && !isMinor(input.age)
+    ? notice('info', t('gf.tryBody'), {
+      title: t('gf.tryTitle'), testId: 'results-try-glasses-free', iconName: 'glasses',
+      actions: [linkButton(t('gf.tryLink'), `#/onboarding?retest=${encodeURIComponent(profile.id)}`, { variant: 'secondary', iconName: 'retest' })],
+    })
+    : null;
 
   const flags = sortFlags(profile.flags || []);
   if (flags.length) {
@@ -149,9 +219,12 @@ export async function mount(ctx) {
       h('p', null, t('results.printedOn', { date: formatDate(new Date(), lang) }))),
     pageHeader({
       title: t('results.title'),
-      lead: [t('results.lead', { name: profile.name, date: formatDate(profile.updatedAt, lang) }), input.wearsCorrection ? ' ' + t('results.withGlasses') : ''],
+      lead: [t('results.lead', { name: profile.name, date: formatDate(profile.updatedAt, lang) }),
+        input.wearsCorrection === true ? ' ' + t('results.withGlasses') : input.wearsCorrection === false ? ' ' + t('results.withoutGlasses') : ''],
     }),
     ctx.route.query.fresh ? notice('success', t('results.fresh'), { role: 'status', testId: 'results-fresh' }) : null,
+    gfCard,
+    tryGlassesFree,
     h('div', { class: 'va-grid-2 va-results__grid' }, ...sections),
     notice('info', t('results.disclaimer'), { testId: 'results-disclaimer' }),
     h('div', { class: 'va-actions va-actions--row va-no-print' },

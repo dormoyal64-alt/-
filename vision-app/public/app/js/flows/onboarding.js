@@ -1,21 +1,24 @@
 // @ts-check
 /**
- * #/onboarding — intro -> basics -> (optional Rx) -> calibration + tests in order via the module contracts ->
+ * #/onboarding — intro -> mode (without / with glasses) -> basics -> (optional Rx) -> calibration, "glasses off"
+ * (glasses-free mode) and tests in order via the module contracts ->
  * computeProfile -> save -> #/results. Every completed step is persisted as a draft so an interrupted check resumes
  * where it stopped. Query: ?new=1 (add a profile) or ?retest=<profileId>.
  */
 import { h, clear, isAbortError } from '../core/dom.js';
 import { makeT } from '../core/i18n.js';
 import { DEFAULT_CSS_PX_PER_MM } from '../core/types.js';
+import { setCorrectionMode, getCorrectionMode } from '../core/ui.js';
 import {
   saveDraft, loadDraft, clearDraft, getProfile, listProfiles, saveProfile, setActiveProfileId, newId,
 } from '../core/storage.js';
 import { FLOW_STRINGS } from './strings.js';
 import { createStage } from './stage.js';
-import { introForm, basicsForm, rxForm } from './forms.js';
+import { introForm, modeForm, basicsForm, glassesOffForm, rxForm } from './forms.js';
 import {
-  PLAN, DRAFT_KEY, newDraft, isValidDraft, nextPhase, completedSteps, resumeDecision, completeIntro, setBasics, setRx,
-  recordResult, recordSkip, isGroupStart, fallbackScreen, fallbackDistance, buildProfileInput,
+  DRAFT_KEY, newDraft, isValidDraft, nextPhase, completedSteps, resumeDecision, completeIntro, setBasics, setRx,
+  recordResult, recordSkip, isGroupStart, fallbackScreen, fallbackDistance, buildProfileInput, modeOf, setMode,
+  completeGlassesOff, planOf,
 } from './onboarding-plan.js';
 import { loadModule } from '../shell/modules.js';
 import { getTheme } from '../shell/prefs.js';
@@ -47,6 +50,8 @@ export function mount(ctx) {
   let wakeLock = null;
 
   ctx.shell.pauseAdaptation(true);
+  // Eye-cover screens say "glasses off" or "glasses on" according to the chosen mode (restored on leave).
+  const previousCorrectionMode = getCorrectionMode();
   void keepAwake();
   const onVisible = () => { if (document.visibilityState === 'visible' && !destroyed) void keepAwake(); };
   document.addEventListener('visibilitychange', onVisible);
@@ -85,7 +90,7 @@ export function mount(ctx) {
     stage.setHeader({ label: t('beforeStart'), title: t('resume.title') });
     clear(body);
     body.append(h('div', { class: 'va-page va-page--narrow va-flow', 'data-testid': 'onboarding-resume' },
-      pageHeader({ title: t('resume.title'), lead: t(stale ? 'resume.bodyStale' : 'resume.body', { done: completedSteps(old), total: PLAN.length }) }),
+      pageHeader({ title: t('resume.title'), lead: t(stale ? 'resume.bodyStale' : 'resume.body', { done: completedSteps(old), total: planOf(old).length }) }),
       h('div', { class: 'va-actions' },
         actionButton(t('resume.continue'), { testId: 'resume-continue', variant: stale ? 'secondary' : 'primary', onClick: () => { draft = old; advance(); } }),
         actionButton(t('resume.restart'), {
@@ -107,16 +112,25 @@ export function mount(ctx) {
       draft = completeIntro(draft, now());
       save();
       advance();
+    } else if (phase.kind === 'mode') {
+      stage.setHeader({ label: t('beforeStart'), title: t('mode.title') });
+      stage.setProgress(0.25);
+      const previous = retestProfile ? (retestProfile.input?.wearsCorrection === true ? 'wear' : 'none') : null;
+      const mode = await modeForm(body, t, { initial: previous, age: draft.basics?.age ?? retestProfile?.input?.age ?? null });
+      if (destroyed) return;
+      draft = setMode(draft, mode, now());
+      save();
+      advance();
     } else if (phase.kind === 'basics') {
       stage.setHeader({ label: t('beforeStart'), title: t('basics.title') });
       stage.setProgress(0.5);
       const firstProfile = listProfiles().length === 0;
       const initial = draft.basics || (retestProfile ? {
-        name: retestProfile.name, age: retestProfile.input?.age ?? null, wearsCorrection: retestProfile.input?.wearsCorrection,
+        name: retestProfile.name, age: retestProfile.input?.age ?? null,
         hasRx: !!(retestProfile.input?.rx?.right || retestProfile.input?.rx?.left),
         lightSensitivity: retestProfile.input?.prefs?.lightSensitivity,
       } : { name: firstProfile ? t('basics.defaultName') : '' });
-      const basics = await basicsForm(body, t, initial);
+      const basics = await basicsForm(body, t, initial, modeOf(draft) ?? 'none');
       if (destroyed) return;
       draft = setBasics(draft, basics, now());
       save();
@@ -129,6 +143,16 @@ export function mount(ctx) {
       draft = setRx(draft, rx, now());
       save();
       advance();
+    } else if (phase.kind === 'glassesOff') {
+      stage.setHeader({ label: t('glassesOff.label'), title: t('step.glassesOff'), total: planOf(draft).length, done: completedSteps(draft) });
+      stage.setProgress(0);
+      setCorrectionMode('none');
+      const choice = await glassesOffForm(body, t);
+      if (destroyed) return;
+      if (choice === 'later') { void requestExit(true); return; }
+      draft = completeGlassesOff(draft, now());
+      save();
+      advance();
     } else if (phase.kind === 'step') {
       await runStep(phase.step, phase.index);
     } else {
@@ -138,7 +162,7 @@ export function mount(ctx) {
 
   /** @param {PlanStep} step @param {number} index */
   function header(step, index) {
-    stage.setHeader({ step: index + 1, total: PLAN.length, title: t(`step.${step.id}`), done: completedSteps(draft) });
+    stage.setHeader({ step: index + 1, total: planOf(draft).length, title: t(`step.${step.id}`), done: completedSteps(draft) });
   }
 
   /** @param {PlanStep} step @param {number} index */
@@ -146,6 +170,8 @@ export function mount(ctx) {
     if (destroyed) return;
     header(step, index);
     stage.setProgress(0);
+    // Before every step (also after a resume): the eye-cover screens follow the chosen mode.
+    setCorrectionMode(modeOf(draft) === 'wear' ? 'wear' : 'none');
     if (step.optional && isGroupStart(draft, step)) {
       const go = await optionalIntro(step);
       if (destroyed) return;
@@ -270,7 +296,8 @@ export function mount(ctx) {
   }
 
   async function runCompute() {
-    stage.setHeader({ step: PLAN.length, total: PLAN.length, title: t('step.compute'), done: PLAN.length });
+    const total = planOf(draft).length;
+    stage.setHeader({ step: total, total, title: t('step.compute'), done: total });
     stage.setProgress(1);
     clear(body);
     body.append(spinner(t('compute.working')));
@@ -356,6 +383,7 @@ export function mount(ctx) {
       tracker?.stop();
       tracker = null;
       document.removeEventListener('visibilitychange', onVisible);
+      setCorrectionMode(previousCorrectionMode);
       try { wakeLock?.release?.(); } catch { /* ignore */ }
       ctx.shell.pauseAdaptation(false);
     },

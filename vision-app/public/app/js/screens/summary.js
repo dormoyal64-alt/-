@@ -9,6 +9,7 @@ import { detailScore as engineDetailScore } from '../engine/profile.js';
 /** @typedef {import('../core/types.js').VisionProfile} VisionProfile */
 /** @typedef {import('../core/types.js').AcuityResult} AcuityResult */
 /** @typedef {import('../core/types.js').ColorResult} ColorResult */
+/** @typedef {import('../core/types.js').GlassesFreeAssessment} GlassesFreeAssessment */
 
 /**
  * "Screen detail" level 0..100 at the tested distance (100 = sees the finest detail we can draw).
@@ -82,4 +83,62 @@ export function eyeSummaries(p) {
 export function sortFlags(flags) {
   const rank = { urgent: 0, recommend: 1, info: 2 };
   return [...(flags || [])].sort((x, y) => (rank[x.level] ?? 3) - (rank[y.level] ?? 3));
+}
+
+/** @param {unknown} v @returns {number|null} a positive, finite distance in mm */
+function mmOrNull(v) {
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
+}
+
+/**
+ * @typedef {Object} GlassesFreeInfo
+ * @property {'yes'|'partial'|'no'|null} verdict  null = the engine gave no assessment (fallback wording)
+ * @property {number|null} distanceMm             where to hold the device
+ * @property {number|null} sharpFromMm
+ * @property {number|null} sharpToMm
+ * @property {boolean} sharpToBeyond              sharp up to (at least) arm's length
+ * @property {GlassesFreeAssessment|null} assessment
+ */
+
+/**
+ * "Your screen without glasses" summary for a profile built from checks done WITHOUT glasses/lenses. Uses the
+ * engine's GlassesFreeAssessment when present, else falls back to the viewing distance and the measured focus range.
+ * @param {VisionProfile|null|undefined} p
+ * @returns {GlassesFreeInfo|null}  null = the profile was built with glasses (or is unknown)
+ */
+export function glassesFreeInfo(p) {
+  if (!p) return null;
+  const gf = p.glassesFree && typeof p.glassesFree === 'object' ? p.glassesFree : null;
+  if (!gf && p.input?.wearsCorrection !== false) return null;
+  const verdict = gf && (gf.feasible === 'yes' || gf.feasible === 'partial' || gf.feasible === 'no') ? gf.feasible : null;
+  const focus = p.input?.focus;
+  const sharpFromMm = gf ? mmOrNull(gf.sharpFromMm) : mmOrNull(focus?.nearPointMm);
+  const rawTo = gf ? gf.sharpToMm : focus?.farPointMm;
+  const sharpToMm = mmOrNull(rawTo);
+  // A null far point next to a known near point means "still sharp at arm's length".
+  const sharpToBeyond = sharpToMm === null && sharpFromMm !== null && rawTo === null;
+  return {
+    verdict,
+    distanceMm: mmOrNull(gf?.recommendedDistanceMm) ?? mmOrNull(p.viewing?.recommendedDistanceMm),
+    sharpFromMm, sharpToMm, sharpToBeyond,
+    assessment: gf,
+  };
+}
+
+/** Recommended holding distance for any profile (glasses-free first). @param {VisionProfile|null|undefined} p */
+export function recommendedDistanceMm(p) {
+  return glassesFreeInfo(p)?.distanceMm ?? mmOrNull(p?.viewing?.recommendedDistanceMm);
+}
+
+/**
+ * Live distance-coach feedback. Tolerance: ±12 % of the target, at least 3 cm.
+ * @param {number|null} currentMm @param {number} targetMm
+ * @returns {'noface'|'closer'|'farther'|'good'}
+ */
+export function coachState(currentMm, targetMm) {
+  if (currentMm === null || !Number.isFinite(currentMm)) return 'noface';
+  const tol = Math.max(30, targetMm * 0.12);
+  if (currentMm > targetMm + tol) return 'closer';
+  if (currentMm < targetMm - tol) return 'farther';
+  return 'good';
 }
