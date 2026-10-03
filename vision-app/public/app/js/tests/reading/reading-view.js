@@ -2,7 +2,7 @@
 /**
  * "Reading comfort check" view — MNREAD-like timed reading with both eyes (vision-science.md §4.4).
  * Sentences shrink in 0.1-log steps; the user taps "Done" when finished (or "Can't read"), then answers a
- * 2-choice word check. runReadingTest(container, ctx) → Promise<ReadingResult>.
+ * 3-choice word check. runReadingTest(container, ctx) → Promise<ReadingResult>.
  */
 import { h, runView, throwIfAborted } from '../../core/dom.js';
 import { makeT } from '../../core/i18n.js';
@@ -171,13 +171,13 @@ export function runReadingTest(container, ctx) {
     };
 
     /**
-     * 2-choice word check. Resolves true when the word from the sentence was chosen.
+     * 3-choice word check (word + 2 foils). Resolves true when the word from the sentence was chosen.
      * @param {Sentence} sentence
      */
     const wordCheck = async (sentence) => {
       /** @type {ReturnType<typeof createAnswerChannel<boolean>>} */
       const ch = createAnswerChannel(signal);
-      const opts = shuffled([{ w: sentence.word, ok: true }, { w: sentence.foil, ok: false }], rng);
+      const opts = shuffled([{ w: sentence.word, ok: true }, { w: sentence.foil, ok: false }, { w: sentence.foil2, ok: false }], rng);
       const el = h('section', { class: 'va-screen', 'data-testid': 'reading-question' },
         h('h1', { class: 'va-title', tabindex: '-1' }, t('questionTitle')),
         h('div', { class: 'va-actions', lang },

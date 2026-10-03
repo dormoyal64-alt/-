@@ -205,9 +205,17 @@ export function mountReader(container, options = {}) {
     editor.hidden = true;
     reading.hidden = false;
     root.dataset.mode = 'reading';
+    fitToolbar();
     say('');
     surface.focus({ preventScroll: true });
   }
+  /** A sticky toolbar taller than a third of the screen (very large UI text) would hide the text: let it scroll away. */
+  function fitToolbar() {
+    if (reading.hidden) return;
+    toolbar.classList.remove('is-static');
+    toolbar.classList.toggle('is-static', toolbar.offsetHeight > (win.innerHeight || 0) / 3);
+  }
+  d.on(win, 'resize', fitToolbar);
   function showEditor() {
     stopSpeech(false);
     textarea.value = text;

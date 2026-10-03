@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   fontPxForPrintSize, printSizeForFontPx, printSizeSequence, largestFittingPrintSize, smallestRenderablePrintSize,
   standardWords, wordsPerMinute, fitReadingCurve, analyseReading, shouldStopReading, xHeightMm,
+  corroboratedPoints, READING_PARAMS,
 } from '../../../public/app/js/tests/reading/reading-math.js';
 import { SENTENCES, splitIntoLines, containsWord } from '../../../public/app/js/tests/reading/sentences.js';
 
@@ -87,6 +88,41 @@ test('reliability: implausibly fast tapping and inconsistent failures', () => {
   const pts = synth({ mrs: 200, p0: -0.2, tau: 0.12, sizes: printSizeSequence(0.8, -0.1) });
   pts[0].passed = false; pts[1].passed = false;
   assert.ok(analyseReading(pts).reasons.includes('inconsistent'));
+});
+
+test('lucky word-check passes below a failed size are not counted (A14: single-run reading size was noisy)', () => {
+  // Reads down to 0.4; fails 0.3; a lucky guess "passes" 0.2 (slowly); fails 0.1 and 0.0 -> stop.
+  const pts = [
+    { p: 0.8, wpm: 190, passed: true }, { p: 0.7, wpm: 188, passed: true }, { p: 0.6, wpm: 180, passed: true },
+    { p: 0.5, wpm: 150, passed: true }, { p: 0.4, wpm: 90, passed: true }, { p: 0.3, wpm: 0, passed: false },
+    { p: 0.2, wpm: 50, passed: true }, { p: 0.1, wpm: 0, passed: false }, { p: 0.0, wpm: 0, passed: false },
+  ];
+  const a = analyseReading(pts);
+  assert.equal(a.readingAcuity, 0.4, 'reading acuity is the smallest corroborated size, not the lucky 0.2');
+  assert.ok(a.cps !== null && a.cps >= 0.4, `cps ${a.cps}`);
+  // a pass directly after a failure is cleared; the next pass (corroborated by it) counts again
+  const c = corroboratedPoints([
+    { p: 1.0, wpm: 0, passed: false }, { p: 0.9, wpm: 120, passed: true }, { p: 0.8, wpm: 150, passed: true },
+  ]);
+  assert.deepEqual(c.map((q) => q.passed), [false, false, true]);
+  assert.equal(c[1].wpm, 0);
+  // order does not matter; the largest tested size stands on its own
+  const shuffledPts = [pts[6], pts[0], pts[5], pts[4]];
+  assert.deepEqual(corroboratedPoints(shuffledPts).map((q) => q.passed), [false, true, false, true]);
+  // single largest size read
+  assert.equal(analyseReading([{ p: 0.6, wpm: 100, passed: true }, { p: 0.5, wpm: 0, passed: false }]).readingAcuity, 0.6);
+});
+
+test('word check is 3-choice: two distinct foils that are not in the sentence', () => {
+  assert.equal(READING_PARAMS.checkChoices, 3);
+  for (const lang of ['he', 'en']) {
+    for (const s of [SENTENCES[lang].practice, ...SENTENCES[lang].sentences]) {
+      assert.equal(new Set([s.word, s.foil, s.foil2]).size, 3, `${lang}: ${s.word}/${s.foil}/${s.foil2}`);
+      assert.ok(typeof s.foil2 === 'string' && s.foil2.length > 1);
+      assert.ok(!containsWord(s.text, s.foil2), `foil2 "${s.foil2}" not in "${s.text}"`);
+      assert.ok(!s.text.includes(s.foil2), `foil2 "${s.foil2}" is not a substring of "${s.text}"`);
+    }
+  }
 });
 
 test('stopping rule: > 20 s, 2 consecutive failures, or smallest size', () => {

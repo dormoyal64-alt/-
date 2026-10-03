@@ -198,6 +198,11 @@ export function runAcuityTest(container, ctx) {
       floorLimited: est.floorLimited,
       trials: est.trials,
       durationMs,
+      // optional contract fields: the engine's ceiling-limited / unreliable rules need them
+      ...(Number.isFinite(est.sd) ? { sd: est.sd } : {}),
+      ...(Array.isArray(est.ci95) && est.ci95.every(Number.isFinite) ? { ci95: [est.ci95[0], est.ci95[1]] } : {}),
+      ceilingLimited: !!est.ceilingLimited,
+      reasons: Array.isArray(est.reasons) ? [...est.reasons] : [],
     });
   });
 }

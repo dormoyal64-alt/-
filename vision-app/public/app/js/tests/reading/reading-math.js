@@ -19,6 +19,7 @@ export const READING_PARAMS = Object.freeze({
   fallbackMinSizes: 4,       // "if the fit fails (fewer than 4 sizes)"
   xRatioFallback: Object.freeze({ he: 0.58, en: 0.52 }),
   maxPlausibleWpm: 700,      // faster than this on a 10-word sentence = tapped through without reading
+  checkChoices: 3,           // word check after each sentence: the word + 2 foils (guess rate 1/3)
 });
 
 /**
@@ -143,15 +144,36 @@ export function fitReadingCurve(points) {
  */
 
 /**
+ * Guard against lucky guesses on the word check: a pass counts only when the next larger tested size was passed
+ * too (the largest tested size counts on its own). A size the person cannot read is otherwise accepted with the
+ * guess rate (1/3 per sentence); two passes in a row by luck happen ~10× less often. Uncounted passes are
+ * treated as failures (0 wpm). Points may come in any order.
+ * @param {ReadingPoint[]} points
+ * @returns {ReadingPoint[]} same order, with `passed`/`wpm` cleared on uncorroborated passes
+ */
+export function corroboratedPoints(points) {
+  const ok = (/** @type {ReadingPoint} */ q) => q.passed && q.wpm > 0;
+  const byLarger = [...points].sort((a, b) => b.p - a.p);
+  return points.map((q) => {
+    if (!ok(q)) return q;
+    const i = byLarger.indexOf(q);
+    const larger = i > 0 ? byLarger[i - 1] : null;
+    return !larger || ok(larger) ? q : { ...q, passed: false, wpm: 0 };
+  });
+}
+
+/**
  * CPS / reading acuity / maximum reading speed per §4.4.
+ * - Passes not corroborated by the next larger size are ignored (see corroboratedPoints).
  * - Fit the exponential-rise model (failed sentences enter as 0 wpm). CPS = p0 + τ·ln 5 (80 % of MRS).
  * - If the fit fails (fewer than 4 sizes read, no plateau inside the tested range, or no convergence):
  *   CPS = smallest size whose speed is ≥ 80 % of the mean of the 3 fastest sizes; MRS = that mean.
- * @param {ReadingPoint[]} points
+ * @param {ReadingPoint[]} rawPoints
  * @returns {ReadingAnalysis}
  */
-export function analyseReading(points) {
+export function analyseReading(rawPoints) {
   const P = READING_PARAMS;
+  const points = corroboratedPoints(rawPoints);
   const passed = points.filter((q) => q.passed && q.wpm > 0);
   const reasons = [];
   if (!passed.length) return { cps: null, readingAcuity: null, mrs: 0, method: 'none', reliable: false, reasons: ['nothing-read'] };

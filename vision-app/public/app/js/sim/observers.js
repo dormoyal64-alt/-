@@ -15,6 +15,7 @@
 import { DIRECTIONS } from '../tests/acuity/random.js';
 import { eyeState, binocularLogMARAt, blurDiskArcmin, COMFORT_FRACTION } from './eye-model.js';
 import { lineAngleDiff } from '../tests/astigmatism/astigmatism-math.js';
+import { READING_PARAMS } from '../tests/reading/reading-math.js';
 
 /** @typedef {import('./eye-model.js').SimulatedEye} SimulatedEye */
 /** @typedef {import('../tests/acuity/random.js').Direction} Direction */
@@ -148,7 +149,7 @@ export function readSentence({ model, pSeen, words, rng }) {
   const canRead = rng() < logistic((pSeen - model.RA) / 0.04);
   if (!canRead) {
     if (rng() < 0.7) return { choice: 'cant', timeMs: 3000 + 4000 * rng(), correct: false };
-    return { choice: 'done', timeMs: 8000 + 8000 * rng(), correct: rng() < 0.5 };
+    return { choice: 'done', timeMs: 8000 + 8000 * rng(), correct: rng() < 1 / READING_PARAMS.checkChoices };
   }
   const wpm = Math.max(5, model.speed(pSeen)) * 10 ** (0.06 * gauss(rng));
   return { choice: 'done', timeMs: (60000 * words) / wpm, correct: rng() < 0.98 };

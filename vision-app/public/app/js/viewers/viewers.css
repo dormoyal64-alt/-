@@ -12,8 +12,11 @@
 /* Author display rules (e.g. .va-btn, panels) must not defeat the hidden attribute. */
 .va-viewer [hidden] { display: none !important; }
 .va-viewer__bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.va-viewer__title { font-size: 1.25rem; line-height: 1.25; margin: 0; font-weight: 700; flex: 1 1 auto; }
+.va-viewer__title { font-size: 1.25rem; line-height: 1.25; margin: 0; font-weight: 700; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .va-viewer__bar .va-btn { flex: 1 1 auto; }
+/* Large profile text (up to 4× UI scale): controls shrink to the row and their labels wrap — never a horizontal scroll. */
+.va-viewer .va-btn { max-width: 100%; overflow-wrap: break-word; }
+.va-viewer .va-btn > * { min-width: 0; }
 
 .va-viewer__stage {
   position: relative; flex: 1 1 auto; min-height: 45dvh;
@@ -64,11 +67,11 @@
 /* Radio "segmented" choices (magnifier colour modes) */
 .va-choices { border: 0; margin: 0; padding: 0; min-width: 0; }
 .va-choices > legend { font-weight: 600; padding: 0; margin-bottom: 6px; }
-.va-choices__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 8px; }
+.va-choices__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(9.5rem, 100%), 1fr)); gap: 8px; }
 .va-choice { position: relative; display: flex; }
 .va-choice input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .va-choice span {
-  flex: 1; display: flex; align-items: center; justify-content: center; text-align: center;
+  flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; min-width: 0; overflow-wrap: anywhere;
   min-height: var(--va-tap); padding: 8px 10px; border: 2px solid var(--va-border); border-radius: var(--va-radius-sm);
   background: var(--va-surface); color: var(--va-text); font-weight: 600;
 }
@@ -104,7 +107,9 @@
   position: sticky; top: 0; z-index: 2; display: flex; flex-direction: column; gap: 8px;
   background: var(--va-bg); padding-block: 8px; border-bottom: 1px solid var(--va-border);
 }
-.va-reader__size { min-width: 5ch; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* At very large UI text the toolbar would cover most of the screen: it then scrolls with the text (reader.js). */
+.va-reader__toolbar.is-static { position: static; }
+.va-reader__size { min-width: min(5ch, 100%); text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
 .va-reader__surface {
   --va-hl-bg: #ffe14d; --va-hl-fg: #000;
   background: var(--va-surface); color: var(--va-text); border: 1px solid var(--va-border);
