@@ -10,6 +10,10 @@
  *   §10.2 / items 38–42 enhancement: sharpening band, gain, magnification
  *   §12.4 / items 43–48 profile → system settings target
  *   §13 / items 51–58   red flags (Amsler is out of scope and ignored)
+ *   GLASSES-FREE MODE    (input.wearsCorrection === false) — see "Glasses-free assessment" below and
+ *                        docs/validation/SIMULATION-REPORT.md: a defocus model locates the user's sharp distance
+ *                        window from the measured focus range, picks the viewing distance inside it and sizes the text
+ *                        for THAT distance; VisionProfile.glassesFree carries the yes / partial / no verdict.
  *
  * WHICH INPUT WINS FOR TEXT SIZE (item 17): a RELIABLE reading test (critical print size, CPS) wins over acuity,
  * because CPS directly measures the smallest print the user reads at full speed — exactly the quantity we size
@@ -25,6 +29,7 @@
 import { IDENTITY3, neutralFilterParams, DEFAULT_CSS_PX_PER_MM } from '../core/types.js';
 import { daltonizeMatrix } from './color-math.js';
 import { describeFlag } from './summary.js';
+import { FOCUS } from '../calibration/calibration-math.js';
 
 /** @typedef {import('../core/types.js').ProfileInput} ProfileInput */
 /** @typedef {import('../core/types.js').VisionProfile} VisionProfile */
@@ -33,6 +38,7 @@ import { describeFlag } from './summary.js';
 /** @typedef {import('../core/types.js').SystemSettingsTarget} SystemSettingsTarget */
 /** @typedef {import('../core/types.js').ProfileFlag} ProfileFlag */
 /** @typedef {import('../core/types.js').AcuityResult} AcuityResult */
+/** @typedef {import('../core/types.js').GlassesFreeAssessment} GlassesFreeAssessment */
 
 /**
  * SystemSettingsTarget plus one optional engine field (proposed addition to core/types.js):
@@ -56,6 +62,8 @@ export const ACUITY_RESERVE = 2;
 export const FLOOR_ARCMIN = 12;
 /** Hebrew safety margin ×1.12 (+0.05 log) [17]. */
 export const HEBREW_MARGIN = 1.12;
+/** A critical print size more than this below the letter acuity is implausible and ignored (see deriveMetrics). */
+export const CPS_BELOW_ACUITY_TOL = 0.1;
 /** Margin above the critical print size: +0.1 log [17]. */
 export const CPS_MARGIN_LOG = 0.1;
 /** x-height / em fallbacks when runtime measurement is unavailable [19]. */
@@ -208,6 +216,7 @@ function eyeAcuity(r) {
  * @property {'both'|'better-eye'|'unreliable'|'none'} acuitySource
  * @property {boolean} ceilingLimited
  * @property {number|null} cps              reliable critical print size (logMAR), else null
+ * @property {boolean} cpsImplausible       a "reliable" CPS was ignored because it was far below the acuity
  * @property {'reading'|'acuity'|'default'} sizeSource
  * @property {number|null} logCS            reliable logCS, else null
  * @property {0|1|2|3|null} contrastTier
@@ -221,6 +230,8 @@ function eyeAcuity(r) {
  * @property {number} fsAcuityLatin         acuity/CPS size without contrast step or Hebrew margin (for magnification)
  * @property {'low'|'normal'|'high'} lightSensitivity
  * @property {'light'|'dark'|'auto'} theme
+ * @property {GlassesFreeAssessment|null} glassesFree  only when the tests were done without correction
+ * @property {GlassesFreePlan|null} glassesFreePlan     internal model values behind glassesFree (technical details)
  */
 
 /**
@@ -257,7 +268,16 @@ export function deriveMetrics(input) {
 
   // --- reading (reliable CPS wins, item 17)
   const rd = inp.reading;
-  const cps = rd && rd.reliable !== false && isNum(rd.criticalPrintSizeLogMAR) ? clamp(rd.criticalPrintSizeLogMAR, -0.3, 1.6) : null;
+  let cps = rd && rd.reliable !== false && isNum(rd.criticalPrintSizeLogMAR) ? clamp(rd.criticalPrintSizeLogMAR, -0.3, 1.6) : null;
+  // Plausibility (validation simulation, docs/validation): the critical print size is normally 0.1–0.4 log LARGER
+  // than letter acuity. A CPS clearly below the acuity measured at a similar distance comes from lucky answers on the
+  // 2-choice word check (50 % guess rate) and would shrink the text below what the user can read: ignore it.
+  let cpsImplausible = false;
+  if (cps !== null && L !== null && cps < L - CPS_BELOW_ACUITY_TOL - EPS) {
+    const dr = isNum(rd?.distanceMm) && rd.distanceMm > 0 ? rd.distanceMm : null;
+    const da = chosen?.distanceMm ?? null;
+    if (dr === null || da === null || Math.abs(Math.log10(dr / da)) < 0.1) { cps = null; cpsImplausible = true; }
+  }
   const sizeSource = cps !== null ? 'reading' : L !== null ? 'acuity' : 'default';
   const testDistanceMm = (cps !== null && isNum(rd?.distanceMm) && rd.distanceMm > 0 ? rd.distanceMm : chosen?.distanceMm) ?? null;
 
@@ -274,7 +294,10 @@ export function deriveMetrics(input) {
     if (r && r.suspected) {
       lines.suspected = true;
       lines.eyes.push(eye);
-      if (r.consistent === true) { lines.consistent = true; lines.consistentEyes.push(eye); }
+      // The dial view reports `suspected` only when ≥ 2 of 3 presentations agreed (astigmatism-math.js
+      // inferFromAnswers), so a suspected result without an explicit `consistent` field IS consistent. Only an
+      // explicit `consistent: false` (older/other producers) is treated as inconsistent.
+      if (r.consistent === true || (r.consistent === undefined && isNum(r.axisDeg))) { lines.consistent = true; lines.consistentEyes.push(eye); }
     }
   }
 
@@ -305,7 +328,7 @@ export function deriveMetrics(input) {
       if (minComfortMm > 600) recommendedDistanceMm = habitualMm; // no comfortable near distance: keep habitual, enlarge text
       else {
         const hi = Math.min(farMm ?? 600, 600);
-        const lo = 250;
+        const lo = isNum(inp.age) && inp.age < 18 ? MIN_DISTANCE_CHILD_MM : MIN_DISTANCE_MM;
         recommendedDistanceMm = hi < lo ? hi : clamp(Math.max(habitualMm, minComfortMm), lo, hi);
       }
       recommendedDistanceMm = Math.round(clampR(recommendedDistanceMm, SAFE_RANGES.recommendedDistanceMm) / 10) * 10;
@@ -324,13 +347,286 @@ export function deriveMetrics(input) {
 
   const ls = inp.prefs?.lightSensitivity;
   const th = inp.prefs?.theme;
-  return {
+  /** @type {Metrics} */
+  const m = {
     cssPxPerMm, mmPerCss, screenCalibrated, habitualMm, textDistanceMm, testDistanceMm,
-    eyes, L, acuitySource, ceilingLimited, cps, sizeSource, logCS, contrastTier: tier, lines, color,
+    eyes, L, acuitySource, ceilingLimited, cps, cpsImplausible, sizeSource, logCS, contrastTier: tier, lines, color,
     focus, recommendedDistanceMm,
     fsLatin, fsHebrew, fsNeeded, fsAcuityLatin: fsLatin,
     lightSensitivity: ls === 'low' || ls === 'high' ? ls : 'normal',
     theme: th === 'light' || th === 'dark' ? th : 'auto',
+    glassesFree: null,
+    glassesFreePlan: null,
+  };
+  if (inp.wearsCorrection === false) applyGlassesFree(m, inp, sizeMult);
+  return m;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Glasses-free assessment (input.wearsCorrection === false)
+// ---------------------------------------------------------------------------------------------------------------
+/*
+ * A normal screen cannot correct blur. What it CAN do for someone reading without glasses/lenses is (1) be held at a
+ * distance where the eye is naturally sharp, if such a distance exists within reach, and (2) show text large and
+ * heavy enough for what remains. To decide both, the engine uses a population defocus model (the same physics as
+ * the validation simulator, public/app/js/sim/eye-model.js, documented in docs/validation/SIMULATION-REPORT.md):
+ *   threshold(U) = log10 √(MAR0² + (k·P·max(0, U − z/P))²)          Smith 1991 form, k 0.64, z 0.86 mm·D (fitted)
+ *   P = Watson & Yellott 2012 pupil at 150 cd/m² (phone), MAR0 = age-typical best acuity, U = defocus (D).
+ * From the measured focus range it estimates, internally and never shown: the far-point vergence F (how far the eye
+ * sees sharply) and the accommodation range; comfortable sustained focusing uses at most half of the age-typical
+ * amplitude (spec §9.5). The measured threshold at the test distance anchors the prediction (offset Δ absorbs
+ * astigmatism and anything the model does not know), so the prediction AT the test distance equals the measurement.
+ * The text is then sized (spec §4.3, unchanged rules) for the predicted threshold at the chosen distance.
+ */
+/** Practical phone distances: 25–60 cm for adults, ≥ 33 cm for under-18s (ergonomic guidance). */
+export const MIN_DISTANCE_MM = 250;
+export const MIN_DISTANCE_CHILD_MM = 330;
+export const MAX_DISTANCE_MM = 600;
+/** Closer than this works but is not comfortable for long: verdict at most 'partial'. */
+export const COMFORT_MIN_DISTANCE_MM = 300;
+/** Characters per line on a 360-CSS-px phone (16 px side padding): ≥ 24 comfortable, < 12 impractical. */
+export const PHONE_LINE_CSS_PX = 328;
+export const CHAR_EM = Object.freeze({ latin: 0.5, hebrew: 0.56 });
+export const CPL_COMFORT = 24;
+export const CPL_MIN = 12;
+export const GF_MODEL = Object.freeze({
+  k: 0.64,
+  deadZoneMmD: 0.86,
+  luminance: 150,
+  fieldDeg2: 270,
+  /** Focus test: "first blur" is reported when the threshold is about this far below the target level. */
+  blurCriterionLog: 0.05,
+  /** "Sharp" = within 0.1 log of the age-typical best. */
+  sharpLossLog: 0.1,
+  /** A measured far point is ignored when it predicts a threshold this much worse than measured at the test distance. */
+  maxInconsistencyLog: 0.2,
+  /** Reading-test CPS is capped at reading acuity + 0.4 (typical CPS − RA is 0.1–0.3; larger = curve-fit noise). */
+  maxCpsAboveRA: 0.4,
+  /** Far points are tapped while moving away, after blur is noticed, so they read slightly too far (cf. the 0.17 D
+   * bias of a smartphone far-point app, TVST 2022): added to the far-point vergence. */
+  farOvershootD: 0.15,
+  /** Residual blur (log) that no distance removes before the verdict is capped at 'partial'. */
+  residualBlurLog: 0.2,
+});
+
+/** Watson & Yellott (2012) binocular pupil (mm) at the phone luminance. @param {number} age */
+export function gfPupilMm(age) {
+  const x = ((GF_MODEL.luminance * GF_MODEL.fieldDeg2) / 846) ** 0.41;
+  const dsd = 7.75 - 5.75 * (x / (x + 2));
+  return clamp(dsd + (age - 28.58) * (0.02132 - 0.009562 * dsd), 2, 8);
+}
+/** Age-typical best logMAR. @param {number} age */
+export function gfFloorLogMAR(age) { return -0.08 + 0.0025 * Math.max(0, age - 40); }
+/** @param {number} U @param {number} P @param {number} L0 */
+export function gfLogMARForBlur(U, P, L0) {
+  const eff = Math.max(0, Math.abs(U) - GF_MODEL.deadZoneMmD / P);
+  return Math.log10(Math.sqrt(10 ** (2 * L0) + (GF_MODEL.k * P * eff) ** 2));
+}
+/** @param {number} L @param {number} P @param {number} L0 */
+export function gfBlurForLogMAR(L, P, L0) {
+  if (!(L > L0)) return 0;
+  return Math.sqrt(10 ** (2 * L) - 10 ** (2 * L0)) / (GF_MODEL.k * P) + GF_MODEL.deadZoneMmD / P;
+}
+/** Hofstetter amplitude (D). @param {number} age */
+const hofMean = (age) => Math.max(0, 18.5 - 0.3 * age);
+/** @param {number} age */
+const hofMin = (age) => Math.max(0, 15 - 0.25 * age);
+
+/**
+ * Characters per line on a 360-CSS-px-wide phone (the smaller of Hebrew and Latin).
+ * @param {number} fontPx @param {number} [letterSpacingEm]
+ */
+export function charsPerLine(fontPx, letterSpacingEm = 0) {
+  const per = (/** @type {number} */ em) => Math.floor(PHONE_LINE_CSS_PX / (Math.max(fontPx, 1) * (em + letterSpacingEm)));
+  return Math.min(per(CHAR_EM.latin), per(CHAR_EM.hebrew));
+}
+
+/** Letter spacing (§6.4 / §5.5) — shared by buildText and the glasses-free line-length check. @param {Metrics} m */
+function letterSpacingEmFor(m) {
+  const lowCS = m.contrastTier !== null && m.contrastTier >= 2;
+  let letter = 0;
+  if (m.lines.suspected) letter = m.lines.consistent ? 0.04 : 0.02; // §6.4: +0.02–0.05 em
+  if (lowCS) letter = Math.max(letter, 0.02);
+  return letter;
+}
+
+/**
+ * @typedef {Object} GlassesFreePlan  Internal values (technical details only; never shown in the default UI).
+ * @property {number} pupilMm
+ * @property {number} floorLogMAR
+ * @property {number|null} farVergenceD     estimated far-point vergence (D), 0 = sharp to arm's length or beyond
+ * @property {boolean} farIgnored           the measured far point contradicted the measured threshold
+ * @property {number|null} ampD             estimated accommodation range beyond the far point (D)
+ * @property {number|null} comfortAccD      accommodation used comfortably (D)
+ * @property {number} offsetLog             measured − modelled threshold at the test distance
+ * @property {number} textDistanceMm
+ * @property {number|null} predictedLogMAR  predicted comfortable threshold at textDistanceMm
+ * @property {number|null} predictedCps
+ * @property {number} fsNeeded
+ */
+
+/**
+ * Glasses-free plan: estimate the sharp window, choose the distance, re-size the text for it and give a verdict.
+ * Mutates the text-size fields of `m` (textDistanceMm, recommendedDistanceMm, fs*) and sets m.glassesFree.
+ * @param {Metrics} m @param {Partial<ProfileInput>} inp @param {number} sizeMult contrast-tier size step
+ */
+function applyGlassesFree(m, inp, sizeMult) {
+  const age = isNum(inp.age) ? clamp(inp.age, 3, 110) : null;
+  const ageM = age ?? 40;
+  const child = age !== null && age < 18;
+  const lo = child ? MIN_DISTANCE_CHILD_MM : MIN_DISTANCE_MM;
+  const P = gfPupilMm(ageM);
+  const L0 = gfFloorLogMAR(ageM);
+  const A = (/** @type {number} */ U) => gfLogMARForBlur(U, P, L0);
+  const E = (/** @type {number} */ L) => gfBlurForLogMAR(L, P, L0);
+  /** @type {string[]} */
+  const reasons = [];
+  const add = (/** @type {string} */ r) => { if (!reasons.includes(r)) reasons.push(r); };
+  if (child) add('CHILD');
+  const letter = letterSpacingEmFor(m);
+  const dh = m.habitualMm;
+  const Lt = m.L;
+  if (Lt === null) {
+    add('NOT_ENOUGH_DATA');
+    m.glassesFree = {
+      feasible: child ? 'no' : 'partial', recommendedDistanceMm: null, sharpFromMm: null, sharpToMm: null,
+      charsPerLine: charsPerLine(m.fsNeeded, letter), reasons,
+    };
+    return;
+  }
+  const dt = m.testDistanceMm ?? dh;
+  // Reading result: guard against curve-fit outliers (simulation: single-run CPS errors up to +0.4 log).
+  let cpsT = m.cps;
+  const ra = inp.reading?.readingAcuityLogMAR;
+  if (cpsT !== null && isNum(ra)) cpsT = Math.min(cpsT, Math.max(ra, Lt) + GF_MODEL.maxCpsAboveRA);
+
+  // --- focus range → far-point vergence F and accommodation range
+  const focusMeasured = m.focus !== null;
+  const nearMm = m.focus?.nearMm ?? null;
+  const farMm = m.focus?.farMm ?? null;
+  const crit = GF_MODEL.blurCriterionLog;
+  let F = 0;
+  let farIgnored = false;
+  if (farMm !== null) {
+    F = 1000 / farMm + E(FOCUS.farLogMAR - crit) + GF_MODEL.farOvershootD;
+    // A far point this close predicts much more blur at the test distance than was measured: the "blur" seen in the
+    // far sweep was not distance blur (e.g. uneven line sharpness blurs at every distance). Ignore it.
+    if (A(Math.max(0, F - 1000 / dt)) - Lt > GF_MODEL.maxInconsistencyLog) { F = 0; farIgnored = true; add('FOCUS_INCONSISTENT'); }
+    // Tapped at (about) the start of the sweep (20 cm): the far point may be much closer than measured. The threshold
+    // measured at the test distance then bounds the far-point vergence better (defocus-model inversion).
+    else if (farMm <= 1.15 * FOCUS.farStartMm) F = Math.max(F, 1000 / dt + E(Lt));
+  }
+  let amp = hofMean(ageM);
+  if (nearMm !== null) {
+    const measured = Math.max(0, 1000 / nearMm - F - E(FOCUS.nearMinLogMAR - crit));
+    // Tapped at (about) the start of the sweep: the target was already blurry at ~40 cm, so the near point is only an
+    // upper bound of the focusing range.
+    const atStart = nearMm >= 0.9 * FOCUS.nearStartMm;
+    if (nearMm <= FOCUS.cameraFloorMm + EPS) amp = Math.max(measured, hofMean(ageM));
+    // ...at an age where that is physiologically implausible: blur at every distance, not a focusing limit.
+    else if (atStart && ageM < 40 && measured < hofMean(ageM) - 4) add('FOCUS_INCONSISTENT');
+    // ...otherwise the threshold measured at the test distance bounds the range better (defocus-model inversion).
+    else if (atStart && Lt > L0 + 0.1) amp = Math.min(measured, Math.max(0, 1000 / dt - F - E(Lt)));
+    else amp = measured;
+  }
+  amp = clamp(amp, 0, 15);
+  // Half-amplitude comfort rule (§9.5). An amplitude below the age norm may be latent long-sightedness using up
+  // focusing effort (indistinguishable here), so the comfortable part is taken relative to Hofstetter's MINIMUM for
+  // the age when that is larger than the measured range (conservative, but not the mean, which overestimates).
+  const comfortAcc = Math.max(0, amp - Math.max(amp, hofMin(ageM)) / 2);
+  const blurAt = (/** @type {number} */ d, /** @type {number} */ acc) => {
+    const need = 1000 / d - F;
+    return need < 0 ? -need : Math.max(0, need - acc);
+  };
+  const offset = clamp(Lt - A(blurAt(dt, amp)), -0.1, 1);
+  const Lpred = (/** @type {number} */ d) => A(blurAt(d, comfortAcc)) + offset;
+  const cpsPred = (/** @type {number} */ d) => (cpsT === null ? null : cpsT + (Lpred(d) - Lt));
+  const fsAt = (/** @type {number} */ d) => {
+    const L = Lpred(d);
+    const cps = cpsPred(d);
+    const fl = fontPxForAngle(targetXHeightArcmin({ logMAR: L, cps, hebrew: false }), d, XR_LATIN, m.mmPerCss);
+    const fh = fontPxForAngle(targetXHeightArcmin({ logMAR: L, cps, hebrew: true }), d, XR_HEBREW, m.mmPerCss);
+    return { L, cps, fl, fh, fs: Math.max(PLATFORM_DEFAULT_PX, Math.max(fl, fh) * sizeMult) };
+  };
+
+  // --- sharp window and distance choice
+  const sharpLimit = L0 + GF_MODEL.sharpLossLog;
+  const Es = E(sharpLimit);
+  /** @type {number|null} */ let sharpFromMm = null;
+  /** @type {number|null} */ let sharpToMm = null;
+  let dRec = dh;
+  let windowOk = false;
+  if (focusMeasured) {
+    const nearV = F + comfortAcc + Es;
+    const farV = F - Es;
+    const from = nearV > 0 ? 1000 / nearV : null;
+    const to = farV > 0 ? 1000 / farV : null; // null: sharp to arm's length and beyond
+    if (from !== null && (to === null || to >= from)) {
+      sharpFromMm = Math.round(from / 10) * 10;
+      sharpToMm = to === null || to > 2000 ? null : Math.round(to / 10) * 10;
+    }
+    const grid = [];
+    for (let d = lo; d <= MAX_DISTANCE_MM + EPS; d += 10) grid.push(d);
+    const inWindow = grid.filter((d) => A(blurAt(d, comfortAcc)) <= sharpLimit + EPS);
+    if (inWindow.length) {
+      windowOk = true;
+      // Keep the user's habit when it is inside the window, but not closer than 30 cm when the window allows it.
+      dRec = clamp(Math.max(Math.round(dh / 10) * 10, COMFORT_MIN_DISTANCE_MM), inWindow[0], inWindow[inWindow.length - 1]);
+    } else {
+      // No sharp distance within reach: the distance that needs the smallest text (closest to habit on ties).
+      let best = grid[0];
+      let bestFs = Infinity;
+      for (const d of grid) {
+        const f = fsAt(d).fs;
+        if (f < bestFs - 0.05 || (Math.abs(f - bestFs) <= 0.05 && Math.abs(d - dh) < Math.abs(best - dh))) { best = d; bestFs = f; }
+      }
+      dRec = best;
+    }
+  } else if (child) {
+    dRec = Math.max(dh, lo);
+  }
+  dRec = clampR(dRec, SAFE_RANGES.recommendedDistanceMm);
+  const sized = fsAt(dRec);
+  m.textDistanceMm = dRec;
+  m.recommendedDistanceMm = focusMeasured || child ? dRec : null;
+  m.fsLatin = sized.fl;
+  m.fsHebrew = sized.fh;
+  m.fsAcuityLatin = sized.fl;
+  m.fsNeeded = sized.fs;
+  const cpl = charsPerLine(sized.fs, letter);
+
+  // --- verdict
+  if (focusMeasured) add(windowOk ? 'SHARP_RANGE_OK' : 'NO_COMFORTABLE_DISTANCE');
+  else if (age !== null && age < 40 && Lt - L0 <= 0.15) add('SHARP_AT_HABITUAL');
+  else add('FOCUS_NOT_MEASURED');
+  if (dRec < COMFORT_MIN_DISTANCE_MM - EPS) add('TOO_CLOSE');
+  if (cpl < CPL_MIN) add('TEXT_TOO_LARGE');
+  else if (cpl < CPL_COMFORT) add('TEXT_LARGE');
+  if (m.lines.consistent && offset >= 0.1 - EPS) add('HIGH_ASTIGMATISM');
+  else if (offset >= GF_MODEL.residualBlurLog - EPS) add('BLUR_AT_ALL_DISTANCES');
+  if (m.acuitySource === 'unreliable') add('UNRELIABLE');
+  const r = m.eyes.right;
+  const l = m.eyes.left;
+  if (r?.reliable && l?.reliable && Math.abs(r.L - l.L) >= 0.2 - EPS) add('EYES_DIFFER');
+  const opticalLossAtRec = A(blurAt(dRec, comfortAcc)) - L0;
+  /** @type {GlassesFreeAssessment['feasible']} */
+  let feasible = 'yes';
+  const partialReasons = ['NO_COMFORTABLE_DISTANCE', 'TOO_CLOSE', 'TEXT_LARGE', 'HIGH_ASTIGMATISM', 'BLUR_AT_ALL_DISTANCES',
+    'UNRELIABLE', 'FOCUS_NOT_MEASURED', 'FOCUS_INCONSISTENT'];
+  if (reasons.some((x) => partialReasons.includes(x))) feasible = 'partial';
+  if (child || reasons.includes('TEXT_TOO_LARGE') ||
+    (reasons.includes('NO_COMFORTABLE_DISTANCE') && opticalLossAtRec > GF_MODEL.residualBlurLog + EPS)) feasible = 'no';
+  m.glassesFree = {
+    feasible,
+    recommendedDistanceMm: child || !focusMeasured ? null : dRec,
+    sharpFromMm, sharpToMm,
+    charsPerLine: cpl,
+    reasons,
+  };
+  m.glassesFreePlan = {
+    pupilMm: round(P, 2), floorLogMAR: round(L0, 3), farVergenceD: focusMeasured ? round(F, 2) : null, farIgnored,
+    ampD: round(amp, 2), comfortAccD: round(comfortAcc, 2), offsetLog: round(offset, 3), textDistanceMm: dRec,
+    predictedLogMAR: round(sized.L, 3), predictedCps: sized.cps === null ? null : round(sized.cps, 3), fsNeeded: round(sized.fs, 2),
   };
 }
 
@@ -347,9 +643,7 @@ function buildText(m, boldText) {
   const lowCS = m.contrastTier !== null && m.contrastTier >= 2;
   let lineHeight = 1.5; // WCAG 1.4.12 baseline
   if (lowCS || L >= 0.5 - EPS || m.lines.consistent) lineHeight = 1.6;
-  let letter = 0;
-  if (m.lines.suspected) letter = m.lines.consistent ? 0.04 : 0.02; // §6.4: +0.02–0.05 em
-  if (lowCS) letter = Math.max(letter, 0.02);
+  const letter = letterSpacingEmFor(m);
   const word = letter > 0 ? letter * 2 + 0.04 : 0;
   return {
     baseFontPx,
@@ -526,14 +820,16 @@ export function computeFlags(m, input, baseline = null) {
     // minComfortMm is null when the amplitude is ~0 (no comfortable near distance at all).
     if (ampD !== null && (minComfortMm === null || minComfortMm > 600)) add('recommend', 'NEAR_FOCUS_FAR');
     else if (farMm !== null && minComfortMm !== null && farMm < minComfortMm) add('recommend', 'FOCUS_RANGE_LIMITED');
-    if (farMm !== null && farMm <= 650 && input.wearsCorrection === false) {
+    // Not when the glasses-free model found the far point contradicted by the measured threshold (blur at every
+    // distance, not distance blur): the flag would name a wrong distance. The line-dial / acuity flags cover it.
+    if (farMm !== null && farMm <= 650 && input.wearsCorrection === false && !m.glassesFreePlan?.farIgnored) {
       add('recommend', 'DISTANCE_FOCUS_LIMITED', { cm: Math.round(farMm / 10) });
     }
   }
   // R11 (single run: informational) — unreliable tests
   const unreliable = [];
   for (const eye of /** @type {const} */ (['right', 'left', 'both'])) if (m.eyes[eye] && !m.eyes[eye].reliable) unreliable.push(`acuity-${eye}`);
-  if (input.reading && input.reading.reliable === false) unreliable.push('reading');
+  if (input.reading && (input.reading.reliable === false || m.cpsImplausible)) unreliable.push('reading');
   if (input.contrast && input.contrast.reliable === false) unreliable.push('contrast');
   if (input.color && input.color.reliable === false) unreliable.push('color');
   if (unreliable.length) add('info', 'UNRELIABLE', { tests: unreliable.join(',') });
@@ -599,6 +895,7 @@ export function computeProfile(input, opts = {}) {
     system,
     flags: computeFlags(m, inp, baseline),
     viewing: { recommendedDistanceMm: m.recommendedDistanceMm },
+    ...(m.glassesFree ? { glassesFree: m.glassesFree } : {}),
   };
 }
 

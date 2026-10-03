@@ -22,6 +22,7 @@
   ],
   "exclude": [
     "node_modules",
-    "scripts/demo/**"
+    "scripts/demo/**",
+    "scripts/sim/**"
   ]
 }
