@@ -136,7 +136,8 @@
  * @property {ScreenCalibration} screen
  * @property {DistanceCalibration} distance
  * @property {number} [age]
- * @property {boolean} [wearsCorrection]   Tests were done with the glasses/lenses the user wears for the phone.
+ * @property {boolean} [wearsCorrection]   true = tests done WITH the user's glasses/lenses; false = done WITHOUT them
+ *                                         (glasses-free mode: the profile must make screens usable with no correction).
  * @property {{right?: Rx, left?: Rx}} [rx]
  * @property {{right?: AcuityResult, left?: AcuityResult, both?: AcuityResult}} acuity
  * @property {ReadingResult} [reading]
@@ -210,6 +211,21 @@
  * @property {SystemSettingsTarget} system
  * @property {ProfileFlag[]} flags
  * @property {{recommendedDistanceMm: (number|null)}} viewing
+ * @property {GlassesFreeAssessment} [glassesFree]  Present when the tests were done without correction.
+ */
+
+/**
+ * Can this person use screens comfortably WITHOUT glasses/lenses with this profile? Computed by the engine
+ * from the measured (uncorrected) acuity, reading size and focus range.
+ * @typedef {Object} GlassesFreeAssessment
+ * @property {'yes'|'partial'|'no'} feasible   yes = comfortable reading at a practical size and distance;
+ *                                             partial = readable but with compromises (very large text, close distance);
+ *                                             no = not practical: glasses/lenses still recommended for screens.
+ * @property {number|null} recommendedDistanceMm  Where to hold the device (null = keep the habitual distance).
+ * @property {number|null} sharpFromMm         Closest distance where text stays sharp without strain (null = unknown).
+ * @property {number|null} sharpToMm           Farthest distance where text stays sharp (null = beyond arm's length / unknown).
+ * @property {number} charsPerLine              Characters per line at the recommended size on a 360-CSS-px-wide phone.
+ * @property {string[]} reasons                 Stable machine codes explaining the verdict (e.g. 'TEXT_TOO_LARGE', 'TOO_CLOSE', 'CHILD').
  */
 
 /**

@@ -21,6 +21,7 @@ const STRINGS = {
     bothEyesTitle: 'בדיקה בשתי העיניים',
     bothEyesBody: 'השאירו את שתי העיניים פתוחות והחזיקו את המכשיר במרחק הקריאה הרגיל שלכם.',
     glassesHint: 'אם אתם משתמשים במשקפיים או עדשות מול הטלפון — הרכיבו אותם כעת.',
+    noGlassesHint: 'הבדיקה נעשית בלי משקפיים: הורידו את המשקפיים עכשיו. אם אתם מרכיבים עדשות מגע, עשו את הבדיקה בזמן שאתם בלי עדשות.',
     right: 'הימנית',
     left: 'השמאלית',
     dirUp: 'למעלה',
@@ -39,6 +40,7 @@ const STRINGS = {
     bothEyesTitle: 'Both eyes',
     bothEyesBody: 'Keep both eyes open and hold the device at your usual reading distance.',
     glassesHint: 'If you wear glasses or contact lenses when using your phone, put them on now.',
+    noGlassesHint: 'This check is done without glasses: take your glasses off now. If you wear contact lenses, do the check while you are not wearing them.',
     right: 'right',
     left: 'left',
     dirUp: 'Up',
@@ -100,8 +102,27 @@ export function instructionScreen(container, { title, paragraphs = [], illustrat
   });
 }
 
+/** @typedef {'none'|'wear'} CorrectionMode */
+/** @type {CorrectionMode} */
+let correctionMode = 'wear';
+
+/**
+ * Set by the onboarding flow: 'none' = the profile is built for using screens WITHOUT glasses/lenses
+ * (the product's main goal), 'wear' = with the user's usual glasses. Changes the eye-cover instructions.
+ * @param {CorrectionMode} mode
+ */
+export function setCorrectionMode(mode) {
+  correctionMode = mode === 'none' ? 'none' : 'wear';
+}
+
+/** @returns {CorrectionMode} */
+export function getCorrectionMode() {
+  return correctionMode;
+}
+
 /**
  * "Cover your other eye" (or "use both eyes") screen before a monocular test.
+ * The glasses hint follows the correction mode set with setCorrectionMode().
  * @param {HTMLElement} container
  * @param {{eye: Eye, lang: Lang, signal?: AbortSignal, showGlassesHint?: boolean}} opts
  * @returns {Promise<void>}
@@ -118,7 +139,7 @@ export async function coverEyeScreen(container, { eye, lang, signal, showGlasses
     title = t('coverTitle', { other: t(other) });
     paragraphs.push(t('coverBody', { other: t(other), eye: t(eye) }));
   }
-  if (showGlassesHint) paragraphs.push(t('glassesHint'));
+  if (showGlassesHint) paragraphs.push(t(correctionMode === 'none' ? 'noGlassesHint' : 'glassesHint'));
   await instructionScreen(container, {
     title, paragraphs, illustration: coverEyeIllustration(eye), primaryLabel: t('start'), signal, testId: `cover-eye-${eye}`,
   });
