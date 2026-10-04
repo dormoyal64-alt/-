@@ -65,6 +65,8 @@ android {
         // Every finding, printed in the CI log by the workflow.
         textReport = true
         textOutput = layout.buildDirectory.file("reports/lint-results.txt").get().asFile
+        // targetSdk 36 is what Google Play requires now; move to the next one when Play does (and test it in CI first).
+        disable += "OldTargetApi"
     }
 }
 
@@ -74,6 +76,7 @@ kotlin {
 
 dependencies {
     implementation(project(":core"))
+    implementation("androidx.annotation:annotation:1.9.1")
 
     androidTestImplementation("androidx.test:core:1.7.0")
     androidTestImplementation("androidx.test:runner:1.7.0")

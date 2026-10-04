@@ -2,7 +2,6 @@ package com.seetuned.companion
 
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
-import android.annotation.TargetApi
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -24,6 +23,7 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import com.seetuned.companion.core.LensMath
 import com.seetuned.companion.core.LensParams
 import com.seetuned.companion.core.Strings
@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit
  * app (TYPE_ACCESSIBILITY_OVERLAY) with pinch-zoom, drag and double-tap. "Compare" flips to the original picture.
  * Close or Back removes it; nothing is kept.
  */
-@TargetApi(30)
+@RequiresApi(30)
 class LensOverlay(
     private val service: AccessibilityService,
     private val original: Bitmap,

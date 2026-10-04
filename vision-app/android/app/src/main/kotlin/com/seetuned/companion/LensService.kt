@@ -3,7 +3,6 @@ package com.seetuned.companion
 import android.accessibilityservice.AccessibilityButtonController
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
-import android.annotation.TargetApi
 import android.graphics.Bitmap
 import android.os.Build
 import android.os.Handler
@@ -11,6 +10,7 @@ import android.os.Looper
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import com.seetuned.companion.core.LensParams
 import com.seetuned.companion.core.Strings
 
@@ -69,9 +69,8 @@ class LensService : AccessibilityService() {
         }
     }
 
-    @TargetApi(30)
+    @RequiresApi(30)
     private fun capture() {
-        if (Build.VERSION.SDK_INT < 30) return
         takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, object : TakeScreenshotCallback {
             override fun onSuccess(result: ScreenshotResult) {
                 val buffer = result.hardwareBuffer
@@ -88,6 +87,7 @@ class LensService : AccessibilityService() {
         })
     }
 
+    @RequiresApi(30)
     private fun open(bitmap: Bitmap) {
         val store = Store(this)
         val recipe = store.recipe
