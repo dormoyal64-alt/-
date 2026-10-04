@@ -6,11 +6,14 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
 import com.seetuned.companion.core.Access
 import com.seetuned.companion.core.Device
 import com.seetuned.companion.core.Journal
+import com.seetuned.companion.core.Planner
 import com.seetuned.companion.core.SettingWrite
 import com.seetuned.companion.core.Table
 
@@ -23,7 +26,8 @@ import com.seetuned.companion.core.Table
  * - From Android 12, apps may not READ most hidden Secure keys. A read that fails falls back to the value this app
  *   wrote last, and an unreadable original is journaled as "unset" (restoring then writes the Android default).
  */
-class SystemSettings(private val context: Context, private val store: Store = Store(context)) {
+class SystemSettings(context: Context, private val store: Store = Store(context)) {
+    private val context: Context = context.applicationContext
     private val resolver get() = context.contentResolver
 
     fun device(): Device = Device(sdk = Build.VERSION.SDK_INT, samsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true))
@@ -89,6 +93,25 @@ class SystemSettings(private val context: Context, private val store: Store = St
     }
 
     fun journal(): Journal = store.journal
+
+    /**
+     * Android saves its own copy of the text size right after every change. A write that lands in that moment (for
+     * example just after the person moved the slider) can be overwritten. Look again after [delayMs] and write once
+     * more whatever was reverted. [done] receives the writes that had to be repeated.
+     */
+    fun confirmLater(writes: List<SettingWrite>, delayMs: Long = CONFIRM_DELAY_MS, done: (List<SettingWrite>) -> Unit = {}) {
+        val system = writes.filter { it.table == Table.SYSTEM }
+        if (system.isEmpty()) { done(emptyList()); return }
+        Handler(Looper.getMainLooper()).postDelayed({
+            val reverted = system.filter { w -> !Planner.sameValue(w.key, read(w.table, w.key), w.value) }
+            reverted.forEach { put(it) }
+            done(reverted)
+        }, delayMs)
+    }
+
+    companion object {
+        const val CONFIRM_DELAY_MS = 1500L
+    }
 
     private fun put(w: SettingWrite): Boolean = try {
         when (w.table) {

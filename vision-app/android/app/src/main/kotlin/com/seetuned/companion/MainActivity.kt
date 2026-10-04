@@ -254,6 +254,7 @@ class MainActivity : Activity() {
         val writes = Planner.automaticWrites(plan, access)
         message = if (writes.isEmpty()) t()("apply.nothing") else {
             val r = settings.apply(writes)
+            settings.confirmLater(r.written)
             val n = plan.count { item -> item.writes.isNotEmpty() && r.written.containsAll(item.writes) }
             if (r.failed.isEmpty()) t()("apply.done", "n" to n) else t()("apply.failed")
         }
@@ -262,12 +263,14 @@ class MainActivity : Activity() {
 
     private fun applyItem(item: PlanItem) {
         val r = settings.apply(item.writes)
+        settings.confirmLater(r.written)
         message = if (r.failed.isEmpty()) t()("apply.done", "n" to 1) else t()("apply.failed")
         render()
     }
 
     private fun restore() {
         val r = settings.restore()
+        settings.confirmLater(r.written)
         message = t()(if (r.failed.isEmpty()) "restore.done" else "restore.partial")
         render()
     }

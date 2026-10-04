@@ -7,13 +7,14 @@ plugins {
 
 android {
     namespace = "com.seetuned.companion"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         // Permanent once on Google Play: confirm before the first upload (docs/android/ANDROID-APP.md).
         applicationId = "com.seetuned.companion"
         minSdk = 26
-        targetSdk = 35
+        // Google Play requires the latest Android (16, API 36) for new apps and updates.
+        targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -74,9 +75,9 @@ kotlin {
 dependencies {
     implementation(project(":core"))
 
-    androidTestImplementation("androidx.test:core:1.6.1")
-    androidTestImplementation("androidx.test:runner:1.6.2")
-    androidTestImplementation("androidx.test:rules:1.6.1")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+    androidTestImplementation("androidx.test:core:1.7.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test:rules:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.4.0")
 }

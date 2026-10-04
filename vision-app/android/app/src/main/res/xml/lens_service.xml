@@ -3,7 +3,10 @@
   The lens only needs the accessibility button and one screenshot per tap. It asks for no window content
   (canRetrieveWindowContent=false) and listens to the rarest event type, so it is idle until tapped.
 -->
+<!-- canTakeScreenshot (Android 11) and isAccessibilityTool (Android 12) are simply ignored on older versions. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="UnusedAttribute"
     android:accessibilityEventTypes="typeAnnouncement"
     android:accessibilityFeedbackType="feedbackVisual"
     android:accessibilityFlags="flagRequestAccessibilityButton"

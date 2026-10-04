@@ -58,7 +58,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api: [30, 35]
+        # Android 11 (oldest with the lens), 15 and 16 (One UI 7 and 8 on Galaxy).
+        api: [30, 35, 36]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4

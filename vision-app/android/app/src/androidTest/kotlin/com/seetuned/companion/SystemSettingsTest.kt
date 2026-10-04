@@ -77,6 +77,21 @@ class SystemSettingsTest {
         assertTrue("restored: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(1.15f))
     }
 
+    @Test fun aChangeRightAfterAnotherIsConfirmed() {
+        // Android writes its own copy of the size just after a change; SeeTuned's write may land in that moment.
+        // confirmLater() looks again and repeats the write, so the phone ends at SeeTuned's size either way.
+        shell("settings put system ${Keys.FONT_SCALE} 1.15")
+        val s = SystemSettings(TestEnv.context)
+        val writes = listOf(SettingWrite(Table.SYSTEM, Keys.FONT_SCALE, "1.3"))
+        val repeated = java.util.concurrent.atomic.AtomicReference<List<SettingWrite>>()
+        s.confirmLater(s.apply(writes).written) { repeated.set(it) }
+        assertTrue("confirmed", waitUntil(10_000) { repeated.get() != null })
+        Log.i(PROBE, "sdk=${Build.VERSION.SDK_INT} race: repeated ${repeated.get()} -> ${TestEnv.fontDiagnostics()}")
+        assertTrue("applied: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(1.3f))
+        s.confirmLater(s.restore().written)
+        assertTrue("restored: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(1.15f))
+    }
+
     @Test fun androidFourteenAndLaterAcceptTwoHundredPercent() {
         assumeTrue(Build.VERSION.SDK_INT >= 34)
         val s = SystemSettings(TestEnv.context)

@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 // Only with -PcoreOnly (no Android SDK): compiles app/src/main/kotlin against Robolectric's android-all jar
-// (the Android 15 framework, from Maven Central) to catch API and type errors. The real build is :app.
+// (the Android 16 framework, from Maven Central) to catch API and type errors. The real build is :app.
 plugins {
     id("org.jetbrains.kotlin.jvm")
 }
@@ -18,5 +18,5 @@ kotlin {
 
 dependencies {
     implementation(project(":core"))
-    compileOnly("org.robolectric:android-all:15-robolectric-12650502")
+    compileOnly("org.robolectric:android-all:16-robolectric-13921718")
 }
