@@ -80,6 +80,7 @@ Check each item against the server (A8) and the app (A7). Where they differ, cha
    - Which security level under the Data Security Regulations 5777-2017 applies?
 5. **Accessibility statement:** does it meet the current regulation 35 required contents? IS 5568 is now aligned with WCAG 2.1 or 2.0 AA; confirm which.
 6. **Paddle as Merchant of Record:** do our refund promises conflict with Paddle's buyer terms? Should the terms name Paddle's legal entity?
+7. **Android app (privacy §6, "The SeeTuned Android app"):** confirm the wording on the accessibility-service lens and on changing system settings. Google Play also needs this policy URL in the app listing.
 
 ## 5. Open questions for the accountant
 
@@ -87,3 +88,9 @@ Check each item against the server (A8) and the app (A7). Where they differ, cha
 2. **VAT on sales to Paddle:** Paddle is the reseller and Merchant of Record. Is our supply to Paddle a zero-rated export of services, or subject to 18% VAT?
 3. **Retention periods** for invoices and billing records, and whether anonymised copies satisfy the bookkeeping rules.
 4. **PayPlus Invoice+:** the invoice/receipt type for each plan, and how refunds and credit notes are issued.
+
+## 6. Android app: values to decide
+
+- **Package name** `com.seetuned.companion` (`android/app/build.gradle.kts`). It cannot change after the first Google Play upload.
+- **Download link** `ANDROID_APP_URL` in `public/app/js/shell/brand.js`. Empty means "pilot testers only".
+- **Release signing key**: GitHub Secrets `SEETUNED_KEYSTORE*`. See `docs/android/ANDROID-APP.md`.

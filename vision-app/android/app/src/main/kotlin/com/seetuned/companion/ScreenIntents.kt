@@ -22,6 +22,7 @@ object ScreenIntents {
     private const val DARK_THEME = "android.settings.DARK_THEME_SETTINGS"
     private const val EXTRA_DIM = "android.settings.REDUCE_BRIGHT_COLORS_SETTINGS"
     private const val MAGNIFICATION = "android.settings.ACCESSIBILITY_MAGNIFICATION_SETTINGS"
+    private const val ACCESSIBILITY_DETAILS = "android.settings.ACCESSIBILITY_DETAILS_SETTINGS"
 
     fun candidates(screen: Screen, context: Context): List<Intent> {
         val display = Intent(Settings.ACTION_DISPLAY_SETTINGS)
@@ -34,9 +35,11 @@ object ScreenIntents {
             Screen.MAGNIFICATION -> listOf(Intent(MAGNIFICATION), accessibility)
             Screen.DARK_THEME -> listOf(Intent(DARK_THEME), display)
             Screen.EXTRA_DIM -> listOf(Intent(EXTRA_DIM), accessibility)
+            // The service's own page (Android 13+) is not public API and may need a system permission; when it
+            // refuses, the Accessibility list follows, where "SeeTuned lens" is one tap away.
             Screen.LENS_SERVICE -> buildList {
                 if (Build.VERSION.SDK_INT >= 33) {
-                    add(Intent(Settings.ACTION_ACCESSIBILITY_DETAILS_SETTINGS)
+                    add(Intent(ACCESSIBILITY_DETAILS)
                         .putExtra(Intent.EXTRA_COMPONENT_NAME, ComponentName(context, LensService::class.java).flattenToString()))
                 }
                 add(accessibility)

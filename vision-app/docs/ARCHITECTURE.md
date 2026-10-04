@@ -143,3 +143,29 @@ trialEndsAt, currentPeriodEnd, cancelAtPeriodEnd, daysLeft, hasAccess, renewal:'
 - Definition of done for every agent: `npx eslint <your paths>` clean, `npm run typecheck` has no errors in your files,
   your unit tests pass, and you have exercised your views in the harness (Hebrew and English, phone viewport) with
   no console errors.
+
+## Android app (`android/`)
+
+The web app cannot change system settings. On Android it hands the profile to the SeeTuned Android app:
+
+- **Hand-off:** `engine/android-link.js` builds the recipe. It carries display values only: font scale, display-size
+  steps, bold, contrast, colour filter, dim, dark mode, magnification, and `profile.media` for the lens. The guide
+  (`screens/guide.js`) opens it as `intent://apply?…#Intent;scheme=seetuned;package=com.seetuned.companion;S.browser_fallback_url=…;end`.
+  The Android numbers come from `androidSettings()` in `engine/system-guide.js`, so the written guide and the app
+  always agree.
+- **`android/core`** (pure Kotlin, JVM tests):
+  - `Recipe.kt`: parses and clamps the recipe. Any change to the format must be made here and in `android-link.js` together.
+  - `Plan.kt`: per item, automatic, guided or lens, depending on the Android version, the maker and the access granted.
+  - `Journal.kt`: the original values, used for restore.
+  - `LensMath.kt`: a port of `render/filter-math.js`. Golden vectors from `scripts/android/lens-golden.js` keep the two in step.
+  - `ZoomMath.kt` and `Strings.kt` (he/en).
+- **`android/app`:**
+  - `MainActivity`: the single screen.
+  - `SystemSettings`: Settings.System via WRITE_SETTINGS; Settings.Secure via an optional adb-granted WRITE_SECURE_SETTINGS.
+  - `ScreenIntents`: candidate intents per settings screen.
+  - `LensService`, `LensOverlay` and `LensTileService`: the screen lens. It is an accessibility service that takes
+    one screenshot when tapped, and has no window-content access.
+  - The app has no INTERNET permission.
+- **Tests:** `.github/workflows/android.yml` builds the app, runs lint, and runs the instrumented tests in
+  `app/src/androidTest` on API 30 and 35 emulators. Locally without the Android SDK, run
+  `./gradlew -PcoreOnly :core:test :compilecheck:compileKotlin`.
