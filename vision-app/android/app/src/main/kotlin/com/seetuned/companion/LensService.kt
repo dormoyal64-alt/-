@@ -44,7 +44,7 @@ class LensService : AccessibilityService() {
 
     override fun onDestroy() {
         buttonCallback?.let { accessibilityButtonController.unregisterAccessibilityButtonCallback(it) }
-        overlay?.dismiss()
+        if (Build.VERSION.SDK_INT >= 30) overlay?.dismiss() // the lens only exists on Android 11+
         overlay = null
         if (instance === this) instance = null
         super.onDestroy()
