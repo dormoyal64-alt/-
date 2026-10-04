@@ -35,6 +35,12 @@ export function brandTagline(lang) {
   return lang === 'he' ? BRAND.taglineHe : BRAND.taglineEn;
 }
 
+/**
+ * Where people get the SeeTuned Android app (Google Play or a download page). Empty = pilot testers only
+ * (the guide then says so instead of linking). See docs/android/ANDROID-APP.md.
+ */
+export const ANDROID_APP_URL = '';
+
 /** Shown in Settings; bump together with the service-worker VERSION. */
 export const APP_VERSION = '0.1.0';
 

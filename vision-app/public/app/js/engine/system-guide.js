@@ -95,6 +95,29 @@ export function detectPlatform(userAgent, maxTouchPoints = 0, model = '') {
 }
 
 /**
+ * The concrete Android / Samsung numbers for a target. Shared by the written guide (buildSystemGuide) and the
+ * recipe sent to the SeeTuned Android app (engine/android-link.js), so both always ask for the same values.
+ * @param {SystemSettingsTarget & {contrastLevel?: 'medium'|'high'}} target
+ */
+export function androidSettings(target) {
+  const tg = normaliseTarget(target);
+  const fs = tg.textScale * 16;
+  const step = androidFontStep(fs);
+  const needsDisplay = tg.displayZoom > 1 + TOL || step.exceeds;
+  const displayZoom = Math.max(tg.displayZoom, step.exceeds ? fs / step.dp : 1);
+  const displayMax = displayZoom > DISPLAY_ZOOM_REACH + TOL;
+  return {
+    target: tg,
+    fontStep: step,
+    fontChanged: step.index > ANDROID_DEFAULT_STEP,
+    /** 0 = leave Display size / Screen zoom alone. */
+    displaySteps: needsDisplay ? Math.max(1, displaySizeSteps(displayZoom)) : 0,
+    displayMax,
+    magnification: tg.magnificationShortcut || displayMax,
+  };
+}
+
+/**
  * @param {SystemSettingsTarget & {contrastLevel?: 'medium'|'high'}} target
  * @param {Platform} platform
  * @param {Lang} lang
@@ -150,13 +173,13 @@ export function buildSystemGuide(target, platform, lang) {
 
   if (platform === 'android' || platform === 'samsung') {
     const sam = platform === 'samsung';
-    const step = androidFontStep(fs);
-    const changed = step.index > ANDROID_DEFAULT_STEP;
+    const and = androidSettings(tg);
+    const step = and.fontStep;
+    const changed = and.fontChanged;
     const stepPct = Math.round(step.scale * 100);
-    const needsDisplay = tg.displayZoom > 1 + TOL || step.exceeds;
-    const displayZoom = Math.max(tg.displayZoom, step.exceeds ? fs / step.dp : 1);
-    const nDisplay = Math.max(1, displaySizeSteps(displayZoom));
-    const displayMax = displayZoom > DISPLAY_ZOOM_REACH + TOL;
+    const needsDisplay = and.displaySteps > 0;
+    const nDisplay = and.displaySteps;
+    const displayMax = and.displayMax;
     const why = step.exceeds ? t('why.textMax', { pct }) : changed ? t('why.text', { pct }) : t('why.textDefault');
     const aBase = [t('and.open'), t('and.accessibility')];
     const sDisplay = [t('sam.open'), t('sam.display')];
@@ -207,7 +230,7 @@ export function buildSystemGuide(target, platform, lang) {
     if (tg.reduceWhitePoint) {
       add('white-point', t('why.whitePoint'), sam ? [...sVision, t('sam.extraDim')] : [...aBase, t('and.extraDim')], true, t('value.on'));
     }
-    if (tg.magnificationShortcut || displayMax) {
+    if (and.magnification) {
       add('zoom', t('why.zoom'), sam ? [...sVision, t('sam.magnification')] : [...aBase, t('and.magnification'), t('and.magShortcut')], true, t('value.on'));
     }
     if (tg.darkMode) {

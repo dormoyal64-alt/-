@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Quick Settings glyph: the logo's eye, one colour (the system tints it). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="64" android:viewportHeight="64">
+    <path android:pathData="M4,32C15.5,9 48.5,9 60,32C48.5,55 15.5,55 4,32Z"
+        android:strokeColor="#FFFFFFFF" android:strokeWidth="5" android:strokeLineJoin="round" android:fillColor="#00000000" />
+    <path android:pathData="M43,32A11,11 0,1 1,32 21"
+        android:strokeColor="#FFFFFFFF" android:strokeWidth="6" android:strokeLineCap="round" android:fillColor="#00000000" />
+    <path android:pathData="M27.6,32a4.4,4.4 0,1 0,8.8 0a4.4,4.4 0,1 0,-8.8 0" android:fillColor="#FFFFFFFF" />
+</vector>

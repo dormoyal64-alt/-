@@ -2,6 +2,8 @@
 /**
  * #/guide — "Adapt my whole phone": engine/system-guide.js detectPlatform + buildSystemGuide with the active
  * profile's `system` targets; platform switcher; per-section "done" ticks persisted on this device; progress.
+ * On Android / Samsung, a card hands the profile's display values to the SeeTuned Android app
+ * (engine/android-link.js). Without the app installed, the browser comes back here with ?companion=missing.
  */
 import { h } from '../core/dom.js';
 import { makeT } from '../core/i18n.js';
@@ -11,6 +13,8 @@ import { loadModule, unavailableState } from '../shell/modules.js';
 import { pageHeader, emptyState, linkButton, actionButton, notice } from '../shell/components.js';
 import { icon } from '../shell/icons.js';
 import { loadGuideDone, saveGuideDone, guideProgress } from './guide-progress.js';
+import { buildAndroidRecipe, androidIntentUrl } from '../engine/android-link.js';
+import { ANDROID_APP_URL } from '../shell/brand.js';
 
 /** @typedef {import('../core/types.js').GuideSection} GuideSection */
 /** @typedef {import('../core/types.js').Platform} Platform */
@@ -72,7 +76,8 @@ export async function mount(ctx) {
       bar.setAttribute('aria-label', progressText.textContent);
       allDone.hidden = !(pr.total > 0 && pr.done >= pr.total);
     };
-    if (!sections.length) { content.replaceChildren(notice('info', t('guide.empty'))); return; }
+    const companion = platform === 'android' || platform === 'samsung' ? companionCard() : null;
+    if (!sections.length) { content.replaceChildren(...(companion ? [companion] : []), notice('info', t('guide.empty'))); return; }
     const items = sections.map((s, i) => {
       const cb = h('input', { type: 'checkbox', class: 'va-check__input', id: `g-${s.id}`, checked: done.has(s.id), 'data-testid': `guide-done-${s.id}` });
       const item = h('li', { class: `va-guide-step${done.has(s.id) ? ' is-done' : ''}`, 'data-testid': `guide-section-${s.id}` },
@@ -95,6 +100,7 @@ export async function mount(ctx) {
     });
     update();
     content.replaceChildren(
+      ...(companion ? [companion] : []),
       h('div', { class: 'va-card va-guide__progress' }, progressText, bar),
       allDone,
       h('ol', { class: 'va-guide-steps', role: 'list' }, ...items),
@@ -103,6 +109,22 @@ export async function mount(ctx) {
         onClick: () => { done.clear(); saveGuideDone(profile.id, platform, done); render(); },
       })),
     );
+  }
+
+  /** The "apply everything automatically" card (Android / Samsung only). */
+  function companionCard() {
+    const fallback = `${location.href.split('#')[0]}#/guide?companion=missing`;
+    const href = androidIntentUrl(buildAndroidRecipe(profile, ctx.lang), fallback);
+    const missing = ctx.route.query.companion === 'missing';
+    return h('section', { class: 'va-card va-stack va-guide__companion', 'data-testid': 'guide-companion', 'aria-labelledby': 'guide-companion-title' },
+      h('h2', { id: 'guide-companion-title', class: 'va-guide-step__title' }, t('guide.companion.title')),
+      h('p', null, t('guide.companion.body')),
+      missing ? notice('info', [t('guide.companion.missing'), ANDROID_APP_URL ? '' : t('guide.companion.pilotOnly')].filter(Boolean), {
+        role: 'status', testId: 'guide-companion-missing',
+        actions: ANDROID_APP_URL ? [linkButton(t('guide.companion.get'), ANDROID_APP_URL, { variant: 'secondary', testId: 'guide-companion-get' })] : [],
+      }) : null,
+      h('div', { class: 'va-actions' }, linkButton(t('guide.companion.open'), href, { iconName: 'phone', testId: 'guide-companion-open' })),
+      h('p', { class: 'va-hint' }, t('guide.companion.privacy')));
   }
 
   render();

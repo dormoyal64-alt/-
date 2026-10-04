@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only what Android itself shows (launcher, Accessibility settings, Quick Settings). The app's own text is in core/Strings.kt. -->
+<resources>
+    <string name="app_name" translatable="false">SeeTuned</string>
+    <string name="lens_service_label">SeeTuned lens</string>
+    <string name="lens_service_description">Tap the accessibility button (or “SeeTuned lens” in Quick Settings) to see the current screen enlarged and sharpened with your SeeTuned settings. Only when you tap it, the lens takes one picture of the screen, processes it on this phone and shows it. It does not read other apps’ content, keeps nothing and sends nothing anywhere.</string>
+    <string name="tile_label">SeeTuned lens</string>
+</resources>

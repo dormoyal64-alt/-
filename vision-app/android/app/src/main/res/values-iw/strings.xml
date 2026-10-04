@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lens_service_label">עדשת SeeTuned</string>
+    <string name="lens_service_description">הקישו על לחצן הנגישות (או על ״עדשת SeeTuned״ בלוח ההגדרות המהירות) כדי לראות את המסך הנוכחי מוגדל ומחודד לפי ההגדרות שלכם ב-SeeTuned. רק כשאתם מקישים, העדשה מצלמת את המסך פעם אחת, מעבדת את התמונה בטלפון ומציגה אותה. היא לא קוראת את התוכן של אפליקציות אחרות, לא שומרת דבר ולא שולחת דבר.</string>
+    <string name="tile_label">עדשת SeeTuned</string>
+</resources>

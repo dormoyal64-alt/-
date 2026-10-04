@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-  { ignores: ['node_modules/**', 'public/app/vendor/**', 'test-results/**', 'playwright-report/**'] },
+  { ignores: ['node_modules/**', 'public/app/vendor/**', 'test-results/**', 'playwright-report/**', 'dist-demo/**', 'android/**/build/**', 'android/.gradle/**'] },
   js.configs.recommended,
   {
     files: ['public/**/*.js'],

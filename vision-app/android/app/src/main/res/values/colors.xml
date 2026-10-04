@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Same values as css/base.css. -->
+    <color name="bg">#f5f8fb</color>
+    <color name="icon_bg">#ffffff</color>
+</resources>

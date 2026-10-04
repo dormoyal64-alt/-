@@ -11,7 +11,7 @@
 /** ServiceWorkerGlobalScope (typed loosely: the project tsconfig uses the DOM lib, not webworker). */
 const sw = /** @type {any} */ (self);
 
-const VERSION = '0.1.0-3';
+const VERSION = '0.1.0-4';
 const SHELL_CACHE = `va-shell-${VERSION}`;
 const VENDOR_CACHE = 'va-vendor-v1';
 const SHARE_CACHE = 'va-share-v1';
@@ -39,7 +39,7 @@ const PRECACHE = [
   'js/calibration/focus-range-view.js', 'js/calibration/calibration-math.js',
   'js/tests/acuity/acuity-view.js', 'js/tests/reading/reading-view.js', 'js/tests/contrast/contrast-view.js',
   'js/tests/astigmatism/astigmatism-view.js', 'js/tests/color/color-view.js',
-  'js/engine/profile.js', 'js/engine/system-guide.js', 'js/engine/color-math.js',
+  'js/engine/profile.js', 'js/engine/system-guide.js', 'js/engine/color-math.js', 'js/engine/android-link.js',
   'js/render/apply-ui.js', 'js/render/filter-renderer.js',
   'js/viewers/photo-viewer.js', 'js/viewers/video-viewer.js', 'js/viewers/live-magnifier.js', 'js/viewers/reader.js', 'js/viewers/viewers.css',
   // Their dependencies (statically imported; without them a first offline start/retest fails to load a view).

@@ -3,15 +3,27 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "checkJs": true,
     "allowJs": true,
     "noEmit": true,
     "strict": false,
     "noImplicitAny": false,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["scripts/sim/**/*.js"],
-  "exclude": ["node_modules", "public/app/vendor/**"]
+  "include": [
+    "scripts/sim/**/*.js",
+    "scripts/android/**/*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "public/app/vendor/**"
+  ]
 }
