@@ -61,6 +61,9 @@ android {
         checkDependencies = true
         htmlReport = true
         xmlReport = true
+        // Every finding in the CI log, not only the first error.
+        textReport = true
+        textOutput = file("stdout")
     }
 }
 

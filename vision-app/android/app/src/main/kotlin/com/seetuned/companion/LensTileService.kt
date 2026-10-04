@@ -1,5 +1,6 @@
 package com.seetuned.companion
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
@@ -20,6 +21,8 @@ class LensTileService : TileService() {
         }
     }
 
+    // The Intent overload is the only way to collapse the shade before Android 14; it runs only there.
+    @SuppressLint("StartActivityAndCollapseDeprecated")
     override fun onClick() {
         super.onClick()
         val lens = LensService.instance
