@@ -9,6 +9,7 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.GestureDetector
@@ -22,7 +23,8 @@ import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.TextView
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import androidx.annotation.RequiresApi
 import com.seetuned.companion.core.LensMath
 import com.seetuned.companion.core.LensParams
@@ -64,6 +66,7 @@ class LensOverlay(
     private val lens = LensView(service, params.zoom)
     private val preparing = ui.text(t("lens.preparing"), 20f, bold = true, color = Color.WHITE).apply { gravity = Gravity.CENTER }
     private var showingOriginal = false
+    private var unregisterBack: (() -> Unit)? = null
     private val compare = ui.button(t("lens.original")) { toggleCompare() }.apply { visibility = View.GONE }
     private val root = object : FrameLayout(service) {
         override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -115,6 +118,15 @@ class LensOverlay(
         ).apply { layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS }
         wm.addView(root, lp)
         root.requestFocus()
+        // Back: key events on older versions (dispatchKeyEvent above); with predictive back (Android 13+ when the
+        // app opts in, and by default from Android 16) the window's back dispatcher instead.
+        if (Build.VERSION.SDK_INT >= 33) {
+            root.findOnBackInvokedDispatcher()?.let { d ->
+                val cb = OnBackInvokedCallback { dismiss() }
+                d.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_OVERLAY, cb)
+                unregisterBack = { d.unregisterOnBackInvokedCallback(cb) }
+            }
+        }
         process()
     }
 
@@ -163,6 +175,8 @@ class LensOverlay(
     fun dismiss() {
         if (state == State.CLOSED) return
         state = State.CLOSED
+        unregisterBack?.invoke()
+        unregisterBack = null
         try { wm.removeView(root) } catch (_: IllegalArgumentException) { /* already gone */ }
         onClosed()
     }

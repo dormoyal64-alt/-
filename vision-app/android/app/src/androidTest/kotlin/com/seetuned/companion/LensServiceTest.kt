@@ -67,7 +67,7 @@ class LensServiceTest {
         val overlay = LensService.instance!!.overlay!!
         val src: Bitmap = overlay.source
         val out: Bitmap = overlay.processed!!
-        assertTrue(src.width > 0 && src.height > 0)
+        assertTrue("screenshot size ${src.width}x${src.height}", src.width > 0 && src.height > 0)
         assertEquals(src.width, out.width)
         assertEquals(src.height, out.height)
         // The profile (contrast 1.4, sharpening) changed the picture.
@@ -76,8 +76,8 @@ class LensServiceTest {
         assertTrue("pixels changed: $changed", changed > 50)
         // What the person sees: the close button, in Hebrew, above everything.
         val close = device.wait(Until.findObject(By.text(he("lens.close"))), 5_000)
-        assertNotNull(close)
-        assertNotNull(device.findObject(By.text(he("lens.original"))))
+        assertNotNull("close button shown", close)
+        assertNotNull("compare button shown", device.wait(Until.findObject(By.text(he("lens.original"))), 5_000))
         close.click()
         assertTrue("lens closed", waitUntil(5_000) { LensService.instance?.overlay == null })
     }
@@ -85,11 +85,14 @@ class LensServiceTest {
     @Test fun backClosesTheLensAndCompareShowsTheOriginal() {
         showSomething()
         InstrumentationRegistry.getInstrumentation().runOnMainSync { LensService.instance!!.showLens(fromShade = false) }
-        assertTrue(waitUntil(30_000) { LensService.instance?.overlay?.state == LensOverlay.State.READY })
-        device.wait(Until.findObject(By.text(he("lens.original"))), 5_000).click()
-        assertNotNull(device.wait(Until.findObject(By.text(he("lens.enhanced"))), 5_000))
+        assertTrue("lens ready", waitUntil(30_000) { LensService.instance?.overlay?.state == LensOverlay.State.READY })
+        val compare = device.wait(Until.findObject(By.text(he("lens.original"))), 10_000)
+        assertNotNull("compare button shown", compare)
+        compare.click()
+        assertNotNull("compare switched to the original", device.wait(Until.findObject(By.text(he("lens.enhanced"))), 10_000))
+        device.waitForIdle()
         device.pressBack()
-        assertTrue(waitUntil(5_000) { LensService.instance?.overlay == null })
+        assertTrue("back closed the lens (sdk ${Build.VERSION.SDK_INT})", waitUntil(10_000) { LensService.instance?.overlay == null })
     }
 
     @Test fun fromQuickSettingsTheShadeClosesFirst() {
@@ -97,9 +100,9 @@ class LensServiceTest {
         device.openQuickSettings()
         device.waitForIdle()
         InstrumentationRegistry.getInstrumentation().runOnMainSync { LensService.instance!!.showLens(fromShade = true) }
-        assertTrue(waitUntil(30_000) { LensService.instance?.overlay?.state == LensOverlay.State.READY })
+        assertTrue("lens ready", waitUntil(30_000) { LensService.instance?.overlay?.state == LensOverlay.State.READY })
         InstrumentationRegistry.getInstrumentation().runOnMainSync { LensService.instance!!.overlay!!.dismiss() }
-        assertTrue(waitUntil(5_000) { LensService.instance?.overlay == null })
+        assertTrue("lens closed", waitUntil(5_000) { LensService.instance?.overlay == null })
     }
 
     @Test fun appShowsTheLensAsOn() {

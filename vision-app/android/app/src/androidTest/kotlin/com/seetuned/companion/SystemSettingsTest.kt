@@ -161,13 +161,22 @@ class SystemSettingsTest {
     }
 
     @Test fun restoreKeepsTheFirstOriginalAcrossTwoApplies() {
+        // Two recipes in a row (1.3, then 1.15), then restore: back to the size before SeeTuned (1.0), not 1.3.
+        // Each step goes through the app's own path: write, then confirmLater().
         shell("settings put system ${Keys.FONT_SCALE} 1.0")
+        assertTrue("settle: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(1.0f))
         val s = SystemSettings(TestEnv.context)
-        s.apply(listOf(SettingWrite(Table.SYSTEM, Keys.FONT_SCALE, "1.3")))
-        s.apply(listOf(SettingWrite(Table.SYSTEM, Keys.FONT_SCALE, "1.15")))
+        for (v in listOf("1.3", "1.15")) {
+            s.confirmLater(s.apply(listOf(SettingWrite(Table.SYSTEM, Keys.FONT_SCALE, v))).written)
+            assertTrue("applied $v: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(v.toFloat()))
+        }
         assertNotEquals("1.0", setting("system", Keys.FONT_SCALE))
-        s.restore()
+        s.confirmLater(s.restore().written)
+        assertTrue("restored: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(1.0f))
+        // Still there after the confirmation pass.
+        android.os.SystemClock.sleep(SystemSettings.CONFIRM_DELAY_MS + 1_000)
         assertEquals(1.0, setting("system", Keys.FONT_SCALE).toDouble(), 1e-6)
+        assertTrue("stable: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(1.0f, 2_000))
     }
 
     companion object {
