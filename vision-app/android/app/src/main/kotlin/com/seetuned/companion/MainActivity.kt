@@ -33,6 +33,8 @@ class MainActivity : Activity() {
     private lateinit var store: Store
     private lateinit var settings: SystemSettings
     private var linkProblem: String? = null
+    /** The language the last link asked for, even when the link itself was refused (too new, damaged). */
+    private var linkLang: String? = null
     private var message: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,6 +43,7 @@ class MainActivity : Activity() {
         settings = SystemSettings(this, store)
         if (savedInstanceState == null) handleIntent(intent) else {
             linkProblem = savedInstanceState.getString(STATE_PROBLEM)
+            linkLang = savedInstanceState.getString(STATE_LANG)
             message = savedInstanceState.getString(STATE_MESSAGE)
         }
     }
@@ -64,12 +67,14 @@ class MainActivity : Activity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putString(STATE_PROBLEM, linkProblem)
+        outState.putString(STATE_LANG, linkLang)
         outState.putString(STATE_MESSAGE, message)
     }
 
     private fun handleIntent(intent: Intent?) {
         val data = intent?.data ?: return
         if (intent.action != Intent.ACTION_VIEW || data.scheme != "seetuned" || data.host != "apply") return
+        linkLang = data.encodedQuery?.let { RecipeCodec.splitQuery(it)["lang"] }?.takeIf { it == "he" || it == "en" }
         linkProblem = when (val r = RecipeCodec.parse(data.encodedQuery)) {
             is ParseResult.Ok -> { store.recipe = r.recipe; null }
             is ParseResult.TooNew -> "state.tooNew"
@@ -78,7 +83,7 @@ class MainActivity : Activity() {
     }
 
     private fun lang(recipe: Recipe?): String =
-        recipe?.lang ?: if (Locale.getDefault().language in setOf("he", "iw")) "he" else "en"
+        linkLang ?: recipe?.lang ?: if (Locale.getDefault().language in setOf("he", "iw")) "he" else "en"
 
     private fun render() {
         val recipe = store.recipe
@@ -292,5 +297,6 @@ class MainActivity : Activity() {
         const val TAG_MESSAGE = "message"
         private const val STATE_PROBLEM = "linkProblem"
         private const val STATE_MESSAGE = "message"
+        private const val STATE_LANG = "linkLang"
     }
 }

@@ -42,6 +42,24 @@ object TestEnv {
         return condition()
     }
 
+    /** The font scale of the system's global configuration (what every app is drawn with), from the window manager. */
+    fun systemFontScale(): Float? =
+        Regex("mGlobalConfiguration=\\{([0-9.]+) ").find(shell("dumpsys window"))?.groupValues?.get(1)?.toFloatOrNull()
+
+    /**
+     * Wait until this process draws with [scale] (it only changes when the system's global configuration does) and,
+     * when the window manager reports it, the global configuration agrees.
+     */
+    fun waitFontScale(scale: Float, timeoutMs: Long = 15_000): Boolean = waitUntil(timeoutMs) {
+        val sys = systemFontScale()
+        (sys == null || kotlin.math.abs(sys - scale) < 0.01f) &&
+            kotlin.math.abs(android.content.res.Resources.getSystem().configuration.fontScale - scale) < 0.01f
+    }
+
+    fun fontDiagnostics(): String =
+        "setting=${setting("system", "font_scale")} system=${systemFontScale()} " +
+            "process=${android.content.res.Resources.getSystem().configuration.fontScale}"
+
     fun clearAppState() {
         context.getSharedPreferences("seetuned", Context.MODE_PRIVATE).edit().clear().commit()
     }

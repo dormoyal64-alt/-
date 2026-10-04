@@ -61,9 +61,9 @@ android {
         checkDependencies = true
         htmlReport = true
         xmlReport = true
-        // Every finding in the CI log, not only the first error.
+        // Every finding, printed in the CI log by the workflow.
         textReport = true
-        textOutput = file("stdout")
+        textOutput = layout.buildDirectory.file("reports/lint-results.txt").get().asFile
     }
 }
 

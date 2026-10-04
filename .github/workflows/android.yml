@@ -34,6 +34,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit tests, lint, APKs
         run: ./gradlew --no-daemon :core:test :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Lint findings
+        if: always()
+        run: cat app/build/reports/lint-results.txt || true
       - uses: actions/upload-artifact@v4
         with:
           name: seetuned-android-debug

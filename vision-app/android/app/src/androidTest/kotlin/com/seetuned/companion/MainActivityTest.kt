@@ -3,6 +3,7 @@ package com.seetuned.companion
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
@@ -74,11 +75,13 @@ class MainActivityTest {
         device.findObject(By.text(he("apply.all"))).click()
         assertTrue("font_scale is ${setting("system", Keys.FONT_SCALE)}",
             waitUntil { setting("system", Keys.FONT_SCALE).toDoubleOrNull() == 1.3 })
+        assertTrue("the whole phone uses it: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(1.3f))
         // The screen comes back (recreated for the new font size) with the result and the restore button.
         waitText(he("apply.done", "n" to 1), 15_000)
         scrollTo(he("restore.button"))
         device.wait(Until.findObject(By.text(he("restore.button"))), 10_000).click()
         assertTrue(waitUntil { setting("system", Keys.FONT_SCALE).toDoubleOrNull() == 1.0 })
+        assertTrue("restored for the whole phone: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(1.0f))
         waitText(he("restore.done"), 15_000)
     }
 
@@ -96,10 +99,12 @@ class MainActivityTest {
             waitUntil(15_000) { setting("system", Keys.FONT_SCALE).toDoubleOrNull() == 1.3 })
     }
 
-    @Test fun badAndNewerLinksExplainWhatToDo() {
-        openLink("v=9&font=1.3")
+    @Test fun badAndNewerLinksExplainWhatToDoInTheLinksLanguage() {
+        openLink("v=9&lang=he&font=1.3")
         waitText(he("state.tooNew"))
-        openLink("font=1.3")
+        openLink("v=9&lang=en&font=1.3")
+        waitText(en("state.tooNew"))
+        openLink("lang=he&font=1.3")
         waitText(he("state.invalid"))
     }
 
@@ -111,18 +116,32 @@ class MainActivityTest {
             device.wait(Until.hasObject(By.textStartsWith(en("state.noRecipe").take(12)).pkg(pkg)), 2_000))
     }
 
-    @Test fun everyGuidedButtonOpensASettingsScreen() {
-        for (screen in Screen.entries) {
-            device.pressHome()
-            val used = ScreenIntents.open(TestEnv.context, screen)
-            assertNotNull("$screen opened something", used)
-            assertTrue("$screen: foreground is ${device.currentPackageName}",
-                waitUntil(8_000) { device.currentPackageName.let { it != null && it != pkg && it != device.launcherPackageName } })
-            Log.i(SystemSettingsTest.PROBE, "screen $screen -> ${used?.action} in ${device.currentPackageName}")
+    /** True once the Settings app (any vendor's package with "settings" in its name) is in front. */
+    private fun waitForSettings(label: String): String {
+        val seen = linkedSetOf<String>()
+        val ok = waitUntil(8_000) {
+            val p = device.currentPackageName
+            if (p != null) seen += p
+            p != null && p.contains("settings", ignoreCase = true)
+        }
+        Log.i(SystemSettingsTest.PROBE, "$label: foreground packages seen $seen")
+        assertTrue("$label: Settings did not open, saw $seen", ok)
+        return device.currentPackageName
+    }
+
+    /** Opens a settings screen from the app's own screen, as its buttons do (Android blocks starts from the background). */
+    private fun openFromApp(label: String, open: (android.app.Activity) -> Intent?) {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            var used: Intent? = null
+            scenario.onActivity { used = open(it) }
+            assertNotNull("$label opened something", used)
+            waitForSettings("$label via ${used?.action}")
         }
         device.pressHome()
-        val write = ScreenIntents.openFirst(TestEnv.context, listOf(ScreenIntents.writeSettings(TestEnv.context)))
-        assertNotNull(write)
-        assertTrue(waitUntil(8_000) { device.currentPackageName != device.launcherPackageName })
+    }
+
+    @Test fun everyGuidedButtonOpensASettingsScreen() {
+        for (screen in Screen.entries) openFromApp("screen $screen") { ScreenIntents.open(it, screen) }
+        openFromApp("modify system settings") { ScreenIntents.openFirst(it, listOf(ScreenIntents.writeSettings(it))) }
     }
 }

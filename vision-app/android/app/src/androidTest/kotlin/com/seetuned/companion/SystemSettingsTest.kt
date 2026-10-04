@@ -46,23 +46,35 @@ class SystemSettingsTest {
     }
 
     @Test fun textSizeChangesForTheWholePhoneAndRestores() {
-        shell("settings put system ${Keys.FONT_SCALE} 1.15")
+        // A person who never changed the size: SeeTuned sets it, the system draws everything with it, restore undoes it.
+        shell("settings put system ${Keys.FONT_SCALE} 1.0")
+        assertTrue("settle: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(1.0f))
         val s = SystemSettings(TestEnv.context)
         assertTrue(s.canWriteSystem())
         val plan = Planner.plan(Recipe(fontScale = 1.3), s.device(), s.access())
         val result = s.apply(Planner.automaticWrites(plan, s.access()))
         assertEquals(listOf(SettingWrite(Table.SYSTEM, Keys.FONT_SCALE, "1.3")), result.written)
         assertEquals(1.3, setting("system", Keys.FONT_SCALE).toDouble(), 1e-6)
-        // The running system applied it: every app's configuration now has the new font scale.
-        assertTrue("system font scale is ${Resources.getSystem().configuration.fontScale}",
-            waitUntil { abs(Resources.getSystem().configuration.fontScale - 1.3f) < 0.01f })
+        assertTrue("applied: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(1.3f))
         assertTrue(Planner.isApplied(plan.first { it.id == ItemId.TEXT_SIZE }) { t, k -> s.read(t, k) })
 
-        val back = s.restore()
-        assertTrue(back.failed.isEmpty())
-        assertEquals(1.15, setting("system", Keys.FONT_SCALE).toDouble(), 1e-6)
-        assertTrue(waitUntil { abs(Resources.getSystem().configuration.fontScale - 1.15f) < 0.01f })
+        assertTrue(s.restore().failed.isEmpty())
+        assertEquals(1.0, setting("system", Keys.FONT_SCALE).toDouble(), 1e-6)
+        assertTrue("restored: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(1.0f))
         assertTrue(s.journal().isEmpty)
+    }
+
+    @Test fun aPersonsOwnSizeComesBackExactly() {
+        // A person who had already chosen 115 %: SeeTuned changes it, restore brings back 115 %.
+        shell("settings put system ${Keys.FONT_SCALE} 1.15")
+        assertTrue("settle: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(1.15f))
+        val s = SystemSettings(TestEnv.context)
+        s.apply(listOf(SettingWrite(Table.SYSTEM, Keys.FONT_SCALE, "1.3")))
+        Log.i(PROBE, "sdk=${Build.VERSION.SDK_INT} after app write: ${TestEnv.fontDiagnostics()}")
+        assertTrue("applied: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(1.3f))
+        s.restore()
+        assertEquals(1.15, setting("system", Keys.FONT_SCALE).toDouble(), 1e-6)
+        assertTrue("restored: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(1.15f))
     }
 
     @Test fun androidFourteenAndLaterAcceptTwoHundredPercent() {
@@ -70,7 +82,7 @@ class SystemSettingsTest {
         val s = SystemSettings(TestEnv.context)
         s.apply(Planner.automaticWrites(Planner.plan(Recipe(fontScale = 2.0), s.device(), s.access()), s.access()))
         assertEquals(2.0, setting("system", Keys.FONT_SCALE).toDouble(), 1e-6)
-        assertTrue(waitUntil { abs(Resources.getSystem().configuration.fontScale - 2.0f) < 0.01f })
+        assertTrue("applied: ${TestEnv.fontDiagnostics()}", TestEnv.waitFontScale(2.0f))
         s.restore()
     }
 
