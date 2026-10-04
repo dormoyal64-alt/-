@@ -167,5 +167,5 @@ The web app cannot change system settings. On Android it hands the profile to th
     one screenshot when tapped, and has no window-content access.
   - The app has no INTERNET permission.
 - **Tests:** `.github/workflows/android.yml` builds the app, runs lint, and runs the instrumented tests in
-  `app/src/androidTest` on API 30 and 35 emulators. Locally without the Android SDK, run
+  `app/src/androidTest` on API 30, 35 and 36 emulators. Locally without the Android SDK, run
   `./gradlew -PcoreOnly :core:test :compilecheck:compileKotlin`.
