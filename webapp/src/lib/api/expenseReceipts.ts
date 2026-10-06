@@ -50,12 +50,32 @@ export async function listExpenseReceipts(
 }
 
 /**
- * Put one photograph on whatever it is proof of.
+ * What to call the stored copy, and what to say it is.
  *
- * The file is shrunk before it leaves the phone, then stored under its
- * parent's own folder so removing the parent takes its paperwork with it. The
- * row is written only once the upload has landed: a record pointing at a file
- * that is not there is worse than no record.
+ * A photograph is the common case and the old assumptions were built around it,
+ * but a supplier's invoice arrives as a PDF — and a scan, a spreadsheet or
+ * whatever else a supplier chose to send is still the paper behind an expense.
+ * Guessing "jpg" for those would hand the browser a file it opens as a broken
+ * picture, so the extension and the type follow the file rather than the hope.
+ */
+function storedAs(file: File): { extension: string; contentType: string } {
+  const fromName = file.name.match(/\.([a-z0-9]{1,8})$/i)?.[1]?.toLowerCase();
+  const type = file.type || (fromName === "pdf" ? "application/pdf" : "");
+  if (fromName) return { extension: fromName, contentType: type || "application/octet-stream" };
+  // no extension at all: fall back to the browser's own word for it
+  if (type.startsWith("image/")) return { extension: type.slice(6) || "jpg", contentType: type };
+  if (type === "application/pdf") return { extension: "pdf", contentType: type };
+  return { extension: "bin", contentType: type || "application/octet-stream" };
+}
+
+/**
+ * Put one piece of paper on whatever it is proof of.
+ *
+ * A photograph is shrunk before it leaves the phone; anything else is stored
+ * exactly as it came, because re-encoding a document is not a thing that can go
+ * well. It lands under its parent's own folder so removing the parent takes its
+ * paperwork with it, and the row is written only once the upload has landed: a
+ * record pointing at a file that is not there is worse than no record.
  */
 export async function uploadReceiptFile(
   supabase: SupabaseClient,
@@ -63,12 +83,12 @@ export async function uploadReceiptFile(
   original: File
 ): Promise<ExpenseReceipt> {
   const file = await shrinkImage(original);
-  const extension = file.name.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase() ?? "jpg";
+  const { extension, contentType } = storedAs(file);
   const path = `${folder(parent)}/${crypto.randomUUID()}.${extension}`;
 
   const { error: uploadError } = await supabase.storage
     .from(RECEIPTS_BUCKET)
-    .upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
+    .upload(path, file, { contentType, upsert: false });
   if (uploadError) throw uploadError;
 
   const { data, error } = await supabase
@@ -77,7 +97,7 @@ export async function uploadReceiptFile(
       ...parentColumn(parent),
       storage_path: path,
       file_name: original.name,
-      content_type: file.type || "image/jpeg",
+      content_type: contentType,
       size_bytes: file.size,
     })
     .select("*")

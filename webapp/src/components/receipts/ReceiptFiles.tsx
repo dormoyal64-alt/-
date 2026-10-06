@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Camera, ImagePlus, Loader2, Paperclip, Trash2, X } from "lucide-react";
+import { Camera, FileUp, ImagePlus, Loader2, Paperclip, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
 import { Modal } from "@/components/ui/Modal";
@@ -38,10 +38,14 @@ export function ReceiptFiles({
 }) {
   const supabase = useMemo(() => createClient(), []);
   const toast = useToast();
-  // two inputs, because a phone treats them differently: one opens the camera,
-  // the other the photo library. A single input cannot offer both.
+  // three inputs, because a phone treats each differently and one input cannot
+  // offer all three: the camera, the photo library, and the file browser. The
+  // last one names no accepted type on purpose — a supplier's invoice arrives as
+  // a PDF in an email or a download, and a picker filtered to images will not
+  // show it at all.
   const camera = useRef<HTMLInputElement>(null);
   const gallery = useRef<HTMLInputElement>(null);
+  const anyFile = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   // a caller can drive the dialog — a record created for a receipt someone is
   // holding should ask for it at once, rather than waiting to be clicked again
@@ -69,6 +73,7 @@ export function ReceiptFiles({
       // clearing lets the same file be chosen twice in a row
       if (camera.current) camera.current.value = "";
       if (gallery.current) gallery.current.value = "";
+      if (anyFile.current) anyFile.current.value = "";
     }
   }
 
@@ -106,6 +111,13 @@ export function ReceiptFiles({
         ref={gallery}
         type="file"
         accept="image/*,application/pdf"
+        multiple
+        className="hidden"
+        onChange={(e) => add(e.target.files)}
+      />
+      <input
+        ref={anyFile}
+        type="file"
         multiple
         className="hidden"
         onChange={(e) => add(e.target.files)}
@@ -180,27 +192,38 @@ export function ReceiptFiles({
               </div>
             ))}
           </div>
+          {/* the camera is the common case and keeps the whole width; the other
+              two are where the paper already exists as a file */}
+          <button
+            type="button"
+            onClick={() => camera.current?.click()}
+            disabled={busy}
+            className="btn-primary flex w-full items-center justify-center gap-2 py-2.5"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+            צילום קבלה
+          </button>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => camera.current?.click()}
-              disabled={busy}
-              className="btn-primary flex items-center justify-center gap-2 py-2.5"
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-              צילום קבלה
-            </button>
             <button
               type="button"
               onClick={() => gallery.current?.click()}
               disabled={busy}
               className="btn-secondary flex items-center justify-center gap-2 py-2.5"
             >
-              <ImagePlus className="h-4 w-4" /> בחירה מהגלריה
+              <ImagePlus className="h-4 w-4" /> תמונה מהגלריה
+            </button>
+            <button
+              type="button"
+              onClick={() => anyFile.current?.click()}
+              disabled={busy}
+              className="btn-secondary flex items-center justify-center gap-2 py-2.5"
+            >
+              <FileUp className="h-4 w-4" /> קובץ מהמכשיר
             </button>
           </div>
           <p className="text-xs text-ink-400">
-            הקבלות האלה נשלחות מצורפות לרואה החשבון יחד עם הדוח החודשי.
+            ״קובץ מהמכשיר״ פותח את כל הקבצים — PDF, חשבונית שהגיעה במייל, קובץ מהורדות או מהדרייב.
+            הכול נשלח מצורף לרואה החשבון יחד עם הדוח החודשי.
           </p>
         </div>
       </Modal>
@@ -213,19 +236,28 @@ export function ReceiptFiles({
       >
         {viewing && (
           <div className="space-y-3">
-            {viewing.receipt.content_type === "application/pdf" ? (
-              <a
-                href={viewing.url}
-                target="_blank"
-                rel="noreferrer"
-                className="btn-primary flex w-full justify-center py-3"
-              >
-                פתיחת הקובץ
-              </a>
-            ) : (
+            {viewing.receipt.content_type?.startsWith("image/") ? (
               // a photograph of a receipt, at whatever size it was taken
               // eslint-disable-next-line @next/next/no-img-element
               <img src={viewing.url} alt="קבלה" className="max-h-[70vh] w-full rounded-xl object-contain" />
+            ) : (
+              // anything else — a PDF, a spreadsheet, whatever the supplier sent.
+              // The browser decides what to do with it; drawing it as an image
+              // would only produce a broken picture.
+              <div className="space-y-2">
+                <p className="rounded-xl bg-ink-50 px-3.5 py-3 text-sm text-ink-600">
+                  {viewing.receipt.file_name || "קובץ"}
+                  {viewing.receipt.size_bytes ? ` · ${formatBytes(viewing.receipt.size_bytes)}` : ""}
+                </p>
+                <a
+                  href={viewing.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-primary flex w-full justify-center py-3"
+                >
+                  פתיחת הקובץ
+                </a>
+              </div>
             )}
             <div className="flex gap-2">
               <button onClick={() => setViewing(null)} className="btn-secondary flex flex-1 items-center justify-center gap-2 py-2.5">
