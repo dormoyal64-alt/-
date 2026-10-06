@@ -363,6 +363,10 @@ export interface AppSettings {
   tax_rate_pct: number;
   /** true when quoted prices already contain the tax, as they normally do in Israel */
   prices_include_tax: boolean;
+  /** whether last month's advertising is emailed to the accountant by itself */
+  ad_report_auto: boolean;
+  /** the day of the month it goes out, Israel time */
+  ad_report_day: number;
   /** whether the customer message carries the late-cancellation notice */
   cancellation_notice: boolean;
   /** what calling the job off after dispatch costs the customer */
@@ -615,4 +619,13 @@ export interface MoneyReport {
   job_expenses_agorot: number;
   tithe_agorot: number;
   net_before_tithe_agorot: number;
+}
+
+/** One advertising month: when it last changed, and when it was reported. */
+export interface AdReportMonth {
+  /** the first of the month */
+  month: string;
+  changed_at: string;
+  sent_at: string | null;
+  sent_to: string | null;
 }

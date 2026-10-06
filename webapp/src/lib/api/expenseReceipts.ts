@@ -4,6 +4,9 @@ import type { ExpenseReceipt } from "@/lib/types";
 
 export const RECEIPTS_BUCKET = "receipts";
 
+/** Gmail refuses anything past 25MB, so the photographs stop well short of it. */
+export const PHOTO_BUDGET_BYTES = 15 * 1024 * 1024;
+
 /**
  * Which record the paper belongs to.
  *
@@ -244,4 +247,51 @@ export async function jobExpenseReceiptFilesInMonth(
     .order("created_at");
   if (error) return [];
   return (data ?? []) as ExpenseReceipt[];
+}
+
+/**
+ * The photographed paper, as many files as a message can carry.
+ *
+ * Attached oldest first and stopped at a budget rather than left to be
+ * truncated by the mail server: an email that bounces for size helps nobody,
+ * and the ones left behind are counted so the body can say they exist.
+ *
+ * Shared by both of the emails that go to the accountant — the whole month and
+ * the advertising month — so neither can quietly grow past what Gmail accepts.
+ */
+export async function attachReceiptFiles(
+  supabase: SupabaseClient,
+  rows: ExpenseReceipt[],
+  attachments: { filename: string; content: string | Buffer; contentType: string }[],
+  budgetBytes: number
+): Promise<{ attached: number; skipped: number }> {
+  let used = 0;
+  let attached = 0;
+  let skipped = 0;
+
+  for (const row of rows) {
+    if (used + (row.size_bytes ?? 0) > budgetBytes) {
+      skipped += 1;
+      continue;
+    }
+    const { data, error } = await supabase.storage.from(RECEIPTS_BUCKET).download(row.storage_path);
+    if (error || !data) {
+      skipped += 1;
+      continue;
+    }
+    const buffer = Buffer.from(await data.arrayBuffer());
+    if (used + buffer.length > budgetBytes) {
+      skipped += 1;
+      continue;
+    }
+    used += buffer.length;
+    attached += 1;
+    attachments.push({
+      filename: row.file_name || `receipt-${attached}.jpg`,
+      content: buffer,
+      contentType: row.content_type || "image/jpeg",
+    });
+  }
+
+  return { attached, skipped };
 }

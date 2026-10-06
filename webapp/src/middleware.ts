@@ -58,9 +58,11 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // api/ads/sync is left out because it is called by a scheduler, which has
-    // no session to show. It is not unguarded: it checks its own shared secret
-    // and refuses without it.
-    "/((?!_next/static|_next/image|favicon.ico|icons/|manifest.json|sw.js|api/geocode|api/ads/sync).*)",
+    // api/ads/sync and api/ads/report/cron are left out because a scheduler
+    // calls them and a scheduler has no session to show. Neither is unguarded:
+    // each checks its own shared secret and refuses without it. The manual
+    // api/ads/report stays behind the wall — it reads through the caller's
+    // own session on purpose.
+    "/((?!_next/static|_next/image|favicon.ico|icons/|manifest.json|sw.js|api/geocode|api/ads/sync|api/ads/report/cron).*)",
   ],
 };

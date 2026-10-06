@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import nodemailer from "nodemailer";
 import { createClient } from "@/lib/supabase/server";
+import { MAIL_FROM, mailConfigured, mailError, sendMail, type Attachment } from "@/lib/mail";
 import { toCsv } from "@/lib/csv";
 import { agorotToShekels } from "@/lib/money";
 import { formatDateHe } from "@/lib/dates";
 import { monthRange, expenseLines, buildAccountantEmail } from "@/lib/accountant";
 import type { AdSpend, AppSettings, BusinessExpense, ExpenseCategory, ExpenseReceipt, Receipt } from "@/lib/types";
 import {
-  RECEIPTS_BUCKET,
+  PHOTO_BUDGET_BYTES,
   adSpendReceiptFilesInMonth,
+  attachReceiptFiles,
   jobExpenseReceiptFilesInMonth,
 } from "@/lib/api/expenseReceipts";
 import { fetchLiveReceipts } from "@/lib/api/jobs";
@@ -32,16 +33,9 @@ import { contractorReceiptLines, contractorReceiptFilesInMonth } from "@/lib/api
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const GMAIL_USER = process.env.GMAIL_USER;
-const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, "");
-
-function configured(): boolean {
-  return !!GMAIL_USER && !!GMAIL_APP_PASSWORD;
-}
-
 /** Whether the screens may offer a real send, and from which address. */
 export async function GET() {
-  return NextResponse.json({ configured: configured(), from: configured() ? GMAIL_USER : null });
+  return NextResponse.json({ configured: mailConfigured(), from: mailConfigured() ? MAIL_FROM : null });
 }
 
 export async function POST(request: NextRequest) {
@@ -51,7 +45,7 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ ok: false, error: "לא מחוברים למערכת" }, { status: 401 });
 
-  if (!configured()) {
+  if (!mailConfigured()) {
     return NextResponse.json(
       { ok: false, configured: false, error: "שליחה ישירה לא מוגדרת" },
       { status: 503 }
@@ -175,7 +169,7 @@ export async function POST(request: NextRequest) {
     ]
   );
 
-  const attachments: { filename: string; content: string | Buffer; contentType: string }[] = [
+  const attachments: Attachment[] = [
     { filename: `receipts-${stamp}.csv`, content: receiptsCsv, contentType: "text/csv; charset=utf-8" },
     { filename: `expenses-${stamp}.csv`, content: expensesCsv, contentType: "text/csv; charset=utf-8" },
   ];
@@ -199,7 +193,7 @@ export async function POST(request: NextRequest) {
     ...jobCostPaper,
   ];
 
-  const { attached, skipped } = await attachPhotos(supabase, photoRows, attachments);
+  const { attached, skipped } = await attachReceiptFiles(supabase, photoRows, attachments, PHOTO_BUDGET_BYTES);
 
   let body = email.body;
   if (attached === 1) body += "\n\nמצורפת קבלה אחת (רכישה, קבלן או פרסום).";
@@ -215,20 +209,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const transport = nodemailer.createTransport(smtpConfig());
-
-    await transport.sendMail({
-      from: settings?.business_name?.trim()
-        ? `"${settings.business_name.trim()}" <${GMAIL_USER}>`
-        : GMAIL_USER,
+    await sendMail({
       to,
-      replyTo: settings?.business_email?.trim() || undefined,
+      replyTo: settings?.business_email ?? null,
+      fromName: settings?.business_name ?? null,
       subject: email.subject,
       text: body,
       attachments,
     });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: gmailError(e) }, { status: 502 });
+    return NextResponse.json({ ok: false, error: mailError(e) }, { status: 502 });
   }
 
   return NextResponse.json({
@@ -238,92 +228,4 @@ export async function POST(request: NextRequest) {
     expenses: expenses.length,
     photos: attached,
   });
-}
-
-/** Gmail refuses anything past 25MB, so the photographs stop well short of it. */
-const PHOTO_BUDGET_BYTES = 15 * 1024 * 1024;
-
-/**
- * The photographed receipts, as many as the message can carry.
- *
- * They are attached oldest first and stop at a budget rather than being
- * silently truncated by the mail server: an email that bounces for size helps
- * nobody, and the ones left behind are named in the body so the accountant
- * knows to ask.
- */
-async function attachPhotos(
-  supabase: ReturnType<typeof createClient>,
-  rows: ExpenseReceipt[],
-  attachments: { filename: string; content: string | Buffer; contentType: string }[]
-): Promise<{ attached: number; skipped: number }> {
-  let used = 0;
-  let attached = 0;
-  let skipped = 0;
-
-  for (const row of rows) {
-    if (used + (row.size_bytes ?? 0) > PHOTO_BUDGET_BYTES) {
-      skipped += 1;
-      continue;
-    }
-    const { data, error } = await supabase.storage.from(RECEIPTS_BUCKET).download(row.storage_path);
-    if (error || !data) {
-      skipped += 1;
-      continue;
-    }
-    const buffer = Buffer.from(await data.arrayBuffer());
-    if (used + buffer.length > PHOTO_BUDGET_BYTES) {
-      skipped += 1;
-      continue;
-    }
-    used += buffer.length;
-    attached += 1;
-    attachments.push({
-      filename: row.file_name || `receipt-${attached}.jpg`,
-      content: buffer,
-      contentType: row.content_type || "image/jpeg",
-    });
-  }
-
-  return { attached, skipped };
-}
-
-/**
- * Gmail, unless a loopback address was named.
- *
- * The override exists so the send can be exercised against a local stand-in
- * server; it refuses to drop TLS for anything that is not on this machine, so
- * there is no configuration that quietly posts the business's mail in the
- * clear.
- */
-function smtpConfig() {
-  const auth = { user: GMAIL_USER!, pass: GMAIL_APP_PASSWORD! };
-  const host = process.env.SMTP_HOST;
-  if (!host) return { service: "gmail", auth };
-  const local = host === "127.0.0.1" || host === "localhost" || host === "::1";
-  return {
-    host,
-    port: Number(process.env.SMTP_PORT ?? 587),
-    secure: false,
-    ignoreTLS: local,
-    requireTLS: !local,
-    auth,
-  };
-}
-
-/**
- * Google's own words, when they help.
- *
- * A rejected password and a blocked sign-in are different problems with
- * different fixes, and "sending failed" sends the business looking in the
- * wrong place for both.
- */
-function gmailError(e: unknown): string {
-  const message = e instanceof Error ? e.message : String(e ?? "");
-  if (/invalid login|username and password not accepted|535/i.test(message)) {
-    return "Gmail דחה את פרטי ההתחברות. צריך סיסמת אפליקציה (App Password), לא סיסמת החשבון הרגילה.";
-  }
-  if (/timed out|ETIMEDOUT|ECONNREFUSED/i.test(message)) {
-    return "לא הצלחנו להתחבר לשרת של Gmail. נסו שוב בעוד רגע.";
-  }
-  return message ? `השליחה נכשלה: ${message}` : "השליחה נכשלה.";
 }

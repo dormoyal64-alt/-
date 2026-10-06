@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon, Percent, AlertTriangle, Users, FileCheck, Zap, CheckCircle2, HandCoins } from "lucide-react";
+import { Bell, BellOff, Trash2, Info, Eye, EyeOff, Receipt as ReceiptIcon, Percent, AlertTriangle, Users, FileCheck, Zap, CheckCircle2, HandCoins, Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useNotifications } from "@/lib/notifications";
@@ -430,6 +430,62 @@ export default function SettingsPage() {
               ))}
             </div>
           </div>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Megaphone className="h-5 w-5 text-ink-400" /> דוח פרסום חודשי לרואה החשבון
+          </CardTitle>
+        </CardHeader>
+        <CardBody className="space-y-3">
+          <p className="text-sm text-ink-500">
+            בכל חודש נשלחות לרואה החשבון הוצאות הפרסום של <b>החודש שעבר</b> — פירוט, סיכום לפי
+            ערוץ, סך הכל וקובץ אקסל מצורף. עותק נשלח גם אליכם. היעד הוא המייל של רואה החשבון
+            שלמעלה{settings?.accountant_email ? "" : " — שעדיין לא מולא"}.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {[true, false].map((v) => (
+              <button
+                key={String(v)}
+                onClick={() => saveBusinessField("ad_report_auto", v)}
+                disabled={savingBusiness}
+                className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
+                  (settings?.ad_report_auto ?? true) === v
+                    ? "border-brand-600 bg-brand-600 text-white"
+                    : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                }`}
+              >
+                {v ? "שליחה אוטומטית" : "לא לשלוח אוטומטית"}
+              </button>
+            ))}
+          </div>
+          {(settings?.ad_report_auto ?? true) && (
+            <div className="sm:max-w-[220px]">
+              <Label>באיזה יום בחודש</Label>
+              <Input
+                type="number"
+                min={1}
+                max={28}
+                dir="ltr"
+                key={String(settings?.ad_report_day)}
+                defaultValue={settings?.ad_report_day ?? 5}
+                onBlur={(e) => {
+                  const v = Math.round(Number(e.target.value));
+                  if (v >= 1 && v <= 28 && v !== (settings?.ad_report_day ?? 5)) {
+                    saveBusinessField("ad_report_day", String(v));
+                  }
+                }}
+              />
+              <p className="mt-1 text-xs text-ink-400">
+                נשלח ב-08:00 בבוקר שעון ישראל. עד 28 בלבד, כדי שגם בפברואר היום הזה קיים.
+              </p>
+            </div>
+          )}
+          <p className="text-xs text-ink-400">
+            אפשר תמיד לשלוח חודש ידנית ממסך <b>הוצאות פרסום</b> — ושם גם רואים מתי כל חודש נשלח.
+          </p>
         </CardBody>
       </Card>
 
