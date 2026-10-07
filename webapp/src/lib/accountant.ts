@@ -1,6 +1,7 @@
 import { daysInRange } from "@/lib/adPeriods";
 import { formatAgorotPlain } from "@/lib/money";
 import { formatDateHe } from "@/lib/dates";
+import type { ReceiptParent } from "@/lib/api/expenseReceipts";
 import type { AdSpend, BusinessExpense, Receipt } from "@/lib/types";
 
 /** The first and last day of a month, as the dates the tables are keyed by. */
@@ -43,10 +44,18 @@ export interface ExpenseLine {
   kind: string;
   description: string;
   amount_agorot: number;
+  /**
+   * The record the line was built from, so the screen can hang the paper on
+   * it. Every line has one — a month's expenses all come from somewhere — and
+   * it is the same parent the expense's own screen uses, so a receipt
+   * attached here is the one that shows up there.
+   */
+  parent?: ReceiptParent;
 }
 
 /** A receipt a contractor handed over, as the month's report needs to read it. */
 export interface ContractorReceiptLine {
+  id: string;
   issued_on: string;
   contractor_name: string;
   reference: string | null;
@@ -61,7 +70,7 @@ export function expenseLines(
   fixed: BusinessExpense[],
   categoryName: (id: string | null) => string,
   ads: AdSpend[],
-  jobCosts: { closed_at: string; job_number: string; description: string; amount_agorot: number }[],
+  jobCosts: { id?: string; closed_at: string; job_number: string; description: string; amount_agorot: number }[],
   contractorReceipts: ContractorReceiptLine[] = []
 ): ExpenseLine[] {
   const lines: ExpenseLine[] = [];
@@ -77,6 +86,7 @@ export function expenseLines(
         kind: category === FUEL_CATEGORY ? FUEL_CATEGORY : "הוצאה קבועה",
         description: [category, row.notes].filter(Boolean).join(" — "),
         amount_agorot: share,
+        parent: { kind: "expense", id: row.id },
       });
     }
   }
@@ -89,6 +99,7 @@ export function expenseLines(
         kind: "פרסום",
         description: row.notes ?? "פרסום",
         amount_agorot: share,
+        parent: { kind: "ad", id: row.id },
       });
     }
   }
@@ -99,6 +110,7 @@ export function expenseLines(
       kind: "הוצאה על עבודה",
       description: `${row.job_number} — ${row.description}`,
       amount_agorot: row.amount_agorot,
+      parent: row.id ? { kind: "job", id: row.id } : undefined,
     });
   }
 
@@ -113,6 +125,7 @@ export function expenseLines(
         .filter(Boolean)
         .join(" — "),
       amount_agorot: row.amount_agorot,
+      parent: { kind: "contractor", id: row.id },
     });
   }
 

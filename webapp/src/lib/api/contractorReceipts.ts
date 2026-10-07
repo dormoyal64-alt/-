@@ -96,19 +96,21 @@ export async function contractorReceiptLines(
 ): Promise<ContractorReceiptLine[]> {
   const { data, error } = await supabase
     .from("contractor_receipts")
-    .select("issued_on, contractor_name, reference, amount_agorot, job:jobs(job_number)")
+    .select("id, issued_on, contractor_name, reference, amount_agorot, job:jobs(job_number)")
     .gte("issued_on", from)
     .lte("issued_on", to)
     .order("issued_on");
   // the table arrives with a migration; before it does the month simply has none
   if (error) return [];
   return ((data as unknown as {
+    id: string;
     issued_on: string;
     contractor_name: string;
     reference: string | null;
     amount_agorot: number;
     job: { job_number: string } | null;
   }[]) ?? []).map((r) => ({
+    id: r.id,
     issued_on: r.issued_on,
     contractor_name: r.contractor_name,
     reference: r.reference,

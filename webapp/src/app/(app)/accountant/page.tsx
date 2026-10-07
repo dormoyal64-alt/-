@@ -18,9 +18,16 @@ import {
   mailtoLink,
   type ExpenseLine,
 } from "@/lib/accountant";
-import { contractorReceiptLines } from "@/lib/api/contractorReceipts";
+import { contractorReceiptLines, listContractorReceiptFiles } from "@/lib/api/contractorReceipts";
 import { fetchLiveReceipts } from "@/lib/api/jobs";
-import type { AdSpend, BusinessExpense, ExpenseCategory, Receipt } from "@/lib/types";
+import { ReceiptFiles } from "@/components/receipts/ReceiptFiles";
+import {
+  listAdSpendReceipts,
+  listExpenseReceipts,
+  listJobExpenseReceipts,
+  type ReceiptParent,
+} from "@/lib/api/expenseReceipts";
+import type { AdSpend, BusinessExpense, ExpenseCategory, ExpenseReceipt, Receipt } from "@/lib/types";
 
 /**
  * One month, as the accountant needs it.
@@ -42,6 +49,12 @@ export default function AccountantPage() {
 
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [expenses, setExpenses] = useState<ExpenseLine[]>([]);
+  // the paper behind the month's expenses, so a line that has none can be
+  // given one from here rather than hunted down on its own screen
+  const [paper, setPaper] = useState<ExpenseReceipt[]>([]);
+  // the job-cost column arrives with a migration; until it does, offering a
+  // camera on those lines that can only fail is worse than not offering one
+  const [jobPaperReady, setJobPaperReady] = useState(true);
   const [loading, setLoading] = useState(true);
   // a real send exists only when the business connected its Gmail; until then
   // the compose window is the best this can do
@@ -61,7 +74,7 @@ export default function AccountantPage() {
       supabase.from("ad_spend").select("*").lte("spent_on", range.to),
       supabase
         .from("job_expenses")
-        .select("description, amount_agorot, job:jobs!inner(job_number, closed_at, is_closed)")
+        .select("id, description, amount_agorot, job:jobs!inner(job_number, closed_at, is_closed)")
         .gte("job.closed_at", fromIso)
         .lte("job.closed_at", toIso),
       contractorReceiptLines(supabase, range.from, range.to),
@@ -71,12 +84,14 @@ export default function AccountantPage() {
     const categoryName = (id: string | null) => categories.find((c) => c.id === id)?.name ?? "אחר";
 
     const jobCosts = (((costs.data as unknown as {
+      id: string;
       description: string;
       amount_agorot: number;
       job: { job_number: string; closed_at: string } | null;
     }[]) ?? [])
       .filter((r) => r.job)
       .map((r) => ({
+        id: r.id,
         closed_at: r.job!.closed_at,
         job_number: r.job!.job_number,
         description: r.description,
@@ -84,18 +99,34 @@ export default function AccountantPage() {
       })));
 
     setReceipts(rec);
-    setExpenses(
-      expenseLines(
-        range.from,
-        range.to,
-        (fixed.data as BusinessExpense[]) ?? [],
-        categoryName,
-        (ads.data as AdSpend[]) ?? [],
-        jobCosts,
-        contractorPaid
-      )
+    const lines = expenseLines(
+      range.from,
+      range.to,
+      (fixed.data as BusinessExpense[]) ?? [],
+      categoryName,
+      (ads.data as AdSpend[]) ?? [],
+      jobCosts,
+      contractorPaid
     );
+    setExpenses(lines);
     setLoading(false);
+    // after the figures, because the month should appear at once rather than
+    // waiting on four more queries. Each kind of parent fails on its own: a
+    // database that has not had the latest migration simply offers no camera
+    // on those lines instead of breaking the screen
+    const ids = (kind: ReceiptParent["kind"]) =>
+      lines.filter((l) => l.parent?.kind === kind).map((l) => l.parent!.id);
+    // asked of the database rather than guessed from an empty list: the first
+    // receipt ever filed must not meet a camera that cannot work
+    const probe = await supabase.from("expense_receipts").select("job_expense_id").limit(1);
+    setJobPaperReady(!probe.error);
+    const [purchase, ad, job, contractor] = await Promise.all([
+      listExpenseReceipts(supabase, ids("expense")).catch(() => []),
+      listAdSpendReceipts(supabase, ids("ad")).catch(() => []),
+      listJobExpenseReceipts(supabase, ids("job")).catch(() => []),
+      listContractorReceiptFiles(supabase, ids("contractor")).catch(() => []),
+    ]);
+    setPaper([...purchase, ...ad, ...job, ...contractor]);
   }, [supabase, range.from, range.to]);
 
   useEffect(() => {
@@ -142,6 +173,18 @@ export default function AccountantPage() {
 
   const income = receipts.reduce((s, r) => s + r.amount_agorot, 0);
   const outgoing = expenses.reduce((s, e) => s + e.amount_agorot, 0);
+
+  /** The paper already filed against one line, whichever kind of record it is. */
+  const filesFor = (parent: ReceiptParent) =>
+    paper.filter((r) =>
+      parent.kind === "expense"
+        ? r.business_expense_id === parent.id
+        : parent.kind === "ad"
+          ? r.ad_spend_id === parent.id
+          : parent.kind === "job"
+            ? r.job_expense_id === parent.id
+            : r.contractor_receipt_id === parent.id
+    );
 
   const email = buildAccountantEmail(range.label, settings?.business_name ?? null, receipts, expenses);
   const gmail = gmailComposeLink(settings?.accountant_email, email.subject, email.body);
@@ -359,6 +402,9 @@ export default function AccountantPage() {
           </CardTitle>
         </CardHeader>
         <CardBody className="p-0">
+          <p className="px-4 pb-2 pt-0.5 text-xs text-ink-400">
+            אפשר לצרף קבלה או חשבונית לכל שורה — היא תישלח לרואה החשבון יחד עם הדוח הזה.
+          </p>
           {loading ? (
             <p className="p-4 text-sm text-ink-400">טוען...</p>
           ) : expenses.length === 0 ? (
@@ -366,11 +412,24 @@ export default function AccountantPage() {
           ) : (
             <div className="divide-y divide-ink-50">
               {expenses.map((e, i) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="w-24 shrink-0 text-xs font-bold text-ink-400">{formatDateHe(e.date)}</span>
-                  <span className="w-28 shrink-0 text-xs font-semibold text-ink-500">{e.kind}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-800">{e.description}</span>
+                <div key={i} className="flex items-center gap-2 px-4 py-2.5">
+                  {/* two lines rather than four columns: on a phone the date,
+                      the kind and a description cannot share a line and stay
+                      readable, and the paperclip needs the room */}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-ink-800">{e.description}</p>
+                    <p className="truncate text-xs text-ink-400">
+                      {formatDateHe(e.date)} · {e.kind}
+                    </p>
+                  </div>
                   <span className="shrink-0 font-extrabold text-ink-900">{formatAgorot(e.amount_agorot)}</span>
+                  {e.parent && (e.parent.kind !== "job" || jobPaperReady) && (
+                    <ReceiptFiles
+                      parent={e.parent}
+                      receipts={filesFor(e.parent)}
+                      onChange={load}
+                    />
+                  )}
                 </div>
               ))}
               <div className="flex items-center justify-between bg-ink-50 px-4 py-2.5">
