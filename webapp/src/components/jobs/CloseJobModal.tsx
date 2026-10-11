@@ -9,6 +9,7 @@ import { useRefData } from "@/lib/refdata";
 import { HelperSelect } from "@/components/jobs/HelperSelect";
 import { previewCommission } from "@/lib/calc";
 import { formatAgorot, shekelsToAgorot } from "@/lib/money";
+import { formatDateHe, todayLocalDate } from "@/lib/dates";
 import type { JobWithRelations } from "@/lib/types";
 
 export function CloseJobModal({
@@ -46,6 +47,27 @@ export function CloseJobModal({
   const [finalPaymentMethodId, setFinalPaymentMethodId] = useState(job.payment_method_id ?? "");
   const [paymentReceivedBy, setPaymentReceivedBy] = useState<"contractor" | "business">("contractor");
   const [closingNotes, setClosingNotes] = useState("");
+
+  /**
+   * The day the work is filed under.
+   *
+   * Normally today. The exception is a job that was written up after it was
+   * done — recorded well after the day it carries — which closes to its own
+   * day, so the receipt, the accountant's report and the profit all land where
+   * the work actually happened.
+   *
+   * The two are told apart by when the record was made rather than by how old
+   * the job is: a job opened on Monday and still open on Thursday was really
+   * worked on Thursday and closes today, while one typed in on Thursday for
+   * Monday's work belongs to Monday. Either way the date is on screen and can
+   * be corrected.
+   */
+  const today = todayLocalDate();
+  const openedOn = todayLocalDate(new Date(job.opened_at));
+  const writtenUpLate =
+    new Date(job.created_at).getTime() - new Date(job.opened_at).getTime() > 12 * 60 * 60 * 1000;
+  const [closedOn, setClosedOn] = useState(writtenUpLate && openedOn < today ? openedOn : today);
+  const backdated = closedOn < today;
   // starts from the standing preference in settings, changeable per closing
   const [issueReceipt, setIssueReceipt] = useState(settings?.auto_receipt ?? false);
   // whether this job was declared. Issuing a receipt implies it, but a job can
@@ -117,7 +139,9 @@ export function CloseJobModal({
       finalPaymentMethodId: closedSuccessfully ? finalPaymentMethodId || null : null,
       paymentReceivedBy,
       closingNotes: closingNotes || null,
-      closedAt: new Date().toISOString(),
+      // today closes at the real hour; an earlier day closes at midday, so that
+      // no time zone can drag it into the day before or after
+      closedAt: closedOn === today ? new Date().toISOString() : new Date(`${closedOn}T12:00:00`).toISOString(),
       commissionPct: effectivePct,
       referralPct: hasCompany ? effectiveReferralPct : null,
       issueReceipt: closedSuccessfully && issueReceipt,
@@ -153,6 +177,26 @@ export function CloseJobModal({
               לא נסגרה
             </button>
           </div>
+        </div>
+
+        <div>
+          <Label required>באיזה יום בוצעה העבודה</Label>
+          <Input
+            type="date"
+            value={closedOn}
+            max={today}
+            onChange={(e) => setClosedOn(e.target.value || today)}
+          />
+          <p className="mt-1 text-xs text-ink-400">
+            {backdated ? (
+              <>
+                העבודה תירשם לתאריך <bdi>{formatDateHe(new Date(`${closedOn}T12:00:00`))}</bdi> — הקבלה,
+                הדוח לרואה החשבון והרווח כולם ליום הזה.
+              </>
+            ) : (
+              "ברירת המחדל היא היום. עבודה שבוצעה לפני כמה ימים — בחרו את היום שבו היא בוצעה."
+            )}
+          </p>
         </div>
 
         {closedSuccessfully && (
@@ -477,6 +521,12 @@ export function CloseJobModal({
                   ? "מיד אחרי הסגירה תיפתח הקבלה כ-PDF לשליחה ללקוח."
                   : "אפשר להפיק קבלה מאוחר יותר מתוך דף העבודה."}
               </span>
+              {issueReceipt && backdated && (
+                <span className="mt-1 block text-[11px] font-semibold text-ink-500">
+                  הקבלה תישא את תאריך העבודה. אם כבר הפקתם קבלות אחרי התאריך הזה, מספר הקבלה הזו
+                  יהיה גבוה משלהן למרות שהתאריך מוקדם יותר.
+                </span>
+              )}
               {issueReceipt && !settings?.business_name && (
                 <span className="mt-1 block text-[11px] font-semibold text-warning-600">
                   עדיין לא מילאתם את פרטי העסק — הקבלה תצא בלי שם וללא ע.פ (הגדרות ← פרטי העסק לקבלות)

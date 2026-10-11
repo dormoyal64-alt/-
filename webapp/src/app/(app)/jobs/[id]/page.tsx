@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
   Phone,
@@ -54,6 +54,7 @@ import type { JobWithRelations } from "@/lib/types";
 export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const search = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
   const toast = useToast();
   const { jobStatuses, settings, isOwner } = useRefData();
@@ -172,6 +173,15 @@ export default function JobDetailPage() {
     if (id) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // ?close=1 — the new-job screen sends a job that was written up after it was
+  // done straight here, because the amount is the only thing still missing
+  useEffect(() => {
+    if (!job || job.is_closed || search.get("close") !== "1") return;
+    setCloseOpen(true);
+    router.replace(`/jobs/${job.id}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.id, job?.is_closed]);
 
   if (clerkClosed) {
     return (

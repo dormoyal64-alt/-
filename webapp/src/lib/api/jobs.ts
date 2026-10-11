@@ -47,6 +47,13 @@ export interface CreateJobInput {
   opened_at: string;
   /** when the customer wants it done; null means as soon as possible */
   scheduled_at?: string | null;
+  /**
+   * Set to stop the chase reminder before it ever fires.
+   *
+   * A job written up after it was done is not waiting on anybody, and an alert
+   * saying it has been open for hours would be true and useless.
+   */
+  reminder_sent_at?: string | null;
 }
 
 export async function createJob(supabase: SupabaseClient, input: CreateJobInput) {

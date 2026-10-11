@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, MessageCircle, ArrowLeft, Briefcase, Eye, EyeOff, Send, BellOff, Loader2 } from "lucide-react";
+import { CheckCircle2, MessageCircle, ArrowLeft, Briefcase, Eye, EyeOff, Send, BellOff, Loader2, CalendarCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useToast } from "@/components/ui/Toast";
@@ -17,6 +17,7 @@ import { useContractorMatch } from "@/hooks/useContractorMatch";
 import { createJob, stampConfirmationStep } from "@/lib/api/jobs";
 import { useWhatsappSender } from "@/hooks/useWhatsappSender";
 import { agorotToShekels, formatAgorot, shekelsToAgorot } from "@/lib/money";
+import { formatDateHe, todayLocalDate } from "@/lib/dates";
 import { buildNewJobWhatsappMessage, buildOrderConfirmationMessage, buildWhatsappLink, sendsCustomerPhone, siteOrigin, visitFeeForJob } from "@/lib/whatsapp";
 import type { AddressResult } from "@/hooks/useAddressAutocomplete";
 import type { Helper, JobWithRelations, PerformedBy } from "@/lib/types";
@@ -42,6 +43,23 @@ function atOffset(hoursFromNow: number, hour: number | null) {
   else d.setMinutes(0, 0, 0);
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().slice(0, 16);
+}
+
+/**
+ * A day that has already happened, as the moment the job is filed under.
+ *
+ * Midday rather than midnight, so that no time zone can carry the job into the
+ * day before or after when it is written and read back.
+ */
+function performedAt(day: string): Date {
+  return new Date(`${day}T12:00:00`);
+}
+
+/** A past day, n days back, for the quick buttons. */
+function daysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return todayLocalDate(d);
 }
 
 function laterTodayForInput() {
@@ -86,6 +104,9 @@ export default function NewJobPage() {
   const [openedAt, setOpenedAt] = useState(nowForInput());
   // empty means "as soon as possible"; a value is the hour the customer asked for
   const [scheduledAt, setScheduledAt] = useState("");
+  // a job being written up after the fact: the day it was actually done. Empty
+  // means this is a job starting now, which is the usual case.
+  const [doneOn, setDoneOn] = useState("");
 
   const [notifyContractor, setNotifyContractor] = useState(true);
   // null until touched, so the job follows the standing policy unless overridden
@@ -138,6 +159,8 @@ export default function NewJobPage() {
   const scheduledDate = scheduledAt ? new Date(scheduledAt) : null;
   const scheduledValid = !scheduledDate || !isNaN(scheduledDate.getTime());
   const scheduledInPast = !!scheduledDate && scheduledValid && scheduledDate.getTime() < Date.now() - 60_000;
+  // a day already done has to be a real day, and not one in the future
+  const doneValid = !!doneOn && !isNaN(performedAt(doneOn).getTime()) && doneOn <= todayLocalDate();
   const matches = useContractorMatch(professionId, jobTypeId, cityId, jobMoment);
   const selectedContractor = matches.find((m) => m.id === contractorId);
   const contractorPct = performedBy === "self" ? 0 : selectedContractor?.commissionPct ?? 0;
@@ -216,7 +239,9 @@ export default function NewJobPage() {
     customerName.trim() &&
     customerPhone.trim() &&
     referralPctValid &&
-    !splitTooBig;
+    !splitTooBig &&
+    // a day already done must be a real past day before anything is saved
+    (!doneOn || doneValid);
 
   async function handleSave() {
     if (!referralPctValid) {
@@ -252,7 +277,7 @@ export default function NewJobPage() {
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim(),
         send_customer_phone: sendPhone,
-        notify_contractor: performedBy === "self" ? true : notifyContractor,
+        notify_contractor: performedBy === "self" ? true : doneValid ? false : notifyContractor,
         address_full: addressResult
           ? [formatAddressLine(addressResult), addressResult.city].filter(Boolean).join(", ")
           : addressQuery.trim() || null,
@@ -275,13 +300,20 @@ export default function NewJobPage() {
         lead_source_id: leadSourceId || null,
         notes: notes || null,
         status_id: initialStatus.id,
-        opened_at: new Date(openedAt).toISOString(),
-        scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+        // a job written up after the fact belongs to the day it was done; one
+        // starting now keeps the opening time on the form
+        opened_at: (doneValid ? performedAt(doneOn) : new Date(openedAt)).toISOString(),
+        scheduled_at: scheduledAt && !doneValid ? new Date(scheduledAt).toISOString() : null,
+        // nothing is waiting on a job that is already finished, so the chase
+        // reminder is marked as spent rather than firing the moment it is saved
+        reminder_sent_at: doneValid ? new Date().toISOString() : null,
       });
       setCreatedJob(job);
       toast.success(`העבודה ${job.job_number} נשמרה בהצלחה`);
-      // the customer hears from us before the form has finished closing
-      if (whatsapp.configured) {
+      // the customer hears from us before the form has finished closing —
+      // unless the work is already behind us, where an "on the way" message
+      // days later is worse than no message at all
+      if (whatsapp.configured && !doneValid) {
         setAutoSend({ state: "sending" });
         const result = await whatsapp.send(job.id);
         setAutoSend(result.ok ? { state: "sent" } : { state: "failed", error: result.error });
@@ -319,6 +351,7 @@ export default function NewJobPage() {
     setNotes("");
     setOpenedAt(nowForInput());
     setScheduledAt("");
+    setDoneOn("");
     setCreatedJob(null);
     setAutoSend({ state: "idle" });
   }
@@ -338,6 +371,60 @@ export default function NewJobPage() {
       createdJob.customer_phone,
       buildOrderConfirmationMessage(createdJob, settings, siteOrigin())
     );
+    // a job written up after the fact: no message goes anywhere, and the only
+    // thing left to do is close it with the amount
+    const writtenUpLate = todayLocalDate(new Date(createdJob.opened_at)) !== todayLocalDate();
+
+    if (writtenUpLate) {
+      return (
+        <div className="mx-auto max-w-lg space-y-5">
+          <div className="flex flex-col items-center gap-3 py-6 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success-50 text-success-600">
+              <CalendarCheck className="h-9 w-9" />
+            </div>
+            <h1 className="text-xl font-extrabold text-ink-900">העבודה {createdJob.job_number} נרשמה!</h1>
+            <p className="text-sm text-ink-500">
+              {createdJob.customer_name} · {createdJob.city?.name} · {createdJob.job_type?.name}
+            </p>
+            <p className="rounded-full bg-brand-50 px-3.5 py-1.5 text-sm font-bold text-brand-700">
+              רשומה לתאריך {formatDateHe(createdJob.opened_at)}
+            </p>
+          </div>
+
+          <Card>
+            <CardBody className="space-y-1.5 text-center text-sm">
+              <p className="font-bold text-ink-700">לא נשלחה שום הודעה 🤫</p>
+              <p className="text-ink-500">
+                לא ללקוח ולא לקבלן — העבודה כבר נעשתה, והמערכת לא מודיעה על משהו שקרה.
+              </p>
+              <p className="text-xs text-ink-400">
+                כדי שהיא תיכנס לכסף, לקבלה ולדוח לרואה החשבון באותו יום, צריך לסגור אותה עם הסכום.
+                תאריך הסגירה כבר ממולא.
+              </p>
+            </CardBody>
+          </Card>
+
+          <Button
+            size="lg"
+            fullWidth
+            onClick={() => router.push(`/jobs/${createdJob.id}?close=1`)}
+            className="shadow-lg"
+          >
+            סגירת העבודה עם הסכום
+          </Button>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="secondary" onClick={() => router.push(`/jobs/${createdJob.id}`)}>
+              צפייה בעבודה
+            </Button>
+            <Button variant="secondary" onClick={resetForm}>
+              עבודה נוספת
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="mx-auto max-w-lg space-y-5">
         <div className="flex flex-col items-center gap-3 py-6 text-center">
@@ -494,29 +581,100 @@ export default function NewJobPage() {
       )}
 
       {cityId && (
-        <Section title="4. מתי הלקוח רוצה את העבודה?" done={!scheduledAt || (scheduledValid && !scheduledInPast)}>
-          <div className="grid grid-cols-2 gap-2">
+        <Section title="4. מתי העבודה?" done={doneOn ? doneValid : !scheduledAt || (scheduledValid && !scheduledInPast)}>
+          <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
-              onClick={() => setScheduledAt("")}
-              className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${
-                !scheduledAt ? "border-brand-600 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-500"
+              onClick={() => {
+                setScheduledAt("");
+                setDoneOn("");
+              }}
+              className={`rounded-xl border px-2 py-3 text-sm font-bold transition ${
+                !scheduledAt && !doneOn ? "border-brand-600 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-500"
               }`}
             >
               בהקדם האפשרי
             </button>
             <button
               type="button"
-              onClick={() => setScheduledAt((v) => v || laterTodayForInput())}
-              className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${
+              onClick={() => {
+                setDoneOn("");
+                setScheduledAt((v) => v || laterTodayForInput());
+              }}
+              className={`rounded-xl border px-2 py-3 text-sm font-bold transition ${
                 scheduledAt ? "border-brand-600 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-500"
               }`}
             >
               לשעה מסוימת
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setScheduledAt("");
+                setDoneOn((v) => v || todayLocalDate());
+              }}
+              className={`rounded-xl border px-2 py-3 text-sm font-bold transition ${
+                doneOn ? "border-brand-600 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-500"
+              }`}
+            >
+              כבר בוצעה
+            </button>
           </div>
 
-          {scheduledAt && (
+          {doneOn && (
+            <div className="mt-3 space-y-2">
+              <Label required>באיזה יום בוצעה העבודה</Label>
+              <Input
+                type="date"
+                value={doneOn}
+                max={todayLocalDate()}
+                onChange={(e) => setDoneOn(e.target.value)}
+              />
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: "היום", days: 0 },
+                  { label: "אתמול", days: 1 },
+                  { label: "שלשום", days: 2 },
+                  { label: "לפני שבוע", days: 7 },
+                ].map((opt) => (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    onClick={() => setDoneOn(daysAgo(opt.days))}
+                    className="rounded-full border border-ink-200 px-3 py-1.5 text-xs font-semibold text-ink-600 hover:bg-ink-50"
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {!doneValid && (
+                <p className="text-xs font-bold text-danger-600">
+                  צריך תאריך שכבר היה. עבודה שעוד לא בוצעה נרשמת באחת משתי האפשרויות האחרות.
+                </p>
+              )}
+              <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-3.5 py-3 text-xs text-ink-600">
+                <p className="font-bold text-ink-900">
+                  {!doneValid ? (
+                    "העבודה תירשם לתאריך שתבחרו."
+                  ) : doneOn === todayLocalDate() ? (
+                    "העבודה תירשם להיום."
+                  ) : (
+                    <>
+                      {/* the date sits in its own run: a lamed glued to digits
+                          reads as part of the number in a right-to-left line */}
+                      העבודה תירשם לתאריך <bdi>{formatDateHe(performedAt(doneOn))}</bdi> — לא להיום.
+                    </>
+                  )}
+                </p>
+                <p className="mt-1">
+                  הקבלה תישא את התאריך הזה, וגם הדוח לרואה החשבון, הרווח והסטטיסטיקות יראו אותה באותו יום.
+                  לא תישלח הודעה ללקוח או לקבלן — העבודה כבר נעשתה.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {scheduledAt && !doneOn && (
             <div className="mt-3 space-y-2">
               <Label required>מתי להגיע ללקוח</Label>
               <Input
@@ -960,10 +1118,19 @@ export default function NewJobPage() {
                     ))}
                 </select>
               </div>
-              <div>
-                <Label>זמן פתיחת העבודה</Label>
-                <Input type="datetime-local" value={openedAt} onChange={(e) => setOpenedAt(e.target.value)} />
-              </div>
+              {doneOn ? (
+                <div>
+                  <Label>זמן פתיחת העבודה</Label>
+                  <p className="rounded-xl border border-ink-100 bg-ink-50 px-3.5 py-2.5 text-sm font-semibold text-ink-500">
+                    <bdi>{doneValid ? formatDateHe(performedAt(doneOn)) : "—"}</bdi> · נקבע לפי יום הביצוע שלמעלה
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <Label>זמן פתיחת העבודה</Label>
+                  <Input type="datetime-local" value={openedAt} onChange={(e) => setOpenedAt(e.target.value)} />
+                </div>
+              )}
             </div>
             <div>
               <Label>הערות</Label>
@@ -978,7 +1145,7 @@ export default function NewJobPage() {
         // (semi-transparent) disabled button while scrolling.
         <div className="sticky bottom-20 z-20 -mx-4 bg-gradient-to-t from-ink-50 via-ink-50 to-transparent px-4 pb-2 pt-6 lg:bottom-2 lg:-mx-8 lg:px-8">
           <Button size="lg" fullWidth loading={saving} disabled={!canSave} onClick={handleSave} className="shadow-xl">
-            שמירה ושליחה לקבלן
+            {doneOn ? "שמירת העבודה" : "שמירה ושליחה לקבלן"}
           </Button>
         </div>
       )}
