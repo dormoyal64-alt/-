@@ -10,7 +10,16 @@ import { HelperSelect } from "@/components/jobs/HelperSelect";
 import { previewCommission } from "@/lib/calc";
 import { formatAgorot, shekelsToAgorot } from "@/lib/money";
 import { formatDateHe, todayLocalDate } from "@/lib/dates";
+import { PAYMENT_TERMS, termsLabel } from "@/lib/api/annual";
 import type { JobWithRelations } from "@/lib/types";
+
+/** שוטף+N: the end of the month the job closed in, plus N days. */
+function dueDate(closedOn: string, terms: number): Date {
+  const d = new Date(`${closedOn}T12:00:00`);
+  const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0, 12, 0, 0);
+  endOfMonth.setDate(endOfMonth.getDate() + terms);
+  return endOfMonth;
+}
 
 export function CloseJobModal({
   open,
@@ -29,6 +38,8 @@ export function CloseJobModal({
     paymentReceivedBy: "contractor" | "business";
     closingNotes: string | null;
     closedAt: string;
+    /** days after the end of the month that payment is due; 0 is on the spot */
+    paymentTermsDays: number;
     commissionPct: number;
     referralPct: number | null;
     issueReceipt: boolean;
@@ -68,6 +79,18 @@ export function CloseJobModal({
     new Date(job.created_at).getTime() - new Date(job.opened_at).getTime() > 12 * 60 * 60 * 1000;
   const [closedOn, setClosedOn] = useState(writtenUpLate && openedOn < today ? openedOn : today);
   const backdated = closedOn < today;
+
+  /**
+   * How this one is paid.
+   *
+   * It starts from whatever the job was opened as — an institution job already
+   * carries its terms — and is settled here, because closing is the moment the
+   * answer is actually known. On terms, no money has changed hands yet, so
+   * there is nothing to give a receipt for until it does.
+   */
+  const [paymentTerms, setPaymentTerms] = useState(job.payment_terms_days ?? 0);
+  const onTerms = paymentTerms > 0;
+  const dueOn = onTerms ? dueDate(closedOn, paymentTerms) : null;
   // starts from the standing preference in settings, changeable per closing
   const [issueReceipt, setIssueReceipt] = useState(settings?.auto_receipt ?? false);
   // whether this job was declared. Issuing a receipt implies it, but a job can
@@ -142,9 +165,10 @@ export function CloseJobModal({
       // today closes at the real hour; an earlier day closes at midday, so that
       // no time zone can drag it into the day before or after
       closedAt: closedOn === today ? new Date().toISOString() : new Date(`${closedOn}T12:00:00`).toISOString(),
+      paymentTermsDays: paymentTerms,
       commissionPct: effectivePct,
       referralPct: hasCompany ? effectiveReferralPct : null,
-      issueReceipt: closedSuccessfully && issueReceipt,
+      issueReceipt: closedSuccessfully && issueReceipt && !onTerms,
       withReceipt: closedSuccessfully && withReceipt,
       setHelper: asksAboutHelper,
       helperId: helperId || null,
@@ -198,6 +222,35 @@ export function CloseJobModal({
             )}
           </p>
         </div>
+
+        {closedSuccessfully && (
+          <div>
+            <Label required>מתי משלמים</Label>
+            <div className="flex flex-wrap gap-2">
+              {PAYMENT_TERMS.map((t) => (
+                <button
+                  key={t.days}
+                  type="button"
+                  onClick={() => setPaymentTerms(t.days)}
+                  className={`rounded-full border px-3.5 py-2 text-xs font-bold transition ${
+                    paymentTerms === t.days
+                      ? "border-brand-600 bg-brand-600 text-white"
+                      : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            {onTerms && (
+              <p className="mt-1.5 rounded-xl bg-brand-50/70 px-3.5 py-2.5 text-xs text-ink-600">
+                הכסף אמור להיכנס עד <bdi className="font-bold text-ink-900">{formatDateHe(dueOn!)}</bdi>.
+                עד אז הסכום לא נספר במחזור, תופיע תזכורת לבדוק שהוא נכנס, והקבלה תופק ליום שבו
+                הוא יתקבל.
+              </p>
+            )}
+          </div>
+        )}
 
         {closedSuccessfully && (
           <>
@@ -503,7 +556,14 @@ export function CloseJobModal({
           </button>
         )}
 
-        {closedSuccessfully && withReceipt && (
+        {closedSuccessfully && withReceipt && onTerms && (
+          <p className="rounded-xl border border-ink-100 bg-ink-50 px-3.5 py-3 text-xs text-ink-500">
+            הקבלה תופק אחרי שהכסף ייכנס — מדף העבודה או ממסך ״מחזור שנתי ותקרה״, בלחיצה על
+            ״התקבל״. היא תישא את היום שבו התשלום התקבל.
+          </p>
+        )}
+
+        {closedSuccessfully && withReceipt && !onTerms && (
           <button
             type="button"
             onClick={() => setIssueReceipt((v) => !v)}

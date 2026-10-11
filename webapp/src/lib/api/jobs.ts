@@ -54,6 +54,11 @@ export interface CreateJobInput {
    * saying it has been open for hours would be true and useless.
    */
   reminder_sent_at?: string | null;
+  /** the customer is an institution, paying through an accounts department */
+  is_institution?: boolean;
+  institution_ref?: string | null;
+  /** days after the end of the closing month that payment is due */
+  payment_terms_days?: number;
 }
 
 export async function createJob(supabase: SupabaseClient, input: CreateJobInput) {

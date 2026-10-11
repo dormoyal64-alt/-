@@ -184,6 +184,16 @@ export interface Job {
   payment_received_by: PaymentReceivedBy | null;
   closing_notes: string | null;
   closed_at: string | null;
+  /** the customer pays through an accounts department, on terms */
+  is_institution: boolean;
+  /** their order number, which the paperwork has to carry */
+  institution_ref: string | null;
+  /** days after the end of the closing month that payment is due; 0 is on the spot */
+  payment_terms_days: number;
+  payment_due_on: string | null;
+  /** when the money actually arrived; equals the closing time for a job paid on the spot */
+  paid_at: string | null;
+  payment_reminder_sent_at: string | null;
   closed_by: string | null;
   contractor_share_agorot: number | null;
   business_share_agorot: number | null;
@@ -364,6 +374,8 @@ export interface AppSettings {
   /** true when quoted prices already contain the tax, as they normally do in Israel */
   prices_include_tax: boolean;
   /** whether last month's advertising is emailed to the accountant by itself */
+  /** the yearly turnover ceiling for an עוסק פטור, re-published every year */
+  exempt_ceiling_agorot: number;
   ad_report_auto: boolean;
   /** the day of the month it goes out, Israel time */
   ad_report_day: number;
@@ -628,4 +640,20 @@ export interface AdReportMonth {
   changed_at: string;
   sent_at: string | null;
   sent_to: string | null;
+}
+
+/** One payment channel's share of a year, for the ceiling screen. */
+export interface AnnualByMethod {
+  bucket: string;
+  received_agorot: number;
+  pending_agorot: number;
+  jobs: number;
+}
+
+/** One month of a year, received and still owed. */
+export interface AnnualByMonth {
+  month: number;
+  received_agorot: number;
+  pending_agorot: number;
+  jobs: number;
 }

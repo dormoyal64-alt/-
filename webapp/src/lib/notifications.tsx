@@ -2,7 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { formatAppointmentHe } from "@/lib/dates";
+import { formatAppointmentHe, formatDateHe, todayLocalDate } from "@/lib/dates";
+import { formatAgorotPlain } from "@/lib/money";
 import type { AppNotification } from "@/lib/types";
 
 const DEFAULT_REMINDER_MINUTES = 120;
@@ -157,6 +158,51 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     refresh();
   }, [supabase, refresh]);
 
+  /**
+   * Money that should have arrived and has not been ticked off.
+   *
+   * A job on terms is finished work nobody is chasing: there is no customer on
+   * the phone and no contractor waiting, just a transfer that either came or
+   * did not. The alert goes out on the day it was due and once only — the
+   * claim is the update itself, and marking the payment in clears the stamp so
+   * that a payment put back to waiting can speak again.
+   */
+  const checkDuePayments = useCallback(async () => {
+    const { data: due, error } = await supabase
+      .from("jobs")
+      .update({ payment_reminder_sent_at: new Date().toISOString() })
+      .eq("is_closed", true)
+      .gt("payment_terms_days", 0)
+      .is("paid_at", null)
+      .is("payment_reminder_sent_at", null)
+      .lte("payment_due_on", todayLocalDate())
+      .select("id, job_number, customer_name, final_price_agorot, payment_due_on");
+
+    // the columns arrive with a migration; before that there is nothing to chase
+    if (error || !due || due.length === 0) return;
+
+    const rows = due.map((j: any) => ({
+      job_id: j.id,
+      type: "payment_due",
+      message:
+        `התשלום על עבודה ${j.job_number} (${j.customer_name}) בסך ${formatAgorotPlain(j.final_price_agorot ?? 0)} ` +
+        `היה אמור להיכנס עד ${formatDateHe(j.payment_due_on)}. כדאי לבדוק בחשבון אם הכסף נכנס, ולסמן.`,
+    }));
+
+    await supabase.from("notifications").insert(rows);
+
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+      due.forEach((j: any) => {
+        new Notification("תשלום שאמור היה להיכנס", {
+          body: `${j.customer_name} — ${formatAgorotPlain(j.final_price_agorot ?? 0)}, עד ${formatDateHe(j.payment_due_on)}`,
+          tag: `payment-${j.id}`,
+        });
+      });
+    }
+
+    refresh();
+  }, [supabase, refresh]);
+
   // The customer's own confirmation arrives from the database, not from here:
   // the page they tapped wrote the notice. All this does is make sure it
   // reaches the phone rather than waiting quietly in the bell. The ids already
@@ -203,10 +249,12 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     refresh();
     checkStaleJobs();
     checkUpcomingAppointments();
+    checkDuePayments();
     announceConfirmations();
     const interval = setInterval(() => {
       checkStaleJobs();
       checkUpcomingAppointments();
+      checkDuePayments();
       announceConfirmations();
     }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);

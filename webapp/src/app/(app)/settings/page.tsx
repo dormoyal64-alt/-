@@ -326,10 +326,33 @@ export default function SettingsPage() {
           </div>
 
           {exempt ? (
-            <p className="rounded-xl border border-dashed border-ink-200 bg-ink-50 px-3.5 py-3 text-sm text-ink-600">
-              אין מע״מ לחשב. כל מה שנכנס מעבודה הוא שלכם — עדיין חייבים עליו מס הכנסה וביטוח
-              לאומי לפי הרווח, אבל זה לא מחושב כאן.
-            </p>
+            <>
+              <p className="rounded-xl border border-dashed border-ink-200 bg-ink-50 px-3.5 py-3 text-sm text-ink-600">
+                אין מע״מ לחשב. כל מה שנכנס מעבודה הוא שלכם — עדיין חייבים עליו מס הכנסה וביטוח
+                לאומי לפי הרווח, אבל זה לא מחושב כאן.
+              </p>
+              <div className="sm:max-w-[260px]">
+                <Label>תקרת המחזור השנתית (₪)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  dir="ltr"
+                  key={String(settings?.exempt_ceiling_agorot)}
+                  defaultValue={Math.round((settings?.exempt_ceiling_agorot ?? 12283300) / 100)}
+                  onBlur={(e) => {
+                    const shekels = Math.round(Number(e.target.value));
+                    const agorot = shekels * 100;
+                    if (shekels > 0 && agorot !== (settings?.exempt_ceiling_agorot ?? 12283300)) {
+                      saveBusinessField("exempt_ceiling_agorot", String(agorot));
+                    }
+                  }}
+                />
+                <p className="mt-1 text-xs text-ink-400">
+                  מתפרסמת מחדש בכל שנה. זו התקרה שמסך ״מחזור שנתי ותקרה״ מודד מולה.
+                </p>
+              </div>
+            </>
           ) : (
           <>
           <p className="text-sm text-ink-500">

@@ -18,6 +18,7 @@ import {
   Building2,
   UserCog,
   Scale,
+  Gauge,
   FileSpreadsheet,
   Sparkles,
   type LucideIcon,
@@ -43,6 +44,7 @@ export const mainNav: NavItem[] = [
 ];
 
 export const reportsNav: NavItem[] = [
+  { href: "/annual", label: "מחזור שנתי ותקרה", icon: Gauge, ownerOnly: true },
   { href: "/balance", label: "מאזן — נכנס ויצא", icon: Scale, ownerOnly: true },
   { href: "/profit", label: "רווח נקי", icon: PiggyBank, ownerOnly: true },
   { href: "/expenses", label: "הוצאות קבועות", icon: Wallet, ownerOnly: true },

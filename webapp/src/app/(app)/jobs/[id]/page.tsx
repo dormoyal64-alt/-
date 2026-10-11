@@ -38,6 +38,7 @@ import { Timeline, type TimelineEntry } from "@/components/jobs/Timeline";
 import { fetchJob, changeJobStatus, closeJob, reopenJob, reassignJob, duplicateJob, deleteJob, deleteJobBlockedReason, issueReceipt, fetchReceipt, stampConfirmationStep, type ConfirmationStep } from "@/lib/api/jobs";
 import { ReceiptCard } from "@/components/jobs/ReceiptCard";
 import { ReceiptStatusCard } from "@/components/jobs/ReceiptStatusCard";
+import { PaymentDueCard } from "@/components/jobs/PaymentDueCard";
 import { CustomerApprovalCard } from "@/components/jobs/CustomerApprovalCard";
 import { JobExpensesCard } from "@/components/jobs/JobExpensesCard";
 import { ContractorReceiptsCard } from "@/components/jobs/ContractorReceiptsCard";
@@ -231,9 +232,24 @@ export default function JobDetailPage() {
     }
   }
 
-  async function handleClose(input: Parameters<typeof closeJob>[2] & { issueReceipt?: boolean }) {
+  async function handleClose(
+    input: Parameters<typeof closeJob>[2] & { issueReceipt?: boolean; paymentTermsDays?: number }
+  ) {
     setBusy(true);
     try {
+      // the terms go on the job before it closes, never after: the database
+      // works out when payment is due — and whether it has already been
+      // received — the moment the job becomes closed, and it can only get
+      // that right if it already knows how this one is paid
+      const terms = input.paymentTermsDays ?? 0;
+      if (terms !== (job!.payment_terms_days ?? 0)) {
+        const { error } = await supabase
+          .from("jobs")
+          .update({ payment_terms_days: terms, is_institution: job!.is_institution || terms > 0 })
+          .eq("id", job!.id);
+        // an older database without the column must not block a closing
+        if (error && !/column .* does not exist|payment_terms_days/i.test(error.message)) throw error;
+      }
       await closeJob(supabase, job!.id, input);
       setCloseOpen(false);
 
@@ -458,7 +474,11 @@ export default function JobDetailPage() {
         </Card>
       )}
 
-      {job.is_closed && !!job.final_price_agorot && (
+      {/* work that is finished but not yet paid for is its own state, and the
+          receipt below waits on it */}
+      {isOwner && <PaymentDueCard job={job} onChanged={load} />}
+
+      {job.is_closed && !!job.final_price_agorot && !(job.payment_terms_days > 0 && !job.paid_at) && (
         receipt && !receipt.cancelled_at ? (
           <ReceiptCard receipt={receipt} />
         ) : (

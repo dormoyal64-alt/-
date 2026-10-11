@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, MessageCircle, ArrowLeft, Briefcase, Eye, EyeOff, Send, BellOff, Loader2, CalendarCheck } from "lucide-react";
+import { CheckCircle2, MessageCircle, ArrowLeft, Briefcase, Eye, EyeOff, Send, BellOff, Loader2, CalendarCheck, Building2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useToast } from "@/components/ui/Toast";
@@ -18,6 +18,7 @@ import { createJob, stampConfirmationStep } from "@/lib/api/jobs";
 import { useWhatsappSender } from "@/hooks/useWhatsappSender";
 import { agorotToShekels, formatAgorot, shekelsToAgorot } from "@/lib/money";
 import { formatDateHe, todayLocalDate } from "@/lib/dates";
+import { PAYMENT_TERMS } from "@/lib/api/annual";
 import { buildNewJobWhatsappMessage, buildOrderConfirmationMessage, buildWhatsappLink, sendsCustomerPhone, siteOrigin, visitFeeForJob } from "@/lib/whatsapp";
 import type { AddressResult } from "@/hooks/useAddressAutocomplete";
 import type { Helper, JobWithRelations, PerformedBy } from "@/lib/types";
@@ -100,6 +101,11 @@ export default function NewJobPage() {
   const [quotedPrice, setQuotedPrice] = useState("");
   const [paymentMethodId, setPaymentMethodId] = useState("");
   const [leadSourceId, setLeadSourceId] = useState("");
+  // a customer with an accounts department: pays on terms, needs its order
+  // number on the paperwork, and its money is not in until it is in
+  const [isInstitution, setIsInstitution] = useState(false);
+  const [institutionRef, setInstitutionRef] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState(30);
   const [notes, setNotes] = useState("");
   const [openedAt, setOpenedAt] = useState(nowForInput());
   // empty means "as soon as possible"; a value is the hour the customer asked for
@@ -298,6 +304,9 @@ export default function NewJobPage() {
         helper_id: performedBy === "self" && helperId ? helperId : null,
         helper_pay_agorot: performedBy === "self" && helperPayAgorot > 0 ? helperPayAgorot : null,
         lead_source_id: leadSourceId || null,
+        is_institution: isInstitution,
+        institution_ref: isInstitution ? institutionRef.trim() || null : null,
+        payment_terms_days: isInstitution ? paymentTerms : 0,
         notes: notes || null,
         status_id: initialStatus.id,
         // a job written up after the fact belongs to the day it was done; one
@@ -348,6 +357,9 @@ export default function NewJobPage() {
     setQuotedPrice("");
     setPaymentMethodId("");
     setLeadSourceId("");
+    setIsInstitution(false);
+    setInstitutionRef("");
+    setPaymentTerms(30);
     setNotes("");
     setOpenedAt(nowForInput());
     setScheduledAt("");
@@ -1020,9 +1032,70 @@ export default function NewJobPage() {
       {cityId && (
         <Section title="8. פרטי לקוח ועבודה" done={!!(customerName && customerPhone)}>
           <div className="space-y-4">
+            {/* who pays, and when. An institution pays its own way: on terms,
+                against an order number, and long after the work */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setIsInstitution(false)}
+                className={`rounded-xl border px-3 py-2.5 text-sm font-bold transition ${
+                  !isInstitution ? "border-brand-600 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-500"
+                }`}
+              >
+                לקוח רגיל
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsInstitution(true)}
+                className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-bold transition ${
+                  isInstitution ? "border-brand-600 bg-brand-50 text-brand-700" : "border-ink-200 text-ink-500"
+                }`}
+              >
+                <Building2 className="h-4 w-4" /> מוסד
+              </button>
+            </div>
+
+            {isInstitution && (
+              <div className="space-y-3 rounded-xl border border-brand-100 bg-brand-50/50 p-3.5">
+                <div>
+                  <Label>תנאי תשלום</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {PAYMENT_TERMS.filter((t) => t.days > 0).map((t) => (
+                      <button
+                        key={t.days}
+                        type="button"
+                        onClick={() => setPaymentTerms(t.days)}
+                        className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition ${
+                          paymentTerms === t.days
+                            ? "border-brand-600 bg-brand-600 text-white"
+                            : "border-ink-200 bg-white text-ink-600 hover:bg-ink-50"
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Label>מספר הזמנה אצלם (אופציונלי)</Label>
+                  <Input
+                    value={institutionRef}
+                    onChange={(e) => setInstitutionRef(e.target.value)}
+                    placeholder="מספר הזמנה / התקשרות"
+                    dir="ltr"
+                  />
+                </div>
+                <p className="text-xs text-ink-500">
+                  הכסף ייחשב כנכנס רק ביום שבו הוא באמת יגיע. המערכת תחשב מתי הוא אמור להיכנס
+                  (סוף החודש של העבודה ועוד {paymentTerms} ימים), תזכיר לבדוק, והקבלה תופק ליום
+                  שבו התשלום התקבל.
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <Label required>שם הלקוח</Label>
+                <Label required>{isInstitution ? "שם המוסד" : "שם הלקוח"}</Label>
                 <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="שם מלא" />
               </div>
               <div>
