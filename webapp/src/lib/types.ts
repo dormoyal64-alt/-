@@ -661,3 +661,10 @@ export interface AnnualByMonth {
   pending_agorot: number;
   jobs: number;
 }
+
+/** What a year took from institutions, counted beside the channels. */
+export interface AnnualInstitutions {
+  received_agorot: number;
+  pending_agorot: number;
+  jobs: number;
+}

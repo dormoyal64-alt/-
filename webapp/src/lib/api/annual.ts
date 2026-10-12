@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { JOB_SELECT } from "@/lib/api/jobs";
-import type { AnnualByMethod, AnnualByMonth, JobWithRelations } from "@/lib/types";
+import type { AnnualByMethod, AnnualByMonth, AnnualInstitutions, JobWithRelations } from "@/lib/types";
 
 /**
  * The year against the exemption ceiling, and the money still out.
@@ -40,6 +40,23 @@ export async function fetchAnnualByMonth(
   const { data, error } = await supabase.rpc("annual_income_by_month", { p_year: year });
   if (error) return null;
   return (data as AnnualByMonth[]) ?? [];
+}
+
+/**
+ * What of the year came from institutions.
+ *
+ * Read beside the channels rather than among them: the same shekel arrives by
+ * PayBox and comes from a school, and it belongs in the PayBox line once, with
+ * this as "of which".
+ */
+export async function fetchAnnualInstitutions(
+  supabase: SupabaseClient,
+  year: number
+): Promise<AnnualInstitutions | null> {
+  const { data, error } = await supabase.rpc("annual_institution_totals", { p_year: year });
+  if (error) return null;
+  const row = Array.isArray(data) ? data[0] : data;
+  return (row as AnnualInstitutions) ?? { received_agorot: 0, pending_agorot: 0, jobs: 0 };
 }
 
 /** Closed jobs on terms whose money has not landed, the oldest debt first. */

@@ -26,11 +26,12 @@ import {
   dueLabel,
   fetchAnnualByMethod,
   fetchAnnualByMonth,
+  fetchAnnualInstitutions,
   fetchAwaitingPayment,
   markJobPaid,
   termsLabel,
 } from "@/lib/api/annual";
-import type { AnnualByMethod, AnnualByMonth, JobWithRelations } from "@/lib/types";
+import type { AnnualByMethod, AnnualByMonth, AnnualInstitutions, JobWithRelations } from "@/lib/types";
 
 /**
  * The year against the exemption ceiling.
@@ -59,6 +60,8 @@ export default function AnnualPage() {
   const [reported, setReported] = useState<AnnualByMethod[]>([]);
   const [byMonth, setByMonth] = useState<AnnualByMonth[]>([]);
   const [waiting, setWaiting] = useState<JobWithRelations[]>([]);
+  // institution money is already inside the channels; this is the "of which"
+  const [institutions, setInstitutions] = useState<AnnualInstitutions | null>(null);
   // the columns arrive with a migration; until they do the screen says so
   // rather than showing a year of zeros as though that were the truth
   const [ready, setReady] = useState(true);
@@ -70,15 +73,17 @@ export default function AnnualPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [methods, months, owed] = await Promise.all([
+    const [methods, months, owed, inst] = await Promise.all([
       fetchAnnualByMethod(supabase, year),
       fetchAnnualByMonth(supabase, year),
       fetchAwaitingPayment(supabase),
+      fetchAnnualInstitutions(supabase, year),
     ]);
     setReady(methods !== null && months !== null);
     setReported(methods ?? []);
     setByMonth(months ?? []);
     setWaiting(owed ?? []);
+    setInstitutions(inst);
     setLoading(false);
   }, [supabase, year]);
 
@@ -348,6 +353,18 @@ export default function AnnualPage() {
                   </div>
                 );
               })}
+              {!!institutions && institutions.jobs > 0 && (
+                <div className="flex items-start gap-2 rounded-xl bg-brand-50/70 px-3.5 py-2.5 text-xs">
+                  <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+                  <p className="text-ink-600">
+                    <b className="text-ink-900">מתוך זה ממוסדות: {formatAgorot(institutions.received_agorot)}</b>
+                    {" "}ב-{institutions.jobs} עבודות
+                    {institutions.pending_agorot > 0 && <> ועוד {formatAgorot(institutions.pending_agorot)} שטרם נכנסו</>}.
+                    הכסף הזה כבר נספר למעלה, בערוץ שבו הוא באמת הגיע — מוסד הוא מי שמשלם, לא איך.
+                  </p>
+                </div>
+              )}
+
               {byMethod.some((r) => r.bucket === "לא צוין") && (
                 <p className="rounded-xl bg-ink-50 px-3.5 py-2.5 text-xs text-ink-500">
                   <b className="text-ink-700">״לא צוין״</b> הן עבודות שנסגרו בלי שנבחר אמצעי תשלום.
