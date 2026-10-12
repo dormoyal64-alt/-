@@ -52,11 +52,11 @@ const MONTHS = [
 
 export default function AnnualPage() {
   const supabase = useMemo(() => createClient(), []);
-  const { settings } = useRefData();
+  const { settings, paymentMethods } = useRefData();
   const toast = useToast();
 
   const [year, setYear] = useState(() => new Date().getFullYear());
-  const [byMethod, setByMethod] = useState<AnnualByMethod[]>([]);
+  const [reported, setReported] = useState<AnnualByMethod[]>([]);
   const [byMonth, setByMonth] = useState<AnnualByMonth[]>([]);
   const [waiting, setWaiting] = useState<JobWithRelations[]>([]);
   // the columns arrive with a migration; until they do the screen says so
@@ -76,7 +76,7 @@ export default function AnnualPage() {
       fetchAwaitingPayment(supabase),
     ]);
     setReady(methods !== null && months !== null);
-    setByMethod(methods ?? []);
+    setReported(methods ?? []);
     setByMonth(months ?? []);
     setWaiting(owed ?? []);
     setLoading(false);
@@ -85,6 +85,21 @@ export default function AnnualPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  /**
+   * Every channel in use, including the ones that took nothing this year.
+   *
+   * A channel with no income simply has no rows to group, so the database
+   * cannot return it — and a missing line reads as a fault in the screen
+   * rather than as an empty channel. The active payment methods are listed
+   * either way, at zero, so the answer to "where is PayBox" is on the screen.
+   */
+  const byMethod = useMemo(() => {
+    const quiet = paymentMethods
+      .filter((m) => m.is_active && !reported.some((r) => r.bucket === m.name))
+      .map((m) => ({ bucket: m.name, received_agorot: 0, pending_agorot: 0, jobs: 0 }));
+    return [...reported, ...quiet];
+  }, [reported, paymentMethods]);
 
   const received = byMethod.reduce((s, r) => s + r.received_agorot, 0);
   const pending = byMethod.reduce((s, r) => s + r.pending_agorot, 0);
@@ -303,7 +318,7 @@ export default function AnnualPage() {
         <CardBody className="space-y-2">
           {loading ? (
             <p className="text-sm text-ink-400">טוען...</p>
-          ) : byMethod.length === 0 ? (
+          ) : reported.length === 0 && byMethod.length === 0 ? (
             <p className="text-sm text-ink-400">עוד לא נסגרו עבודות בשנה הזו</p>
           ) : (
             <>
@@ -312,13 +327,13 @@ export default function AnnualPage() {
                 return (
                   <div key={row.bucket} className="space-y-1">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="font-semibold text-ink-700">
+                      <span className={`font-semibold ${row.jobs === 0 ? "text-ink-400" : "text-ink-700"}`}>
                         {row.bucket}
                         <span className="mr-1.5 text-xs font-normal text-ink-400">
-                          {row.jobs} עבודות
+                          {row.jobs === 0 ? "לא היה השנה" : `${row.jobs} עבודות`}
                         </span>
                       </span>
-                      <span className="font-extrabold text-ink-900">
+                      <span className={`font-extrabold ${row.jobs === 0 ? "text-ink-300" : "text-ink-900"}`}>
                         {formatAgorot(row.received_agorot)}
                         {row.pending_agorot > 0 && (
                           <span className="mr-1.5 text-xs font-bold text-brand-600">
