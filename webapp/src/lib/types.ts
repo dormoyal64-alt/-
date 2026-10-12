@@ -186,6 +186,8 @@ export interface Job {
   closed_at: string | null;
   /** the customer own company number (ח.פ / ע.מ), when they need one on the receipt */
   customer_tax_id: string | null;
+  /** whether the job note is printed on the receipt as part of the description */
+  notes_on_receipt: boolean;
   /** the customer pays through an accounts department, on terms */
   is_institution: boolean;
   /** their order number, which the paperwork has to carry */

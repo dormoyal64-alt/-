@@ -42,6 +42,8 @@ export function CloseJobModal({
     paymentTermsDays: number;
     /** the customer own ח.פ / ע.מ, printed on the receipt */
     customerTaxId: string | null;
+    /** whether the job note goes on the receipt as part of the description */
+    notesOnReceipt: boolean;
     commissionPct: number;
     referralPct: number | null;
     issueReceipt: boolean;
@@ -96,6 +98,25 @@ export function CloseJobModal({
   // to put it
   const [customerTaxId, setCustomerTaxId] = useState(job.customer_tax_id ?? "");
   const hasTaxId = "customer_tax_id" in job;
+
+  /**
+   * The note, on the receipt the customer keeps.
+   *
+   * What was actually done is written on the job and nowhere else; without it
+   * a receipt says only what trade it was. It goes out by default, and can be
+   * held back for one job without editing the note itself — the note was not
+   * written for a customer's eyes until now.
+   */
+  const jobNote = job.notes?.trim() ?? "";
+  const hasNoteFlag = "notes_on_receipt" in job;
+  const [notesOnReceipt, setNotesOnReceipt] = useState(job.notes_on_receipt ?? true);
+  const receiptDescription = [
+    [job.profession?.name, job.job_type?.name].filter(Boolean).join(" — "),
+    notesOnReceipt && jobNote ? jobNote : null,
+    job.institution_ref ? `הזמנה ${job.institution_ref}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const onTerms = paymentTerms > 0;
   const dueOn = onTerms ? dueDate(closedOn, paymentTerms) : null;
   // starts from the standing preference in settings, changeable per closing
@@ -174,6 +195,7 @@ export function CloseJobModal({
       closedAt: closedOn === today ? new Date().toISOString() : new Date(`${closedOn}T12:00:00`).toISOString(),
       paymentTermsDays: paymentTerms,
       customerTaxId: customerTaxId.trim() || null,
+      notesOnReceipt,
       commissionPct: effectivePct,
       referralPct: hasCompany ? effectiveReferralPct : null,
       issueReceipt: closedSuccessfully && issueReceipt && !onTerms,
@@ -579,6 +601,22 @@ export function CloseJobModal({
               </span>
             </span>
           </button>
+        )}
+
+        {closedSuccessfully && withReceipt && (
+          <div className="rounded-xl border border-ink-100 bg-ink-50 px-3.5 py-3">
+            <p className="text-xs font-bold text-ink-500">מה יהיה כתוב בקבלה</p>
+            <p className="mt-0.5 text-sm font-semibold text-ink-900">{receiptDescription || "—"}</p>
+            {hasNoteFlag && jobNote && (
+              <button
+                type="button"
+                onClick={() => setNotesOnReceipt((v) => !v)}
+                className="mt-2 text-xs font-bold text-brand-700 underline underline-offset-2"
+              >
+                {notesOnReceipt ? "בלי ההערה בקבלה" : "להוסיף את ההערה לקבלה"}
+              </button>
+            )}
+          </div>
         )}
 
         {closedSuccessfully && withReceipt && hasTaxId && (

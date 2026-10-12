@@ -237,6 +237,7 @@ export default function JobDetailPage() {
       issueReceipt?: boolean;
       paymentTermsDays?: number;
       customerTaxId?: string | null;
+      notesOnReceipt?: boolean;
     }
   ) {
     setBusy(true);
@@ -253,10 +254,16 @@ export default function JobDetailPage() {
         patch.is_institution = job!.is_institution || terms > 0;
       }
       if (taxId !== (job!.customer_tax_id ?? null)) patch.customer_tax_id = taxId;
+      if (input.notesOnReceipt !== undefined && input.notesOnReceipt !== (job!.notes_on_receipt ?? true)) {
+        patch.notes_on_receipt = input.notesOnReceipt;
+      }
       if (Object.keys(patch).length > 0) {
         const { error } = await supabase.from("jobs").update(patch).eq("id", job!.id);
         // an older database without the columns must not block a closing
-        if (error && !/column .* does not exist|payment_terms_days|customer_tax_id/i.test(error.message)) {
+        if (
+          error &&
+          !/column .* does not exist|payment_terms_days|customer_tax_id|notes_on_receipt/i.test(error.message)
+        ) {
           throw error;
         }
       }
