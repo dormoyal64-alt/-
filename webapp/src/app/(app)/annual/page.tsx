@@ -348,6 +348,12 @@ export default function AnnualPage() {
                   </div>
                 );
               })}
+              {byMethod.some((r) => r.bucket === "לא צוין") && (
+                <p className="rounded-xl bg-ink-50 px-3.5 py-2.5 text-xs text-ink-500">
+                  <b className="text-ink-700">״לא צוין״</b> הן עבודות שנסגרו בלי שנבחר אמצעי תשלום.
+                  כדי לשייך אותן: פותחים את העבודה ← עריכה ← אמצעי תשלום.
+                </p>
+              )}
               <div className="flex items-center justify-between border-t border-ink-100 pt-2 text-sm">
                 <span className="font-bold text-ink-700">סך הכל נכנס</span>
                 <span className="font-extrabold text-success-700">{formatAgorot(received)}</span>

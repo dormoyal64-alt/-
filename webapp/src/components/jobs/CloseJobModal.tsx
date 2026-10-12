@@ -305,17 +305,34 @@ export function CloseJobModal({
               )}
             </div>
             <div>
-              <Label>אמצעי תשלום סופי</Label>
-              <select value={finalPaymentMethodId} onChange={(e) => setFinalPaymentMethodId(e.target.value)} className="input">
-                <option value="">לא נבחר</option>
+              <Label required>איך שילמו</Label>
+              {/* buttons rather than a dropdown: this is the field that decides
+                  which channel the money is counted under all year, and a list
+                  that opens, scrolls and closes is the one people skip */}
+              <div className="flex flex-wrap gap-2">
                 {paymentMethods
                   .filter((p) => p.is_active)
                   .map((p) => (
-                    <option key={p.id} value={p.id}>
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setFinalPaymentMethodId(p.id)}
+                      className={`rounded-full border px-3.5 py-2 text-sm font-bold transition ${
+                        finalPaymentMethodId === p.id
+                          ? "border-brand-600 bg-brand-600 text-white"
+                          : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                      }`}
+                    >
                       {p.name}
-                    </option>
+                    </button>
                   ))}
-              </select>
+              </div>
+              {!finalPaymentMethodId && (
+                <p className="mt-1.5 text-xs font-semibold text-warning-700">
+                  בלי לבחור, העבודה תיספר תחת ״לא צוין״ במסך המחזור השנתי ולא תחת אמצעי התשלום
+                  שבאמת קיבלת.
+                </p>
+              )}
             </div>
             {isOwner && (
             <div>
