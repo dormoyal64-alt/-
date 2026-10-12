@@ -85,6 +85,7 @@ export function receiptHtml(r: Receipt, current?: BusinessDetails | AppSettings 
   <div class="section-title">פרטי הלקוח</div>
   <table class="kv">
     ${row("שם", r.customer_name)}
+    ${row("ח.פ / ע.מ", r.customer_tax_id ?? null)}
     ${row("טלפון", r.customer_phone)}
     ${row("כתובת", r.customer_address)}
   </table>

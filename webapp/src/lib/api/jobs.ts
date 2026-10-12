@@ -55,6 +55,8 @@ export interface CreateJobInput {
    */
   reminder_sent_at?: string | null;
   /** the customer is an institution, paying through an accounts department */
+  /** the customer own ח.פ / ע.מ, printed on their receipt */
+  customer_tax_id?: string | null;
   is_institution?: boolean;
   institution_ref?: string | null;
   /** days after the end of the closing month that payment is due */

@@ -37,7 +37,21 @@ function canShareFiles() {
  * No browser can put a file into WhatsApp by itself. Two taps is the floor,
  * and this card makes them the right two.
  */
-export function ReceiptCard({ receipt }: { receipt: Receipt }) {
+export function ReceiptCard({
+  receipt,
+  customerTaxId,
+}: {
+  receipt: Receipt;
+  /**
+   * The customer's number as the job holds it now.
+   *
+   * Used only where the receipt captured none — the number arrived after it was
+   * issued, which is the usual way it arrives. The same rule the business's own
+   * details follow: what was captured stands, and a blank is filled from what is
+   * true now rather than sending the customer back for a new receipt.
+   */
+  customerTaxId?: string | null;
+}) {
   const toast = useToast();
   const { settings } = useRefData();
   const [busy, setBusy] = useState(false);
@@ -47,6 +61,8 @@ export function ReceiptCard({ receipt }: { receipt: Receipt }) {
   // what will actually head the receipt: what it captured, and the details in
   // force now wherever it captured nothing
   const biz = businessOnReceipt(receipt, settings);
+  const doc: Receipt =
+    receipt.customer_tax_id || !customerTaxId ? receipt : { ...receipt, customer_tax_id: customerTaxId };
   const unsigned = !biz.business_name || !biz.business_number;
 
   // the name and number go in the message too, so the customer can see who it
@@ -75,7 +91,7 @@ export function ReceiptCard({ receipt }: { receipt: Receipt }) {
   async function sendFile() {
     setBusy(true);
     try {
-      const how = await deliverReceipt(receipt, settings);
+      const how = await deliverReceipt(doc, settings);
       if (how === "downloaded") toast.success("הקבלה ירדה למכשיר — אפשר לצרף אותה לשיחה");
       else if (how === "shared") toast.success("הקבלה נשלחה");
     } catch {

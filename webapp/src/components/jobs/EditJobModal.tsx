@@ -15,6 +15,8 @@ import type { JobWithRelations, PerformedBy } from "@/lib/types";
 export interface EditJobValues {
   customer_name: string;
   customer_phone: string;
+  /** the customer own ח.פ / ע.מ, for the receipt; absent on a database without the column */
+  customer_tax_id?: string | null;
   address_full: string | null;
   address_street: string | null;
   address_house_number: string | null;
@@ -55,6 +57,10 @@ export function EditJobModal({
   const { paymentMethods, leadSources } = useRefData();
   const [customerName, setCustomerName] = useState(job.customer_name);
   const [customerPhone, setCustomerPhone] = useState(job.customer_phone);
+  const [customerTaxId, setCustomerTaxId] = useState(job.customer_tax_id ?? "");
+  // a database that has not had the migration has no such column, and sending
+  // it would fail the whole edit
+  const hasTaxId = "customer_tax_id" in job;
   const [addressQuery, setAddressQuery] = useState(job.address_full ?? "");
   const [addressResult, setAddressResult] = useState<AddressResult | null>(null);
   const [quotedPrice, setQuotedPrice] = useState(job.quoted_price_agorot ? String(job.quoted_price_agorot / 100) : "");
@@ -89,6 +95,7 @@ export function EditJobModal({
     await onSubmit({
       customer_name: customerName.trim(),
       customer_phone: customerPhone.trim(),
+      ...(hasTaxId ? { customer_tax_id: customerTaxId.trim() || null } : {}),
       address_full: addressResult?.displayName ?? addressQuery ?? null,
       address_street: addressResult?.street ?? job.address_street,
       address_house_number: addressResult?.houseNumber ?? job.address_house_number,
@@ -125,6 +132,16 @@ export function EditJobModal({
           <div>
             <Label required>טלפון הלקוח</Label>
             <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} dir="ltr" />
+          </div>
+          <div className={hasTaxId ? "" : "hidden"}>
+            <Label>ח.פ / ע.מ של הלקוח</Label>
+            <Input
+              value={customerTaxId}
+              onChange={(e) => setCustomerTaxId(e.target.value)}
+              placeholder="512345678"
+              dir="ltr"
+              inputMode="numeric"
+            />
           </div>
         </div>
         <div>

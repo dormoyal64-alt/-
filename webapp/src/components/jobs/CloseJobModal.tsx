@@ -40,6 +40,8 @@ export function CloseJobModal({
     closedAt: string;
     /** days after the end of the month that payment is due; 0 is on the spot */
     paymentTermsDays: number;
+    /** the customer own ח.פ / ע.מ, printed on the receipt */
+    customerTaxId: string | null;
     commissionPct: number;
     referralPct: number | null;
     issueReceipt: boolean;
@@ -89,6 +91,11 @@ export function CloseJobModal({
    * there is nothing to give a receipt for until it does.
    */
   const [paymentTerms, setPaymentTerms] = useState(job.payment_terms_days ?? 0);
+  // asked for here because this is the moment a receipt is produced, and a
+  // business customer handing over their number at the door has nowhere else
+  // to put it
+  const [customerTaxId, setCustomerTaxId] = useState(job.customer_tax_id ?? "");
+  const hasTaxId = "customer_tax_id" in job;
   const onTerms = paymentTerms > 0;
   const dueOn = onTerms ? dueDate(closedOn, paymentTerms) : null;
   // starts from the standing preference in settings, changeable per closing
@@ -166,6 +173,7 @@ export function CloseJobModal({
       // no time zone can drag it into the day before or after
       closedAt: closedOn === today ? new Date().toISOString() : new Date(`${closedOn}T12:00:00`).toISOString(),
       paymentTermsDays: paymentTerms,
+      customerTaxId: customerTaxId.trim() || null,
       commissionPct: effectivePct,
       referralPct: hasCompany ? effectiveReferralPct : null,
       issueReceipt: closedSuccessfully && issueReceipt && !onTerms,
@@ -554,6 +562,23 @@ export function CloseJobModal({
               </span>
             </span>
           </button>
+        )}
+
+        {closedSuccessfully && withReceipt && hasTaxId && (
+          <div>
+            <Label>ח.פ / ע.מ של הלקוח (אופציונלי)</Label>
+            <Input
+              value={customerTaxId}
+              onChange={(e) => setCustomerTaxId(e.target.value)}
+              placeholder="512345678"
+              dir="ltr"
+              inputMode="numeric"
+            />
+            <p className="mt-1 text-xs text-ink-400">
+              לעסק או למוסד — בלי המספר הזה הם לא יכולים לרשום את הקבלה אצלם. יופיע על הקבלה
+              מתחת לשם הלקוח.
+            </p>
+          </div>
         )}
 
         {closedSuccessfully && withReceipt && onTerms && (

@@ -184,6 +184,8 @@ export interface Job {
   payment_received_by: PaymentReceivedBy | null;
   closing_notes: string | null;
   closed_at: string | null;
+  /** the customer own company number (ח.פ / ע.מ), when they need one on the receipt */
+  customer_tax_id: string | null;
   /** the customer pays through an accounts department, on terms */
   is_institution: boolean;
   /** their order number, which the paperwork has to carry */
@@ -536,6 +538,8 @@ export interface Receipt {
   customer_name: string;
   customer_phone: string | null;
   customer_address: string | null;
+  /** the customer own ח.פ / ע.מ, as it stood when the receipt was issued */
+  customer_tax_id: string | null;
   description: string | null;
   business_name: string | null;
   business_number: string | null;

@@ -233,22 +233,32 @@ export default function JobDetailPage() {
   }
 
   async function handleClose(
-    input: Parameters<typeof closeJob>[2] & { issueReceipt?: boolean; paymentTermsDays?: number }
+    input: Parameters<typeof closeJob>[2] & {
+      issueReceipt?: boolean;
+      paymentTermsDays?: number;
+      customerTaxId?: string | null;
+    }
   ) {
     setBusy(true);
     try {
-      // the terms go on the job before it closes, never after: the database
-      // works out when payment is due — and whether it has already been
-      // received — the moment the job becomes closed, and it can only get
-      // that right if it already knows how this one is paid
+      // the terms and the customer's number go on the job before it closes,
+      // never after: the database works out when payment is due — and whether
+      // it has already been received — the moment the job becomes closed, and
+      // the receipt issued a breath later copies the number off the job
       const terms = input.paymentTermsDays ?? 0;
+      const taxId = input.customerTaxId ?? null;
+      const patch: Record<string, unknown> = {};
       if (terms !== (job!.payment_terms_days ?? 0)) {
-        const { error } = await supabase
-          .from("jobs")
-          .update({ payment_terms_days: terms, is_institution: job!.is_institution || terms > 0 })
-          .eq("id", job!.id);
-        // an older database without the column must not block a closing
-        if (error && !/column .* does not exist|payment_terms_days/i.test(error.message)) throw error;
+        patch.payment_terms_days = terms;
+        patch.is_institution = job!.is_institution || terms > 0;
+      }
+      if (taxId !== (job!.customer_tax_id ?? null)) patch.customer_tax_id = taxId;
+      if (Object.keys(patch).length > 0) {
+        const { error } = await supabase.from("jobs").update(patch).eq("id", job!.id);
+        // an older database without the columns must not block a closing
+        if (error && !/column .* does not exist|payment_terms_days|customer_tax_id/i.test(error.message)) {
+          throw error;
+        }
       }
       await closeJob(supabase, job!.id, input);
       setCloseOpen(false);
@@ -480,7 +490,7 @@ export default function JobDetailPage() {
 
       {job.is_closed && !!job.final_price_agorot && !(job.payment_terms_days > 0 && !job.paid_at) && (
         receipt && !receipt.cancelled_at ? (
-          <ReceiptCard receipt={receipt} />
+          <ReceiptCard receipt={receipt} customerTaxId={job.customer_tax_id} />
         ) : (
           <button
             type="button"

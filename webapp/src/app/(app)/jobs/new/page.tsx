@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, MessageCircle, ArrowLeft, Briefcase, Eye, EyeOff, Send, BellOff, Loader2, CalendarCheck, Building2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -105,6 +105,33 @@ export default function NewJobPage() {
   // number on the paperwork, and its money is not in until it is in
   const [isInstitution, setIsInstitution] = useState(false);
   const [institutionRef, setInstitutionRef] = useState("");
+  // the customer own company number, for a receipt their bookkeeper has to file
+  const [customerTaxId, setCustomerTaxId] = useState("");
+  /**
+   * Which of the newer columns this database actually has.
+   *
+   * The browser updates the moment it is deployed and the database waits to be
+   * told, so for a little while the form can be newer than the shape it saves
+   * into. Asking first means that gap costs a hidden field rather than every
+   * job failing to save.
+   */
+  const [canInstitution, setCanInstitution] = useState(true);
+  const [canTaxId, setCanTaxId] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([
+      supabase.from("jobs").select("payment_terms_days").limit(1),
+      supabase.from("jobs").select("customer_tax_id").limit(1),
+    ]).then(([terms, tax]) => {
+      if (!alive) return;
+      setCanInstitution(!terms.error);
+      setCanTaxId(!tax.error);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [supabase]);
   const [paymentTerms, setPaymentTerms] = useState(30);
   const [notes, setNotes] = useState("");
   const [openedAt, setOpenedAt] = useState(nowForInput());
@@ -304,9 +331,14 @@ export default function NewJobPage() {
         helper_id: performedBy === "self" && helperId ? helperId : null,
         helper_pay_agorot: performedBy === "self" && helperPayAgorot > 0 ? helperPayAgorot : null,
         lead_source_id: leadSourceId || null,
-        is_institution: isInstitution,
-        institution_ref: isInstitution ? institutionRef.trim() || null : null,
-        payment_terms_days: isInstitution ? paymentTerms : 0,
+        ...(canTaxId ? { customer_tax_id: customerTaxId.trim() || null } : {}),
+        ...(canInstitution
+          ? {
+              is_institution: isInstitution,
+              institution_ref: isInstitution ? institutionRef.trim() || null : null,
+              payment_terms_days: isInstitution ? paymentTerms : 0,
+            }
+          : {}),
         notes: notes || null,
         status_id: initialStatus.id,
         // a job written up after the fact belongs to the day it was done; one
@@ -359,6 +391,7 @@ export default function NewJobPage() {
     setLeadSourceId("");
     setIsInstitution(false);
     setInstitutionRef("");
+    setCustomerTaxId("");
     setPaymentTerms(30);
     setNotes("");
     setOpenedAt(nowForInput());
@@ -1034,7 +1067,7 @@ export default function NewJobPage() {
           <div className="space-y-4">
             {/* who pays, and when. An institution pays its own way: on terms,
                 against an order number, and long after the work */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className={`grid grid-cols-2 gap-2 ${canInstitution ? "" : "hidden"}`}>
               <button
                 type="button"
                 onClick={() => setIsInstitution(false)}
@@ -1055,7 +1088,7 @@ export default function NewJobPage() {
               </button>
             </div>
 
-            {isInstitution && (
+            {isInstitution && canInstitution && (
               <div className="space-y-3 rounded-xl border border-brand-100 bg-brand-50/50 p-3.5">
                 <div>
                   <Label>תנאי תשלום</Label>
@@ -1101,6 +1134,19 @@ export default function NewJobPage() {
               <div>
                 <Label required>טלפון הלקוח</Label>
                 <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="050-1234567" dir="ltr" />
+              </div>
+              <div className={canTaxId ? "" : "hidden"}>
+                {/* a household needs nothing here; a business cannot file the
+                    receipt without it */}
+                <Label>ח.פ / ע.מ של הלקוח (אופציונלי)</Label>
+                <Input
+                  value={customerTaxId}
+                  onChange={(e) => setCustomerTaxId(e.target.value)}
+                  placeholder="512345678"
+                  dir="ltr"
+                  inputMode="numeric"
+                />
+                <p className="mt-1 text-xs text-ink-400">יופיע על הקבלה, מתחת לשם הלקוח.</p>
               </div>
             </div>
 
