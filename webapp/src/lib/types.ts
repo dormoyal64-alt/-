@@ -670,3 +670,54 @@ export interface AnnualInstitutions {
   pending_agorot: number;
   jobs: number;
 }
+
+// ---- הצעות מחיר ----
+
+export type QuoteStatus = "draft" | "sent" | "accepted" | "declined" | "expired";
+
+/**
+ * A price given to a customer in writing, before the work.
+ *
+ * Not a tax document and not income: nothing here reaches the receipt sequence
+ * or the yearly turnover until the work is done and closed as a job.
+ */
+export interface Quote {
+  id: string;
+  quote_number: string;
+  customer_name: string;
+  customer_phone: string | null;
+  customer_address: string | null;
+  /** the customer's own ח.פ / ע.מ, when they are a company */
+  customer_tax_id: string | null;
+  profession_id: string | null;
+  job_type_id: string | null;
+  title: string | null;
+  /** summed from the lines by the database; never written by the app */
+  total_agorot: number;
+  valid_until: string | null;
+  notes: string | null;
+  status: QuoteStatus;
+  sent_at: string | null;
+  sent_to: string | null;
+  answered_at: string | null;
+  /** set once the quote became real work */
+  job_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** One priced line of a quote. */
+export interface QuoteLine {
+  id: string;
+  quote_id: string;
+  description: string;
+  qty: number;
+  unit_price_agorot: number;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface QuoteWithLines extends Quote {
+  quote_lines: QuoteLine[];
+}

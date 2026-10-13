@@ -20,6 +20,7 @@ import {
   Scale,
   Gauge,
   FileSpreadsheet,
+  FileText,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -37,6 +38,9 @@ export const mainNav: NavItem[] = [
   { href: "/jobs", label: "עבודות", icon: Briefcase },
   { href: "/schedule", label: "לוח זמנים", icon: CalendarClock },
   { href: "/jobs/new", label: "הוספת עבודה", icon: PlusCircle },
+  // a quote carries every price the business charges, so it sits with the
+  // money rather than with the work a contractor can see
+  { href: "/quotes", label: "הצעות מחיר", icon: FileText, ownerOnly: true },
   { href: "/contractors", label: "קבלנים", icon: Users },
   // the assistant acts on the business's behalf and asks the owner to approve
   // anything that moves money, so it belongs to the owner alone
