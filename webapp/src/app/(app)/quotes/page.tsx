@@ -37,6 +37,7 @@ import {
   listQuotes,
   markQuoteSent,
   setQuoteStatus,
+  supportsNameOverride,
   updateQuote,
   type QuoteDraft,
 } from "@/lib/api/quotes";
@@ -81,6 +82,9 @@ export default function QuotesPage() {
   const [loading, setLoading] = useState(true);
   // null while unknown, false once the database answered without the table
   const [available, setAvailable] = useState(true);
+  // the per-quote name arrived after the table did, so it is asked about
+  // separately: the screen works either way
+  const [canOverrideName, setCanOverrideName] = useState(false);
   const [filter, setFilter] = useState<"all" | QuoteStatus>("all");
 
   const [formOpen, setFormOpen] = useState(false);
@@ -101,6 +105,18 @@ export default function QuotesPage() {
     load();
   }, [load]);
 
+  // asked once, not on every reload: the answer cannot change while the page
+  // is open, and a probe that fails is a 400 in the console each time
+  useEffect(() => {
+    let alive = true;
+    supportsNameOverride(supabase).then((ok) => {
+      if (alive) setCanOverrideName(ok);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [supabase]);
+
   /** The quote's status as it should read today, expiry included. */
   const shownStatus = useCallback(
     (q: QuoteWithLines): QuoteStatus => (isExpired(q) ? "expired" : q.status),
@@ -112,6 +128,7 @@ export default function QuotesPage() {
       buildQuoteWhatsappMessage(q, q.quote_lines ?? [], settings, {
         professionName: professions.find((p) => p.id === q.profession_id)?.name,
         jobTypeName: jobTypes.find((jt) => jt.id === q.job_type_id)?.name,
+        profession: professions.find((p) => p.id === q.profession_id) ?? null,
       }),
     [settings, professions, jobTypes]
   );
@@ -119,8 +136,8 @@ export default function QuotesPage() {
   async function save(draft: QuoteDraft, send: boolean) {
     try {
       const saved = editing
-        ? await updateQuote(supabase, editing.id, draft)
-        : await createQuote(supabase, draft);
+        ? await updateQuote(supabase, editing.id, draft, canOverrideName)
+        : await createQuote(supabase, draft, canOverrideName);
       setFormOpen(false);
       setEditing(null);
       await load();
@@ -406,6 +423,8 @@ export default function QuotesPage() {
         editing={editing}
         professions={professions}
         jobTypes={jobTypes}
+        settings={settings}
+        canOverrideName={canOverrideName}
         onSubmit={save}
       />
 

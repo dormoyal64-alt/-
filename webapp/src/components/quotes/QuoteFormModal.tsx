@@ -6,9 +6,9 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select, Textarea } from "@/components/ui/Input";
 import { formatAgorot, shekelsToAgorot, agorotToShekels } from "@/lib/money";
-import { lineTotal, quoteTotal, validUntilFrom, VALIDITY_CHOICES } from "@/lib/quotes";
+import { lineTotal, quoteBusinessName, quoteTotal, validUntilFrom, VALIDITY_CHOICES } from "@/lib/quotes";
 import type { QuoteDraft, QuoteLineDraft } from "@/lib/api/quotes";
-import type { JobType, Profession, QuoteWithLines } from "@/lib/types";
+import type { AppSettings, JobType, Profession, QuoteWithLines } from "@/lib/types";
 
 /**
  * Writing a quote.
@@ -50,6 +50,8 @@ export function QuoteFormModal({
   editing,
   professions,
   jobTypes,
+  settings,
+  canOverrideName,
   onSubmit,
 }: {
   open: boolean;
@@ -58,6 +60,9 @@ export function QuoteFormModal({
   editing: QuoteWithLines | null;
   professions: Profession[];
   jobTypes: JobType[];
+  settings: AppSettings | null;
+  /** false until the database has the per-quote name column */
+  canOverrideName: boolean;
   onSubmit: (draft: QuoteDraft, send: boolean) => Promise<void>;
 }) {
   const [customerName, setCustomerName] = useState("");
@@ -69,6 +74,7 @@ export function QuoteFormModal({
   const [title, setTitle] = useState("");
   const [validUntil, setValidUntil] = useState(validUntilFrom(14));
   const [notes, setNotes] = useState("");
+  const [businessName, setBusinessName] = useState("");
   const [lines, setLines] = useState<LineRow[]>([emptyLine()]);
   const [busy, setBusy] = useState<"save" | "send" | null>(null);
 
@@ -85,6 +91,7 @@ export function QuoteFormModal({
     setTitle(editing?.title ?? "");
     setValidUntil(editing?.valid_until ?? validUntilFrom(14));
     setNotes(editing?.notes ?? "");
+    setBusinessName(editing?.business_name_override ?? "");
     const existing = [...(editing?.quote_lines ?? [])].sort((a, b) => a.sort_order - b.sort_order);
     setLines(
       existing.length
@@ -98,6 +105,10 @@ export function QuoteFormModal({
     );
     setBusy(null);
   }, [open, editing]);
+
+  // what the quote will actually be signed with, as the trade is picked
+  const chosenProfession = professions.find((p) => p.id === professionId) ?? null;
+  const fallbackName = quoteBusinessName(null, chosenProfession, settings) ?? "";
 
   const relevantJobTypes = useMemo(
     () => jobTypes.filter((jt) => jt.is_active && (!professionId || jt.profession_id === professionId)),
@@ -127,6 +138,7 @@ export function QuoteFormModal({
           title,
           valid_until: validUntil || null,
           notes,
+          business_name_override: businessName,
           lines: draftLines,
         },
         send
@@ -236,6 +248,30 @@ export function QuoteFormModal({
               מופיעה בראש ההצעה. אם תשאירו ריק, יופיעו התחום וסוג העבודה.
             </p>
           </div>
+
+          {canOverrideName && (
+            <div>
+              <Label>שם העסק בהצעה הזו</Label>
+              <Input
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                placeholder={fallbackName || "שם העסק"}
+              />
+              <p className="mt-1 text-xs text-ink-400">
+                {businessName.trim() ? (
+                  <>
+                    ההצעה תצא בשם <bdi className="font-bold">{businessName.trim()}</bdi> במקום{" "}
+                    <bdi>{fallbackName || "שם העסק"}</bdi>.
+                  </>
+                ) : (
+                  <>
+                    ריק = <bdi className="font-bold">{fallbackName || "שם העסק"}</bdi>, לפי התחום
+                    שבחרתם. הע.פ והטלפון זהים תמיד, והקבלה תמיד יוצאת על השם הרשום.
+                  </>
+                )}
+              </p>
+            </div>
+          )}
         </section>
 
         {/* ---- the breakdown ---- */}

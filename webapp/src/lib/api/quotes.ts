@@ -29,7 +29,22 @@ export interface QuoteDraft {
   title: string | null;
   valid_until: string | null;
   notes: string | null;
+  /** the name heading this one quote; null uses the trade's, then the business's */
+  business_name_override: string | null;
   lines: QuoteLineDraft[];
+}
+
+/**
+ * Whether this database has the per-quote name yet.
+ *
+ * Vercel deploys the moment the code is pushed; the SQL is run by hand some
+ * minutes or days later. In between, naming a column the database has not got
+ * fails the whole insert — so the screen asks first and simply leaves the
+ * field out until the answer is yes.
+ */
+export async function supportsNameOverride(supabase: SupabaseClient): Promise<boolean> {
+  const { error } = await supabase.from("quotes").select("business_name_override").limit(1);
+  return !error;
 }
 
 export async function listQuotes(
@@ -53,7 +68,7 @@ export async function fetchQuote(supabase: SupabaseClient, id: string): Promise<
   return (data as unknown as QuoteWithLines) ?? null;
 }
 
-function quoteColumns(draft: QuoteDraft) {
+function quoteColumns(draft: QuoteDraft, canOverrideName: boolean) {
   return {
     customer_name: draft.customer_name.trim(),
     customer_phone: draft.customer_phone?.trim() || null,
@@ -64,6 +79,9 @@ function quoteColumns(draft: QuoteDraft) {
     title: draft.title?.trim() || null,
     valid_until: draft.valid_until || null,
     notes: draft.notes?.trim() || null,
+    ...(canOverrideName
+      ? { business_name_override: draft.business_name_override?.trim() || null }
+      : {}),
   };
 }
 
@@ -81,12 +99,13 @@ function lineRows(quoteId: string, lines: QuoteLineDraft[]) {
 
 export async function createQuote(
   supabase: SupabaseClient,
-  draft: QuoteDraft
+  draft: QuoteDraft,
+  canOverrideName = true
 ): Promise<QuoteWithLines> {
   const { data: auth } = await supabase.auth.getUser();
   const { data: quote, error } = await supabase
     .from("quotes")
-    .insert({ ...quoteColumns(draft), created_by: auth?.user?.id ?? null })
+    .insert({ ...quoteColumns(draft, canOverrideName), created_by: auth?.user?.id ?? null })
     .select("*")
     .single();
   if (error) throw error;
@@ -117,9 +136,13 @@ export async function createQuote(
 export async function updateQuote(
   supabase: SupabaseClient,
   id: string,
-  draft: QuoteDraft
+  draft: QuoteDraft,
+  canOverrideName = true
 ): Promise<QuoteWithLines> {
-  const { error } = await supabase.from("quotes").update(quoteColumns(draft)).eq("id", id);
+  const { error } = await supabase
+    .from("quotes")
+    .update(quoteColumns(draft, canOverrideName))
+    .eq("id", id);
   if (error) throw error;
 
   const { error: clearError } = await supabase.from("quote_lines").delete().eq("quote_id", id);

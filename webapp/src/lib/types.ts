@@ -13,6 +13,8 @@ export interface Profession {
   visit_fee_agorot: number | null;
   /** late-cancellation fee for this trade; null falls back to the standing fee */
   cancellation_fee_agorot: number | null;
+  /** the name that heads a quote for this trade; null uses the business's own */
+  quote_business_name: string | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -692,6 +694,8 @@ export interface Quote {
   profession_id: string | null;
   job_type_id: string | null;
   title: string | null;
+  /** the name for this one quote; null falls back to the trade, then the business */
+  business_name_override: string | null;
   /** summed from the lines by the database; never written by the app */
   total_agorot: number;
   valid_until: string | null;

@@ -1,4 +1,4 @@
-import type { AppSettings, Quote, QuoteLine, QuoteStatus } from "@/lib/types";
+import type { AppSettings, Profession, Quote, QuoteLine, QuoteStatus } from "@/lib/types";
 import { formatAgorotPlain } from "@/lib/money";
 import { contactPhone } from "@/lib/whatsapp";
 
@@ -89,16 +89,52 @@ export function taxNote(settings: QuoteSettings | null | undefined): string {
 }
 
 /**
+ * Whose name heads this quote.
+ *
+ * One עוסק פטור, one ע.פ — that is fixed, and it is the same on a plumbing
+ * job and an electrical one. The name is not. A customer who asks for a price
+ * on an electrical board and gets it back from "ביוביות בדרום" reads it as a
+ * wrong number, and the quote is lost before the price was ever considered.
+ *
+ * So three levels, the same ladder the call-out fee uses: this quote's own
+ * answer, then the trade's, then the business's standing name. Each is
+ * consulted only when the one before it has nothing to say, which is what lets
+ * one name cover a whole trade while a single quote overrides it.
+ *
+ * A quote is not a tax document, which is the only reason this is allowed to
+ * exist. A receipt must carry the registered name and goes nowhere near here.
+ */
+export function quoteBusinessName(
+  quote: Pick<Quote, "business_name_override"> | null | undefined,
+  profession: Pick<Profession, "quote_business_name"> | null | undefined,
+  settings: QuoteSettings | null | undefined
+): string | null {
+  return (
+    quote?.business_name_override?.trim() ||
+    profession?.quote_business_name?.trim() ||
+    settings?.business_name?.trim() ||
+    null
+  );
+}
+
+/**
  * The business's own sign-off, at the foot of every quote.
  *
  * Name and ע.פ, because a price quoted by a nameless WhatsApp number is not
  * something a customer — least of all a company or a school — can put through
  * their own books. The phone goes with it so the answer has somewhere to go.
+ *
+ * The name can change per trade; the ע.פ and the phone never do, because there
+ * is one business behind all of them and that is what a customer's accountant
+ * will check.
  */
-export function quoteSignature(settings: QuoteSettings | null | undefined): string[] {
+export function quoteSignature(
+  settings: QuoteSettings | null | undefined,
+  name?: string | null
+): string[] {
   const phone = contactPhone(settings);
   return [
-    settings?.business_name?.trim() || null,
+    (name ?? settings?.business_name)?.trim() || null,
     settings?.business_number?.trim() ? `ע.פ ${settings.business_number.trim()}` : null,
     phone ? `טל׳ ${phone}` : null,
   ].filter((l): l is string => !!l);
@@ -116,9 +152,15 @@ export function buildQuoteWhatsappMessage(
   quote: Quote,
   lines: QuoteLine[],
   settings: QuoteSettings | null | undefined,
-  context?: { professionName?: string | null; jobTypeName?: string | null }
+  context?: {
+    professionName?: string | null;
+    jobTypeName?: string | null;
+    /** the trade this quote is for, for the name at its head and foot */
+    profession?: Pick<Profession, "quote_business_name"> | null;
+  }
 ): string {
   const ordered = [...lines].sort((a, b) => a.sort_order - b.sort_order);
+  const businessName = quoteBusinessName(quote, context?.profession, settings);
   const subject =
     quote.title?.trim() ||
     [context?.professionName, context?.jobTypeName].filter(Boolean).join(" — ") ||
@@ -126,7 +168,7 @@ export function buildQuoteWhatsappMessage(
 
   const parts: (string | null)[] = [
     `*הצעת מחיר ${quote.quote_number}*`,
-    settings?.business_name?.trim() ? `מאת ${settings.business_name.trim()}` : null,
+    businessName ? `מאת ${businessName}` : null,
     "",
     `לכבוד ${quote.customer_name}`,
     quote.customer_tax_id?.trim() ? `ח.פ / ע.מ ${quote.customer_tax_id.trim()}` : null,
@@ -159,7 +201,7 @@ export function buildQuoteWhatsappMessage(
     quote.notes?.trim() ? "" : null,
     quote.notes?.trim() ? quote.notes.trim() : null,
     "",
-    ...quoteSignature(settings)
+    ...quoteSignature(settings, businessName)
   );
 
   // Collapse the runs of blank lines the optional parts leave behind, so a

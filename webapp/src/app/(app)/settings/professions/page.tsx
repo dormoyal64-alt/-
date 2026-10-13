@@ -76,6 +76,15 @@ export default function ProfessionsSettingsPage() {
     toast.success("הניסוח ללקוח עודכן");
   }
 
+  async function saveQuoteBusinessName(id: string, name: string) {
+    await supabase
+      .from("professions")
+      .update({ quote_business_name: name.trim() || null })
+      .eq("id", id);
+    await refresh();
+    toast.success(name.trim() ? "השם בהצעות מחיר עודכן" : "חזרנו לשם העסק הרגיל");
+  }
+
   async function addJobType(professionId: string, name: string) {
     const { error } = await supabase.from("job_types").insert({ profession_id: professionId, name, sort_order: jobTypes.length });
     if (error) return toast.error("שגיאה בהוספת סוג עבודה (אולי כבר קיים)");
@@ -125,6 +134,7 @@ export default function ProfessionsSettingsPage() {
   // only fail. PostgREST returns the column even when its value is null, so its
   // presence in the row is the honest test.
   const hasCancellationFee = professions.length === 0 || "cancellation_fee_agorot" in professions[0];
+  const hasQuoteName = professions.length > 0 && "quote_business_name" in professions[0];
   const defaultCancellationFee = settings?.cancellation_fee_agorot ?? CANCELLATION_FEE_FALLBACK;
 
   return (
@@ -184,6 +194,28 @@ export default function ProfessionsSettingsPage() {
                       <span className="text-ink-500">כבר בדרך אליך 🚚</span>
                     </div>
                   </div>
+                  {hasQuoteName && (
+                    <div className="mb-4 rounded-2xl border border-ink-100 bg-ink-50/60 p-3.5">
+                      <p className="mb-2 text-xs font-bold text-ink-500">
+                        שם העסק בהצעת מחיר לתחום הזה
+                      </p>
+                      <Input
+                        defaultValue={profession.quote_business_name ?? ""}
+                        onBlur={(e) => {
+                          if (e.target.value.trim() !== (profession.quote_business_name ?? "")) {
+                            saveQuoteBusinessName(profession.id, e.target.value);
+                          }
+                        }}
+                        className="bg-white py-1.5 font-bold text-ink-800"
+                        placeholder={settings?.business_name ?? "שם העסק"}
+                      />
+                      <p className="mt-1.5 text-xs text-ink-400">
+                        ריק = <bdi className="font-bold">{settings?.business_name ?? "שם העסק"}</bdi>.
+                        משנה רק את הכותרת והחתימה בהצעות מחיר — הע.פ, הטלפון והקבלה נשארים כמו שהם,
+                        כי זה אותו עסק ואותו מספר.
+                      </p>
+                    </div>
+                  )}
                   <div className="mb-4 rounded-2xl border border-ink-100 bg-ink-50/60 p-3.5">
                     <p className="mb-2 text-xs font-bold text-ink-500">
                       דמי ביקור ודמי ביטול לכל התחום — אלא אם לסוג תקלה מסוים יש סכום משלו
