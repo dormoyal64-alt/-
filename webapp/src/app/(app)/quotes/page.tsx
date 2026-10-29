@@ -5,7 +5,6 @@ import {
   FileText,
   Plus,
   MessageCircle,
-  Eye,
   Pencil,
   Trash2,
   ThumbsUp,
@@ -24,14 +23,16 @@ import { QuotePreviewModal } from "@/components/quotes/QuotePreviewModal";
 import { formatAgorot } from "@/lib/money";
 import { formatDateHe } from "@/lib/dates";
 import { errorMessage } from "@/lib/errors";
-import { buildWhatsappLink } from "@/lib/whatsapp";
 import {
   buildQuoteWhatsappMessage,
   isExpired,
   plainDate,
+  quoteBusinessName,
+  quoteDocTitle,
   quotePayable,
   QUOTE_STATUS_LABELS,
 } from "@/lib/quotes";
+import { quoteBusinessFrom } from "@/lib/quote/render";
 import {
   createQuote,
   deleteQuote,
@@ -130,6 +131,30 @@ export default function QuotesPage() {
   const shownStatus = useCallback(
     (q: QuoteWithLines): QuoteStatus => (isExpired(q) ? "expired" : q.status),
     []
+  );
+
+  /** What the quote is for, as its heading line. */
+  const subjectFor = useCallback(
+    (q: QuoteWithLines) =>
+      q.title?.trim() ||
+      [
+        professions.find((p) => p.id === q.profession_id)?.name,
+        jobTypes.find((jt) => jt.id === q.job_type_id)?.name,
+      ]
+        .filter(Boolean)
+        .join(" — ") ||
+      null,
+    [professions, jobTypes]
+  );
+
+  /** Who it is from: the trade's name where there is one, everything else the business's. */
+  const businessFor = useCallback(
+    (q: QuoteWithLines) =>
+      quoteBusinessFrom(
+        settings,
+        quoteBusinessName(q, professions.find((p) => p.id === q.profession_id) ?? null, settings)
+      ),
+    [settings, professions]
   );
 
   const messageFor = useCallback(
@@ -301,7 +326,6 @@ export default function QuotesPage() {
             <div className="divide-y divide-ink-50">
               {listed.map((q) => {
                 const status = shownStatus(q);
-                const link = buildWhatsappLink(q.customer_phone, messageFor(q));
                 return (
                   <div key={q.id} className="px-4 py-3">
                     <div className="flex flex-wrap items-center gap-2">
@@ -345,33 +369,18 @@ export default function QuotesPage() {
                     </p>
 
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      {link ? (
-                        <a
-                          href={link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => recordSent(q)}
-                          /* once the customer has answered, sending again is
-                             a thing you can still do, not the thing to do */
-                          className={`${
-                            status === "accepted" || status === "declined"
-                              ? "btn-secondary"
-                              : "btn-success"
-                          } px-3 py-1.5 text-sm`}
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                          {q.sent_at ? "שליחה שוב" : "שליחה בוואטסאפ"}
-                        </a>
-                      ) : (
-                        <span className="text-xs font-semibold text-ink-400">אין טלפון לשליחה</span>
-                      )}
-
                       <button
                         onClick={() => setPreviewing({ quote: q, justSaved: false })}
-                        className="btn-ghost px-2.5 py-1.5 text-sm"
-                        aria-label="תצוגה מקדימה"
+                        /* once the customer has answered, sending again is a
+                           thing you can still do, not the thing to do */
+                        className={`${
+                          status === "accepted" || status === "declined"
+                            ? "btn-secondary"
+                            : "btn-success"
+                        } px-3 py-1.5 text-sm`}
                       >
-                        <Eye className="h-4 w-4" /> תצוגה
+                        <MessageCircle className="h-4 w-4" />
+                        {q.sent_at ? "שליחה שוב" : "שליחה ללקוח"}
                       </button>
 
                       {status !== "accepted" && status !== "declined" ? (
@@ -447,15 +456,23 @@ export default function QuotesPage() {
         open={!!previewing}
         onClose={() => setPreviewing(null)}
         title={
-          previewing?.justSaved
-            ? `הצעת מחיר ${previewing.quote.quote_number} מוכנה לשליחה`
-            : `הצעת מחיר ${previewing?.quote.quote_number ?? ""}`
+          previewing
+            ? `${quoteDocTitle(previewing.quote.work_done)} ${previewing.quote.quote_number}${
+                previewing.justSaved ? " — מוכנה לשליחה" : ""
+              }`
+            : ""
         }
+        quote={previewing?.quote ?? null}
+        lines={previewing?.quote.quote_lines ?? []}
+        business={
+          previewing
+            ? businessFor(previewing.quote)
+            : { name: null, number: null, address: null, phone: null, email: null }
+        }
+        subject={previewing ? subjectFor(previewing.quote) : null}
         message={previewing ? messageFor(previewing.quote) : ""}
-        phone={previewing?.quote.customer_phone ?? null}
         onSent={() => {
           if (previewing) recordSent(previewing.quote);
-          setPreviewing(null);
         }}
       />
 
@@ -464,7 +481,7 @@ export default function QuotesPage() {
         onClose={() => setDeleting(null)}
         onConfirm={remove}
         loading={busy}
-        title={`למחוק את הצעה ${deleting?.quote_number ?? ""}?`}
+        title={`למחוק את ${deleting ? quoteDocTitle(deleting.work_done) : "ההצעה"} ${deleting?.quote_number ?? ""}?`}
         description="ההצעה והפירוט שלה יימחקו. מה שכבר נשלח ללקוח בוואטסאפ נשאר אצלו."
         confirmLabel="מחיקה"
       />

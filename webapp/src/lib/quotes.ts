@@ -18,6 +18,18 @@ import { contactPhone } from "@/lib/whatsapp";
 /** How long a quote holds, in days, as the form offers it. */
 export const VALIDITY_CHOICES = [7, 14, 30, 60] as const;
 
+/**
+ * What the document calls itself.
+ *
+ * A price for work that has already been done is not an offer — a customer,
+ * and more to the point their accounts department, reads "הצעת מחיר" on it as
+ * the wrong document and sends it back. Once the work is marked done the page
+ * is headed הזמנת עבודה instead, which is the heading that gets it paid.
+ */
+export function quoteDocTitle(workDone: boolean | null | undefined): string {
+  return workDone === true ? "הזמנת עבודה" : "הצעת מחיר";
+}
+
 export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
   draft: "טיוטה",
   sent: "נשלחה",
@@ -58,10 +70,19 @@ export function hasDiscount(
   return quote.final_total_agorot != null && quote.total_agorot > 0 && quote.final_total_agorot !== quote.total_agorot;
 }
 
-/** What the quote says about when the work happens. Null says nothing. */
-export function workDoneLine(workDone: boolean | null | undefined): string | null {
+/**
+ * What the quote says about when the work happens. Null says nothing.
+ *
+ * The tick is for WhatsApp, where a wall of grey text needs something the eye
+ * lands on. The printed page is read by an accounts department and does not.
+ */
+export function workDoneLine(
+  workDone: boolean | null | undefined,
+  options?: { emoji?: boolean }
+): string | null {
   if (workDone == null) return null;
-  return workDone ? "✅ העבודה כבר בוצעה." : "העבודה טרם בוצעה.";
+  if (!workDone) return "העבודה טרם בוצעה.";
+  return `${options?.emoji === false ? "" : "✅ "}העבודה כבר בוצעה.`;
 }
 
 /** 3 rather than 3.00, but 3.5 kept as 3.5. */
@@ -99,26 +120,8 @@ type QuoteSettings = Partial<
     | "business_number"
     | "business_phone"
     | "contact_whatsapp_phone"
-    | "vat_status"
-    | "prices_include_tax"
   >
 >;
-
-/**
- * What the quote says about tax.
- *
- * An עוסק פטור charges no VAT at all, and a customer who expects a number
- * plus 18% should be told so in the quote rather than when the receipt arrives.
- * Silence here is the thing that causes the argument.
- */
-export function taxNote(settings: QuoteSettings | null | undefined): string {
-  if (!settings || settings.vat_status === "exempt" || settings.vat_status == null) {
-    return "עוסק פטור — אין חיוב מע״מ והמחיר הוא המחיר הסופי.";
-  }
-  return settings.prices_include_tax
-    ? "המחירים כוללים מע״מ."
-    : "למחירים יתווסף מע״מ כחוק.";
-}
 
 /**
  * Whose name heads this quote.
@@ -199,7 +202,7 @@ export function buildQuoteWhatsappMessage(
     null;
 
   const parts: (string | null)[] = [
-    `*הצעת מחיר ${quote.quote_number}*`,
+    `*${quoteDocTitle(quote.work_done)} ${quote.quote_number}*`,
     businessName ? `מאת ${businessName}` : null,
     "",
     `לכבוד ${quote.customer_name}`,
@@ -242,7 +245,6 @@ export function buildQuoteWhatsappMessage(
     quote.valid_until && quote.work_done !== true
       ? `ההצעה בתוקף עד ${plainDate(quote.valid_until)}.`
       : null,
-    taxNote(settings),
     quote.notes?.trim() ? "" : null,
     quote.notes?.trim() ? quote.notes.trim() : null,
     "",
