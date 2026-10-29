@@ -29,6 +29,7 @@ import {
   buildQuoteWhatsappMessage,
   isExpired,
   plainDate,
+  quotePayable,
   QUOTE_STATUS_LABELS,
 } from "@/lib/quotes";
 import {
@@ -37,8 +38,9 @@ import {
   listQuotes,
   markQuoteSent,
   setQuoteStatus,
-  supportsNameOverride,
+  probeQuoteColumns,
   updateQuote,
+  type QuoteColumns,
   type QuoteDraft,
 } from "@/lib/api/quotes";
 import type { QuoteStatus, QuoteWithLines } from "@/lib/types";
@@ -65,6 +67,13 @@ const FILTERS: { key: "all" | QuoteStatus; label: string }[] = [
   { key: "declined", label: "נדחו" },
 ];
 
+/** What to call a quote that has no title and no trade to name it by. */
+function linesLabel(count: number): string {
+  if (count === 0) return "סכום סופי, בלי פירוט";
+  if (count === 1) return "שורה אחת";
+  return `${count} שורות`;
+}
+
 const STATUS_STYLE: Record<QuoteStatus, string> = {
   draft: "bg-ink-100 text-ink-600",
   sent: "bg-brand-50 text-brand-700",
@@ -82,9 +91,9 @@ export default function QuotesPage() {
   const [loading, setLoading] = useState(true);
   // null while unknown, false once the database answered without the table
   const [available, setAvailable] = useState(true);
-  // the per-quote name arrived after the table did, so it is asked about
-  // separately: the screen works either way
-  const [canOverrideName, setCanOverrideName] = useState(false);
+  // the later columns arrived after the table did, so they are asked about
+  // separately: the screen works with any of them missing
+  const [has, setHas] = useState<QuoteColumns>({ nameOverride: false, finalTotal: false });
   const [filter, setFilter] = useState<"all" | QuoteStatus>("all");
 
   const [formOpen, setFormOpen] = useState(false);
@@ -109,8 +118,8 @@ export default function QuotesPage() {
   // is open, and a probe that fails is a 400 in the console each time
   useEffect(() => {
     let alive = true;
-    supportsNameOverride(supabase).then((ok) => {
-      if (alive) setCanOverrideName(ok);
+    probeQuoteColumns(supabase).then((cols) => {
+      if (alive) setHas(cols);
     });
     return () => {
       alive = false;
@@ -136,8 +145,8 @@ export default function QuotesPage() {
   async function save(draft: QuoteDraft, send: boolean) {
     try {
       const saved = editing
-        ? await updateQuote(supabase, editing.id, draft, canOverrideName)
-        : await createQuote(supabase, draft, canOverrideName);
+        ? await updateQuote(supabase, editing.id, draft, has)
+        : await createQuote(supabase, draft, has);
       setFormOpen(false);
       setEditing(null);
       await load();
@@ -195,10 +204,10 @@ export default function QuotesPage() {
 
   const listed = quotes.filter((q) => filter === "all" || shownStatus(q) === filter);
   const waiting = quotes.filter((q) => shownStatus(q) === "sent");
-  const waitingTotal = waiting.reduce((s, q) => s + q.total_agorot, 0);
+  const waitingTotal = waiting.reduce((s, q) => s + quotePayable(q), 0);
   const acceptedTotal = quotes
     .filter((q) => q.status === "accepted")
-    .reduce((s, q) => s + q.total_agorot, 0);
+    .reduce((s, q) => s + quotePayable(q), 0);
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -302,7 +311,7 @@ export default function QuotesPage() {
                       </span>
                       <Badge className={STATUS_STYLE[status]}>{QUOTE_STATUS_LABELS[status]}</Badge>
                       <span className="shrink-0 font-extrabold text-ink-900">
-                        {formatAgorot(q.total_agorot)}
+                        {formatAgorot(quotePayable(q))}
                       </span>
                     </div>
 
@@ -314,10 +323,13 @@ export default function QuotesPage() {
                         ]
                           .filter(Boolean)
                           .join(" — ") ||
-                        `${(q.quote_lines ?? []).length} שורות`}
+                        linesLabel((q.quote_lines ?? []).length)}
                       {" · "}
                       {formatDateHe(q.created_at)}
-                      {q.valid_until && status !== "accepted" && status !== "declined" && (
+                      {q.valid_until &&
+                        q.work_done !== true &&
+                        status !== "accepted" &&
+                        status !== "declined" && (
                         <>
                           {" · "}
                           <bdi className={status === "expired" ? "font-bold text-warning-700" : ""}>
@@ -327,6 +339,9 @@ export default function QuotesPage() {
                         </>
                       )}
                       {q.sent_at && ` · נשלחה ${formatDateHe(q.sent_at)}`}
+                      {q.work_done === true && (
+                        <span className="mr-1.5 font-bold text-success-700">· העבודה בוצעה</span>
+                      )}
                     </p>
 
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -424,7 +439,7 @@ export default function QuotesPage() {
         professions={professions}
         jobTypes={jobTypes}
         settings={settings}
-        canOverrideName={canOverrideName}
+        has={has}
         onSubmit={save}
       />
 

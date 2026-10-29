@@ -31,7 +31,18 @@ export interface QuoteDraft {
   notes: string | null;
   /** the name heading this one quote; null uses the trade's, then the business's */
   business_name_override: string | null;
+  /** what the customer is asked to pay; null means the sum of the lines */
+  final_total_agorot: number | null;
+  /** null says nothing on the quote, false says not yet, true says already done */
+  work_done: boolean | null;
   lines: QuoteLineDraft[];
+}
+
+/** Which of the later columns this database has. The screen works without any. */
+export interface QuoteColumns {
+  nameOverride: boolean;
+  /** final_total_agorot and work_done; they arrived together */
+  finalTotal: boolean;
 }
 
 /**
@@ -42,9 +53,14 @@ export interface QuoteDraft {
  * fails the whole insert — so the screen asks first and simply leaves the
  * field out until the answer is yes.
  */
-export async function supportsNameOverride(supabase: SupabaseClient): Promise<boolean> {
-  const { error } = await supabase.from("quotes").select("business_name_override").limit(1);
-  return !error;
+export async function probeQuoteColumns(supabase: SupabaseClient): Promise<QuoteColumns> {
+  const [name, final] = await Promise.all([
+    supabase.from("quotes").select("business_name_override").limit(1),
+    supabase.from("quotes").select("final_total_agorot,work_done").limit(1),
+  ]);
+  // asked separately because they shipped separately: a database that has had
+  // one script and not the next should lose one field, not both
+  return { nameOverride: !name.error, finalTotal: !final.error };
 }
 
 export async function listQuotes(
@@ -68,7 +84,7 @@ export async function fetchQuote(supabase: SupabaseClient, id: string): Promise<
   return (data as unknown as QuoteWithLines) ?? null;
 }
 
-function quoteColumns(draft: QuoteDraft, canOverrideName: boolean) {
+function quoteColumns(draft: QuoteDraft, has: QuoteColumns) {
   return {
     customer_name: draft.customer_name.trim(),
     customer_phone: draft.customer_phone?.trim() || null,
@@ -79,8 +95,11 @@ function quoteColumns(draft: QuoteDraft, canOverrideName: boolean) {
     title: draft.title?.trim() || null,
     valid_until: draft.valid_until || null,
     notes: draft.notes?.trim() || null,
-    ...(canOverrideName
+    ...(has.nameOverride
       ? { business_name_override: draft.business_name_override?.trim() || null }
+      : {}),
+    ...(has.finalTotal
+      ? { final_total_agorot: draft.final_total_agorot, work_done: draft.work_done }
       : {}),
   };
 }
@@ -100,12 +119,12 @@ function lineRows(quoteId: string, lines: QuoteLineDraft[]) {
 export async function createQuote(
   supabase: SupabaseClient,
   draft: QuoteDraft,
-  canOverrideName = true
+  has: QuoteColumns
 ): Promise<QuoteWithLines> {
   const { data: auth } = await supabase.auth.getUser();
   const { data: quote, error } = await supabase
     .from("quotes")
-    .insert({ ...quoteColumns(draft, canOverrideName), created_by: auth?.user?.id ?? null })
+    .insert({ ...quoteColumns(draft, has), created_by: auth?.user?.id ?? null })
     .select("*")
     .single();
   if (error) throw error;
@@ -113,8 +132,8 @@ export async function createQuote(
   const rows = lineRows((quote as Quote).id, draft.lines);
   if (rows.length) {
     const { error: lineError } = await supabase.from("quote_lines").insert(rows);
-    // a quote with no lines is a quote with no price, which is worse than no
-    // quote at all — so the half-written row goes rather than being left behind
+    // a quote whose lines failed to save is a quote with no breakdown behind
+    // its price — so the half-written row goes rather than being left behind
     if (lineError) {
       await supabase.from("quotes").delete().eq("id", (quote as Quote).id);
       throw lineError;
@@ -137,12 +156,9 @@ export async function updateQuote(
   supabase: SupabaseClient,
   id: string,
   draft: QuoteDraft,
-  canOverrideName = true
+  has: QuoteColumns
 ): Promise<QuoteWithLines> {
-  const { error } = await supabase
-    .from("quotes")
-    .update(quoteColumns(draft, canOverrideName))
-    .eq("id", id);
+  const { error } = await supabase.from("quotes").update(quoteColumns(draft, has)).eq("id", id);
   if (error) throw error;
 
   const { error: clearError } = await supabase.from("quote_lines").delete().eq("quote_id", id);

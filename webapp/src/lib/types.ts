@@ -698,6 +698,10 @@ export interface Quote {
   business_name_override: string | null;
   /** summed from the lines by the database; never written by the app */
   total_agorot: number;
+  /** the amount actually asked for; null means the sum of the lines */
+  final_total_agorot: number | null;
+  /** null says nothing about it, false says not yet, true says already done */
+  work_done: boolean | null;
   valid_until: string | null;
   notes: string | null;
   status: QuoteStatus;

@@ -35,6 +35,35 @@ export function quoteTotal(lines: Pick<QuoteLine, "qty" | "unit_price_agorot">[]
   return lines.reduce((sum, l) => sum + lineTotal(l), 0);
 }
 
+/**
+ * What the customer is actually asked to pay.
+ *
+ * The lines are what the work is made of; this is what was agreed. Usually
+ * they are the same number and nothing is gained by distinguishing them — but
+ * when a price is simply said out loud, or the lines come to 1,630 and the
+ * figure given is 1,500, this is the one that is owed. Everything that totals
+ * money on a quote reads it from here, so there is one answer to "how much is
+ * this quote for" rather than one per screen.
+ */
+export function quotePayable(
+  quote: Pick<Quote, "total_agorot" | "final_total_agorot">
+): number {
+  return quote.final_total_agorot ?? quote.total_agorot;
+}
+
+/** True when a price was agreed that the breakdown does not add up to. */
+export function hasDiscount(
+  quote: Pick<Quote, "total_agorot" | "final_total_agorot">
+): boolean {
+  return quote.final_total_agorot != null && quote.total_agorot > 0 && quote.final_total_agorot !== quote.total_agorot;
+}
+
+/** What the quote says about when the work happens. Null says nothing. */
+export function workDoneLine(workDone: boolean | null | undefined): string | null {
+  if (workDone == null) return null;
+  return workDone ? "✅ העבודה כבר בוצעה." : "העבודה טרם בוצעה.";
+}
+
 /** 3 rather than 3.00, but 3.5 kept as 3.5. */
 export function formatQty(qty: number): string {
   return Number.isInteger(qty) ? String(qty) : String(Number(qty.toFixed(2)));
@@ -54,7 +83,10 @@ export function validUntilFrom(days: number, from: Date = new Date()): string {
 }
 
 /** Whether a quote's own date has passed, whatever its stored status says. */
-export function isExpired(q: Pick<Quote, "valid_until" | "status">): boolean {
+export function isExpired(q: Pick<Quote, "valid_until" | "status" | "work_done">): boolean {
+  // work already done cannot expire: the document states a price for something
+  // that happened, not an offer the customer still has to take up
+  if (q.work_done === true) return false;
   if (!q.valid_until || q.status === "accepted" || q.status === "declined") return false;
   const end = new Date(q.valid_until + "T23:59:59");
   return end.getTime() < Date.now();
@@ -192,11 +224,24 @@ export function buildQuoteWhatsappMessage(
     );
   }
 
+  const payable = quotePayable(quote);
+  const discounted = hasDiscount(quote);
+
   parts.push(
     "",
-    `*סה״כ: ${formatAgorotPlain(quote.total_agorot)}*`,
+    // the breakdown's own sum, shown only when the agreed price is not it —
+    // a customer whose lines add to 1,630 and whose total reads 1,500 should
+    // be shown the discount, not left to find the arithmetic error
+    discounted ? `סה״כ לפי הפירוט: ${formatAgorotPlain(quote.total_agorot)}` : null,
+    discounted ? `הנחה: ${formatAgorotPlain(quote.total_agorot - payable)}` : null,
+    `*סה״כ לתשלום: ${formatAgorotPlain(payable)}*`,
     "",
-    quote.valid_until ? `ההצעה בתוקף עד ${plainDate(quote.valid_until)}.` : null,
+    workDoneLine(quote.work_done),
+    // a price for work already finished is not an offer waiting to be taken
+    // up, so it is not given a date it expires on
+    quote.valid_until && quote.work_done !== true
+      ? `ההצעה בתוקף עד ${plainDate(quote.valid_until)}.`
+      : null,
     taxNote(settings),
     quote.notes?.trim() ? "" : null,
     quote.notes?.trim() ? quote.notes.trim() : null,

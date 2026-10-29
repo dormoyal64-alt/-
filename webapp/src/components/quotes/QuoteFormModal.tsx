@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input, Label, Select, Textarea } from "@/components/ui/Input";
 import { formatAgorot, shekelsToAgorot, agorotToShekels } from "@/lib/money";
 import { lineTotal, quoteBusinessName, quoteTotal, validUntilFrom, VALIDITY_CHOICES } from "@/lib/quotes";
+import type { QuoteColumns } from "@/lib/api/quotes";
 import type { QuoteDraft, QuoteLineDraft } from "@/lib/api/quotes";
 import type { AppSettings, JobType, Profession, QuoteWithLines } from "@/lib/types";
 
@@ -51,7 +52,7 @@ export function QuoteFormModal({
   professions,
   jobTypes,
   settings,
-  canOverrideName,
+  has,
   onSubmit,
 }: {
   open: boolean;
@@ -61,8 +62,8 @@ export function QuoteFormModal({
   professions: Profession[];
   jobTypes: JobType[];
   settings: AppSettings | null;
-  /** false until the database has the per-quote name column */
-  canOverrideName: boolean;
+  /** which of the later columns this database has; the form adapts to it */
+  has: QuoteColumns;
   onSubmit: (draft: QuoteDraft, send: boolean) => Promise<void>;
 }) {
   const [customerName, setCustomerName] = useState("");
@@ -75,6 +76,8 @@ export function QuoteFormModal({
   const [validUntil, setValidUntil] = useState(validUntilFrom(14));
   const [notes, setNotes] = useState("");
   const [businessName, setBusinessName] = useState("");
+  const [finalTotal, setFinalTotal] = useState("");
+  const [workDone, setWorkDone] = useState<boolean | null>(null);
   const [lines, setLines] = useState<LineRow[]>([emptyLine()]);
   const [busy, setBusy] = useState<"save" | "send" | null>(null);
 
@@ -92,6 +95,10 @@ export function QuoteFormModal({
     setValidUntil(editing?.valid_until ?? validUntilFrom(14));
     setNotes(editing?.notes ?? "");
     setBusinessName(editing?.business_name_override ?? "");
+    setFinalTotal(
+      editing?.final_total_agorot != null ? String(agorotToShekels(editing.final_total_agorot)) : ""
+    );
+    setWorkDone(editing?.work_done ?? null);
     const existing = [...(editing?.quote_lines ?? [])].sort((a, b) => a.sort_order - b.sort_order);
     setLines(
       existing.length
@@ -116,8 +123,14 @@ export function QuoteFormModal({
   );
 
   const draftLines = toDraftLines(lines);
-  const total = quoteTotal(draftLines);
-  const canSave = !!customerName.trim() && draftLines.length > 0 && total > 0;
+  const linesTotal = quoteTotal(draftLines);
+  const finalAgorot = finalTotal.trim() ? shekelsToAgorot(finalTotal) : null;
+  // what the customer will be asked for: the agreed figure if there is one
+  const payable = finalAgorot ?? linesTotal;
+  const discount = finalAgorot != null && linesTotal > 0 ? linesTotal - finalAgorot : 0;
+  // a quote can now be a single number with no breakdown at all, so lines are
+  // only required when nothing else says what the price is
+  const canSave = !!customerName.trim() && payable > 0;
   const canSend = canSave && !!customerPhone.trim();
 
   function patchLine(key: string, patch: Partial<LineRow>) {
@@ -139,6 +152,8 @@ export function QuoteFormModal({
           valid_until: validUntil || null,
           notes,
           business_name_override: businessName,
+          final_total_agorot: has.finalTotal ? finalAgorot : null,
+          work_done: has.finalTotal ? workDone : null,
           lines: draftLines,
         },
         send
@@ -249,7 +264,7 @@ export function QuoteFormModal({
             </p>
           </div>
 
-          {canOverrideName && (
+          {has.nameOverride && (
             <div>
               <Label>שם העסק בהצעה הזו</Label>
               <Input
@@ -347,15 +362,99 @@ export function QuoteFormModal({
             <Plus className="h-4 w-4" /> שורה נוספת
           </Button>
 
+          {has.finalTotal && (
+            <div>
+              <Label>סכום סופי לתשלום</Label>
+              <Input
+                type="number"
+                min={0}
+                inputMode="decimal"
+                value={finalTotal}
+                onChange={(e) => setFinalTotal(e.target.value)}
+                placeholder={linesTotal > 0 ? String(agorotToShekels(linesTotal)) : "למשל 1500"}
+              />
+              <p className="mt-1 text-xs text-ink-400">
+                {finalAgorot == null ? (
+                  <>
+                    ריק = הסכום מתחבר מהשורות למעלה. אפשר גם לדלג על השורות ולכתוב כאן מספר אחד —
+                    הוא מה שיופיע בהצעה כ״סה״כ לתשלום״.
+                  </>
+                ) : discount > 0 ? (
+                  <>
+                    בהצעה יופיע סה״כ לפי הפירוט{" "}
+                    <bdi className="font-bold">{formatAgorot(linesTotal)}</bdi>, הנחה{" "}
+                    <bdi className="font-bold">{formatAgorot(discount)}</bdi>, וסה״כ לתשלום{" "}
+                    <bdi className="font-bold">{formatAgorot(finalAgorot)}</bdi>.
+                  </>
+                ) : discount < 0 ? (
+                  <>
+                    הסכום גבוה מסכום השורות ב־
+                    <bdi className="font-bold">{formatAgorot(-discount)}</bdi> — בהצעה יופיעו שניהם.
+                  </>
+                ) : linesTotal === 0 ? (
+                  <>
+                    זה הסכום שיופיע בהצעה כ״סה״כ לתשלום״, בלי פירוט שורות.
+                  </>
+                ) : (
+                  <>זה בדיוק סכום השורות, אז בהצעה תופיע שורה אחת: סה״כ לתשלום.</>
+                )}
+              </p>
+            </div>
+          )}
+
           <div className="flex items-center justify-between rounded-xl border border-brand-100 bg-brand-50/60 px-3.5 py-3">
-            <span className="text-sm font-bold text-ink-900">סך הכל בהצעה</span>
-            <span className="text-lg font-extrabold text-brand-700">{formatAgorot(total)}</span>
+            <div>
+              <span className="text-sm font-bold text-ink-900">סה״כ לתשלום</span>
+              {discount > 0 && (
+                <span className="mr-2 text-xs font-bold text-ink-400 line-through">
+                  {formatAgorot(linesTotal)}
+                </span>
+              )}
+            </div>
+            <span className="text-lg font-extrabold text-brand-700">{formatAgorot(payable)}</span>
           </div>
+
+          {has.finalTotal && (
+            <div>
+              <Label>מה לכתוב בהצעה על מצב העבודה</Label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: null as boolean | null, label: "לא לכתוב כלום" },
+                  { value: false as boolean | null, label: "העבודה טרם בוצעה" },
+                  { value: true as boolean | null, label: "העבודה כבר בוצעה" },
+                ].map((opt) => (
+                  <button
+                    key={String(opt.value)}
+                    type="button"
+                    onClick={() => setWorkDone(opt.value)}
+                    className={`rounded-xl border px-3 py-1.5 text-sm font-semibold transition ${
+                      workDone === opt.value
+                        ? "border-brand-600 bg-brand-600 text-white"
+                        : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {workDone === true && (
+                <p className="mt-1 text-xs text-ink-400">
+                  הקבלה עדיין מופקת מהעבודה עצמה, לא מכאן — זו הצעת מחיר, לא מסמך מס.
+                </p>
+              )}
+            </div>
+          )}
         </section>
 
         {/* ---- how long it holds ---- */}
         <section className="space-y-3 border-t border-ink-100 pt-4">
           <h4 className="text-sm font-extrabold text-ink-900">תוקף והערות</h4>
+          {workDone === true ? (
+            <div className="rounded-xl border border-ink-100 bg-ink-50 px-3.5 py-3 text-sm text-ink-500">
+              העבודה כבר בוצעה, אז אין תאריך תוקף — ההצעה מציינת מחיר לעבודה שנעשתה, לא הצעה
+              שממתינה לתשובה.
+            </div>
+          ) : (
           <div>
             <Label>ההצעה בתוקף עד</Label>
             <div className="mb-2 flex flex-wrap gap-2">
@@ -390,6 +489,7 @@ export function QuoteFormModal({
             </div>
             <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
           </div>
+          )}
           <div>
             <Label>הערות ללקוח</Label>
             <Textarea
@@ -422,7 +522,7 @@ export function QuoteFormModal({
         </div>
         {!canSave && (
           <p className="text-xs text-ink-400">
-            כדי לשמור צריך שם לקוח ולפחות שורה אחת עם תיאור ומחיר.
+            כדי לשמור צריך שם לקוח וסכום — או שורות עם מחירים, או סכום סופי.
           </p>
         )}
         {canSave && !canSend && (
