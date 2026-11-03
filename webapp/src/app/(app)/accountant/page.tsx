@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronRight, ChevronLeft, Download, Mail, Copy, Loader2, Send, CheckCircle2, Receipt as ReceiptIcon, Wallet } from "lucide-react";
+import { ChevronRight, ChevronLeft, Download, Mail, Copy, Loader2, Send, CheckCircle2, Receipt as ReceiptIcon, Wallet, Ban } from "lucide-react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useRefData } from "@/lib/refdata";
 import { useToast } from "@/components/ui/Toast";
@@ -20,6 +21,8 @@ import {
 } from "@/lib/accountant";
 import { contractorReceiptLines, listContractorReceiptFiles } from "@/lib/api/contractorReceipts";
 import { fetchLiveReceipts } from "@/lib/api/jobs";
+import { fetchMonthCheck, describeJob, type MonthCheck } from "@/lib/api/monthCheck";
+import { MonthCheckCard } from "@/components/accountant/MonthCheckCard";
 import { ReceiptFiles } from "@/components/receipts/ReceiptFiles";
 import {
   listAdSpendReceipts,
@@ -48,6 +51,9 @@ export default function AccountantPage() {
   const range = monthRange(year, month);
 
   const [receipts, setReceipts] = useState<Receipt[]>([]);
+  // the same month read a second way — from the work rather than the paper —
+  // so the two can be held against each other before anything is sent
+  const [check, setCheck] = useState<MonthCheck | null>(null);
   const [expenses, setExpenses] = useState<ExpenseLine[]>([]);
   // the paper behind the month's expenses, so a line that has none can be
   // given one from here rather than hunted down on its own screen
@@ -67,8 +73,9 @@ export default function AccountantPage() {
     const fromIso = `${range.from}T00:00:00`;
     const toIso = `${range.to}T23:59:59.999`;
 
-    const [rec, fixed, cats, ads, costs, contractorPaid] = await Promise.all([
+    const [rec, verify, fixed, cats, ads, costs, contractorPaid] = await Promise.all([
       fetchLiveReceipts(supabase, fromIso, toIso),
+      fetchMonthCheck(supabase, fromIso, toIso).catch(() => null),
       supabase.from("business_expenses").select("*").lte("spent_on", range.to),
       supabase.from("expense_categories").select("*"),
       supabase.from("ad_spend").select("*").lte("spent_on", range.to),
@@ -99,6 +106,7 @@ export default function AccountantPage() {
       })));
 
     setReceipts(rec);
+    setCheck(verify);
     const lines = expenseLines(
       range.from,
       range.to,
@@ -293,6 +301,8 @@ export default function AccountantPage() {
         </Card>
       </div>
 
+      {check && !loading && <MonthCheckCard check={check} label={range.label} />}
+
       <Card>
         <CardBody className="space-y-2">
           {sent ? (
@@ -368,26 +378,75 @@ export default function AccountantPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ReceiptIcon className="h-5 w-5 text-ink-400" /> קבלות שהוצאו
+            <ReceiptIcon className="h-5 w-5 text-ink-400" /> עבודות שנסגרו עם קבלה
           </CardTitle>
         </CardHeader>
         <CardBody className="p-0">
+          <p className="px-4 pb-2 pt-0.5 text-xs text-ink-400">
+            לפי סדר מספר הקבלה. אפשר ללחוץ על שורה כדי לפתוח את העבודה עצמה ולבדוק אותה.
+          </p>
           {loading ? (
             <p className="p-4 text-sm text-ink-400">טוען...</p>
-          ) : receipts.length === 0 ? (
+          ) : (check?.rows.length ?? receipts.length) === 0 ? (
             <p className="p-4 text-sm text-ink-400">לא הוצאו קבלות בחודש הזה</p>
           ) : (
             <div className="divide-y divide-ink-50">
-              {receipts.map((r) => (
-                <div key={r.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="w-24 shrink-0 text-xs font-bold text-ink-400">{formatDateHe(r.issued_at)}</span>
-                  <span className="w-20 shrink-0 text-xs font-bold text-brand-700">{r.receipt_number}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-800">{r.customer_name}</span>
-                  <span className="shrink-0 font-extrabold text-ink-900">{formatAgorot(r.amount_agorot)}</span>
-                </div>
-              ))}
+              {/* the enriched rows where the month could be read twice; the
+                  plain receipt list otherwise, so the report never shows less
+                  than it used to */}
+              {(check?.rows ?? receipts.map((receipt) => ({ receipt, job: null }))).map(
+                ({ receipt: r, job }) => {
+                  const work = describeJob(job);
+                  const method = r.payment_method_name ?? job?.final_payment_method?.name ?? null;
+                  const body = (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <span className="w-14 shrink-0 text-sm font-extrabold text-brand-700">
+                          {r.receipt_number}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-sm font-bold text-ink-900">
+                          {r.customer_name}
+                        </span>
+                        <span
+                          className={`shrink-0 font-extrabold ${
+                            r.cancelled_at ? "text-ink-300 line-through" : "text-ink-900"
+                          }`}
+                        >
+                          {formatAgorot(r.amount_agorot)}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-ink-400">
+                        <span>{formatDateHe(r.issued_at)}</span>
+                        {job?.job_number && <span>· {job.job_number}</span>}
+                        {work && <span>· {work}</span>}
+                        {method && <span>· {method}</span>}
+                        {r.customer_tax_id && <span>· ח.פ {r.customer_tax_id}</span>}
+                        {r.cancelled_at && (
+                          <span className="flex items-center gap-1 font-bold text-danger-600">
+                            <Ban className="h-3 w-3" /> בוטלה
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  );
+                  return job ? (
+                    <Link key={r.id} href={`/jobs/${job.id}`} className="block px-4 py-2.5 hover:bg-ink-50">
+                      {body}
+                    </Link>
+                  ) : (
+                    <div key={r.id} className="px-4 py-2.5">
+                      {body}
+                    </div>
+                  );
+                }
+              )}
               <div className="flex items-center justify-between bg-ink-50 px-4 py-2.5">
-                <span className="text-sm font-extrabold text-ink-900">סה״כ</span>
+                <span className="text-sm font-extrabold text-ink-900">
+                  סה״כ
+                  <span className="mr-1.5 text-xs font-bold text-ink-400">
+                    {receipts.length} קבלות בתוקף
+                  </span>
+                </span>
                 <span className="font-extrabold text-success-700">{formatAgorot(income)}</span>
               </div>
             </div>
