@@ -729,3 +729,54 @@ export interface QuoteLine {
 export interface QuoteWithLines extends Quote {
   quote_lines: QuoteLine[];
 }
+
+// ---- איתור נזילות ----
+
+/**
+ * A leak survey of a property.
+ *
+ * `found` is three-valued on purpose: null while it is being written, false
+ * for a property that was surveyed with nothing found — which is a complete
+ * and valuable document, not an empty one — and true when the photographs
+ * carry findings.
+ */
+export interface LeakSurvey {
+  id: string;
+  survey_number: string;
+  customer_name: string;
+  customer_phone: string | null;
+  customer_address: string | null;
+  /** the day the house was walked, not the day this was typed up */
+  surveyed_on: string;
+  found: boolean | null;
+  summary: string | null;
+  recommendation: string | null;
+  job_id: string | null;
+  sent_at: string | null;
+  sent_to: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** One photograph of a survey, optionally carrying the point where the leak is. */
+export interface LeakSurveyPhoto {
+  id: string;
+  survey_id: string;
+  storage_path: string;
+  file_name: string | null;
+  content_type: string | null;
+  size_bytes: number | null;
+  /** fraction of the image width from its left edge; null for a context photo */
+  marker_x: number | null;
+  /** fraction of the image height from its top edge; null for a context photo */
+  marker_y: number | null;
+  location: string | null;
+  caption: string | null;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface LeakSurveyWithPhotos extends LeakSurvey {
+  leak_survey_photos: LeakSurveyPhoto[];
+}

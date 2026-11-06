@@ -21,6 +21,7 @@ import {
   Gauge,
   FileSpreadsheet,
   FileText,
+  Droplets,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -41,6 +42,9 @@ export const mainNav: NavItem[] = [
   // a quote carries every price the business charges, so it sits with the
   // money rather than with the work a contractor can see
   { href: "/quotes", label: "הצעות מחיר", icon: FileText, ownerOnly: true },
+  // photographs of the inside of a customer's home, and the prices that
+  // follow from them: the owner's alone
+  { href: "/leaks", label: "איתור נזילות", icon: Droplets, ownerOnly: true },
   { href: "/contractors", label: "קבלנים", icon: Users },
   // the assistant acts on the business's behalf and asks the owner to approve
   // anything that moves money, so it belongs to the owner alone
