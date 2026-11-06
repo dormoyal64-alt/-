@@ -179,19 +179,20 @@ export function leakPhotoPageHtml(
     .map(
       ({ photo, dataUrl }, i) => `
   <figure class="shot">
-    <img src="${dataUrl}" alt="" />
-    <figcaption>
+    <div class="shot-head">
       <span class="shot-no">${i + 1 + pageIndex * PHOTOS_PER_PAGE}</span>
-      <span class="shot-text">
-        <strong>${esc(photo.location || (photo.marker_x != null ? "מוקד נזילה" : "תיעוד"))}</strong>
-        ${photo.caption ? `<span class="shot-cap">${esc(photo.caption)}</span>` : ""}
+      <span class="shot-where">
+        <span class="shot-label">מיקום</span>
+        <strong>${esc(photo.location || "לא צוין")}</strong>
       </span>
       ${
         photo.marker_x != null
           ? `<span class="shot-flag">מסומן בחץ</span>`
           : `<span class="shot-flag plain">ללא ממצא</span>`
       }
-    </figcaption>
+    </div>
+    <img src="${dataUrl}" alt="" />
+    ${photo.caption ? `<figcaption>${esc(photo.caption)}</figcaption>` : ""}
   </figure>`
     )
     .join("")}
@@ -252,14 +253,16 @@ export const LEAK_CSS = `
 .pagehead-title { font-size: 14px; font-weight: 800; }
 .pagehead-sub { font-size: 12px; color: #4a5160; }
 .pagehead-num { font-size: 12px; color: #6b7280; white-space: nowrap; }
-.shot { margin: 0 0 16px; padding: 0; }
-.shot img { display: block; width: 100%; height: 430px; object-fit: contain;
+.shot { margin: 0 0 14px; padding: 0; }
+.shot-head { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+.shot img { display: block; width: 100%; height: 398px; object-fit: contain;
             background: #f4f5f8; border-radius: 10px; }
-.shot figcaption { display: flex; align-items: flex-start; gap: 10px; margin-top: 8px; }
+.shot figcaption { margin-top: 7px; padding-right: 34px; color: #4a5160; font-size: 13px; }
 .shot-no { flex: 0 0 auto; width: 24px; height: 24px; border-radius: 50%; background: #10131a;
            color: #fff; font-size: 13px; font-weight: 800; text-align: center; line-height: 24px; }
-.shot-text { flex: 1 1 auto; min-width: 0; font-size: 14px; }
-.shot-cap { display: block; color: #4a5160; font-size: 13px; }
+.shot-where { flex: 1 1 auto; min-width: 0; font-size: 15px; }
+.shot-label { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #6b7280;
+              margin-left: 7px; }
 .shot-flag { flex: 0 0 auto; font-size: 12px; font-weight: 700; color: #b3121f;
              background: #fff1f2; border-radius: 999px; padding: 2px 10px; }
 .shot-flag.plain { color: #4a5160; background: #f4f5f8; }

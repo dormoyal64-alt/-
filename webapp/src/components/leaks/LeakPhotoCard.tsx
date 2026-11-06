@@ -61,6 +61,22 @@ export function LeakPhotoCard({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-ink-100">
+      {/* above the picture, because that is where it prints: the report
+          heads every photograph with מיקום and this row is that heading */}
+      <div className="flex items-center gap-2 border-b border-ink-100 bg-ink-50/70 px-3 py-2">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink-900 text-xs font-extrabold text-white">
+          {index + 1}
+        </span>
+        <span className="shrink-0 text-[11px] font-extrabold tracking-wide text-ink-500">מיקום</span>
+        <Input
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          onBlur={() => location !== (photo.location ?? "") && onField("location", location)}
+          placeholder="איפה בבית — למשל: אמבטיה הורים"
+          className="bg-white py-1.5 font-bold"
+        />
+      </div>
+
       <div className="relative select-none bg-ink-900">
         {url ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -87,10 +103,6 @@ export function LeakPhotoCard({
             <span className="h-1.5 w-1.5 rounded-full bg-danger-500" />
           </span>
         )}
-
-        <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-ink-900/70 text-xs font-extrabold text-white">
-          {index + 1}
-        </span>
 
         <button
           type="button"
@@ -123,20 +135,12 @@ export function LeakPhotoCard({
           )}
         </p>
 
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Input
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            onBlur={() => location !== (photo.location ?? "") && onField("location", location)}
-            placeholder="איפה בבית — למשל: אמבטיה הורים"
-          />
-          <Input
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            onBlur={() => caption !== (photo.caption ?? "") && onField("caption", caption)}
-            placeholder="מה רואים — למשל: רטיבות בקיר מאחורי האסלה"
-          />
-        </div>
+        <Input
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          onBlur={() => caption !== (photo.caption ?? "") && onField("caption", caption)}
+          placeholder="מה רואים — למשל: רטיבות בקיר מאחורי האסלה"
+        />
       </div>
     </div>
   );
