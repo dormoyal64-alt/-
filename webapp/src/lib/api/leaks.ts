@@ -146,6 +146,18 @@ export async function deletePhoto(
   await supabase.storage.from(RECEIPTS_BUCKET).remove([photo.storage_path]);
 }
 
+/**
+ * Whether this database has the free-text notes column yet.
+ *
+ * Vercel deploys on push and the SQL is run by hand some time later; in
+ * between, offering a box whose every keystroke fails to save is worse than
+ * not offering one.
+ */
+export async function supportsSurveyNotes(supabase: SupabaseClient): Promise<boolean> {
+  const { error } = await supabase.from("leak_surveys").select("notes").limit(1);
+  return !error;
+}
+
 /** A link that opens the photograph, good for an hour and for this viewer only. */
 export async function photoUrl(supabase: SupabaseClient, path: string): Promise<string | null> {
   const { data } = await supabase.storage.from(RECEIPTS_BUCKET).createSignedUrl(path, 60 * 60);

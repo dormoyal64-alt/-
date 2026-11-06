@@ -24,15 +24,55 @@ export interface LeakPhotoForReport {
 
 const PHOTOS_PER_PAGE = 2;
 
-export function leakPageCount(photos: LeakPhotoForReport[]): number {
-  return 1 + Math.ceil(photos.length / PHOTOS_PER_PAGE);
+export function leakPageCount(photos: LeakPhotoForReport[], textPage: boolean): number {
+  return 1 + (textPage ? 1 : 0) + Math.ceil(photos.length / PHOTOS_PER_PAGE);
+}
+
+/**
+ * The written half of the report: what was found, what to do, and anything
+ * else worth saying. Shared by the cover and the continuation page, so the
+ * two can never drift apart.
+ */
+function writtenHtml(survey: LeakSurvey, photos: LeakPhotoForReport[]): string {
+  const findings = photos.filter((p) => p.photo.marker_x != null);
+  return `
+  ${section("ממצאים", survey.summary)}
+  ${section("המלצות", survey.recommendation)}
+  ${
+    findings.length
+      ? `<div class="section-title">מוקדים שאותרו</div>
+         <ol class="spots">
+           ${findings
+             .map(
+               (f) =>
+                 `<li><span class="spot-where">${esc(f.photo.location || "ללא מיקום")}</span>${
+                   f.photo.caption ? ` — ${esc(f.photo.caption)}` : ""
+                 }</li>`
+             )
+             .join("")}
+         </ol>`
+      : ""
+  }
+  ${section("הערות", survey.notes)}`;
+}
+
+/** Whether there is anything written at all. */
+export function hasWritten(survey: LeakSurvey, photos: LeakPhotoForReport[]): boolean {
+  return !!(
+    survey.summary?.trim() ||
+    survey.recommendation?.trim() ||
+    survey.notes?.trim() ||
+    photos.some((p) => p.photo.marker_x != null)
+  );
 }
 
 /** The cover: who, where, when, and the answer. */
 export function leakCoverHtml(
   survey: LeakSurvey,
   biz: QuoteBusiness,
-  photos: LeakPhotoForReport[]
+  photos: LeakPhotoForReport[],
+  /** false moves the written sections onto a page of their own */
+  includeWritten = true
 ): string {
   const findings = photos.filter((p) => p.photo.marker_x != null);
   const verdict =
@@ -88,24 +128,7 @@ export function leakCoverHtml(
     <div class="verdict-body">${esc(verdict.body)}</div>
   </div>
 
-  ${section("ממצאים", survey.summary)}
-  ${section("המלצות", survey.recommendation)}
-
-  ${
-    findings.length
-      ? `<div class="section-title">מוקדים שאותרו</div>
-         <ol class="spots">
-           ${findings
-             .map(
-               (f) =>
-                 `<li><span class="spot-where">${esc(f.photo.location || "ללא מיקום")}</span>${
-                   f.photo.caption ? ` — ${esc(f.photo.caption)}` : ""
-                 }</li>`
-             )
-             .join("")}
-         </ol>`
-      : ""
-  }
+  ${includeWritten ? writtenHtml(survey, photos) : ""}
 
   <div class="note">
     הדוח מתעד את שנמצא בבדיקה חזותית ובאמצעי האיתור שברשותנו, במועד ובמקומות שפורטו בלבד.
@@ -113,15 +136,23 @@ export function leakCoverHtml(
 </div>`;
 }
 
-/** One page of photographs. */
-export function leakPhotoPageHtml(
+/** The written sections on a page of their own, when the cover cannot hold them. */
+export function leakTextPageHtml(
   survey: LeakSurvey,
-  page: LeakPhotoForReport[],
-  pageIndex: number,
+  photos: LeakPhotoForReport[],
+  pageNo: number,
   totalPages: number
 ): string {
   return `
 <div class="sheet" dir="rtl">
+  ${pageHeadHtml(survey, pageNo, totalPages)}
+  ${writtenHtml(survey, photos)}
+</div>`;
+}
+
+/** One page of photographs. */
+function pageHeadHtml(survey: LeakSurvey, pageNo: number, totalPages: number): string {
+  return `
   <div class="pagehead">
     <div class="pagehead-right">
       <span class="pagehead-title">איתור נזילות · דוח ${esc(survey.survey_number)}</span>
@@ -129,8 +160,20 @@ export function leakPhotoPageHtml(
         survey.customer_address ? ` · ${esc(survey.customer_address)}` : ""
       }</span>
     </div>
-    <span class="pagehead-num">עמוד ${pageIndex + 2} מתוך ${totalPages}</span>
-  </div>
+    <span class="pagehead-num">עמוד ${pageNo} מתוך ${totalPages}</span>
+  </div>`;
+}
+
+export function leakPhotoPageHtml(
+  survey: LeakSurvey,
+  page: LeakPhotoForReport[],
+  pageIndex: number,
+  pageNo: number,
+  totalPages: number
+): string {
+  return `
+<div class="sheet" dir="rtl">
+  ${pageHeadHtml(survey, pageNo, totalPages)}
 
   ${page
     .map(

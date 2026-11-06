@@ -32,6 +32,7 @@ import {
   orderedPhotos,
   photoUrl,
   spotsLabel,
+  supportsSurveyNotes,
   updatePhoto,
   updateSurvey,
   uploadSurveyPhoto,
@@ -74,6 +75,9 @@ export default function LeakSurveyPage() {
   const [surveyedOn, setSurveyedOn] = useState("");
   const [summary, setSummary] = useState("");
   const [recommendation, setRecommendation] = useState("");
+  const [notes, setNotes] = useState("");
+  // the notes column arrived after the table; the screen works without it
+  const [canNote, setCanNote] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -86,6 +90,7 @@ export default function LeakSurveyPage() {
         setSurveyedOn(row.surveyed_on);
         setSummary(row.summary ?? "");
         setRecommendation(row.recommendation ?? "");
+        setNotes(row.notes ?? "");
         // signed links, one hour each, fetched only for photographs we do not
         // already hold one for
         const photos = orderedPhotos(row);
@@ -110,6 +115,18 @@ export default function LeakSurveyPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // asked once, not on every reload: the answer cannot change while the page
+  // is open, and a probe that fails is a 400 in the console each time
+  useEffect(() => {
+    let alive = true;
+    supportsSurveyNotes(supabase).then((ok) => {
+      if (alive) setCanNote(ok);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [supabase]);
 
   async function save(fields: Parameters<typeof updateSurvey>[2]) {
     if (!survey) return;
@@ -426,6 +443,20 @@ export default function LeakSurveyPage() {
               placeholder="למשל: פתיחת הקיר באזור המסומן והחלפת הצנרת. מומלץ לבצע בהקדם כדי למנוע נזק לריצוף."
             />
           </div>
+          {canNote && (
+            <div>
+              <Label>הערות</Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                onBlur={() => notes !== (survey.notes ?? "") && save({ notes: notes.trim() || null })}
+                placeholder="מלל חופשי — כל דבר ששווה שיהיה כתוב. למשל: לא ניתן היה להזיז את הארון במטבח, הקיר מאחוריו לא נבדק. מרפסת השכן מטפטפת ויכולה להיות המקור."
+              />
+              <p className="mt-1 text-xs text-ink-400">
+                מופיעות בסוף הדוח שהלקוח מקבל, בדיוק כפי שנכתבו.
+              </p>
+            </div>
+          )}
         </CardBody>
       </Card>
 

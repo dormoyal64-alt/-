@@ -751,6 +751,8 @@ export interface LeakSurvey {
   found: boolean | null;
   summary: string | null;
   recommendation: string | null;
+  /** free text printed at the end of the report */
+  notes: string | null;
   job_id: string | null;
   sent_at: string | null;
   sent_to: string | null;
