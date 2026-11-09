@@ -26,7 +26,9 @@ import { errorMessage } from "@/lib/errors";
 import {
   buildQuoteWhatsappMessage,
   isExpired,
+  isRateCard,
   plainDate,
+  RATE_CARD_TEMPLATES,
   quoteBusinessName,
   quoteDocTitle,
   quotePayable,
@@ -86,7 +88,7 @@ const STATUS_STYLE: Record<QuoteStatus, string> = {
 export default function QuotesPage() {
   const supabase = useMemo(() => createClient(), []);
   const toast = useToast();
-  const { professions, jobTypes, settings } = useRefData();
+  const { professions, jobTypes, settings, refresh } = useRefData();
 
   const [quotes, setQuotes] = useState<QuoteWithLines[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,6 +135,25 @@ export default function QuotesPage() {
     []
   );
 
+  /**
+   * The quote as the document should read it.
+   *
+   * Until the database can store is_rate_card, the kind of work decides —
+   * so the one place that knows both the quote and the job types resolves it
+   * here, and everything downstream goes on reading quote.is_rate_card.
+   */
+  const asDocument = useCallback(
+    (q: QuoteWithLines): QuoteWithLines => ({
+      ...q,
+      is_rate_card: isRateCard(
+        q,
+        jobTypes.find((jt) => jt.id === q.job_type_id) ?? null,
+        has.rateCard
+      ),
+    }),
+    [jobTypes, has.rateCard]
+  );
+
   /** What the quote is for, as its heading line. */
   const subjectFor = useCallback(
     (q: QuoteWithLines) =>
@@ -159,13 +180,45 @@ export default function QuotesPage() {
 
   const messageFor = useCallback(
     (q: QuoteWithLines) =>
-      buildQuoteWhatsappMessage(q, q.quote_lines ?? [], settings, {
+      buildQuoteWhatsappMessage(asDocument(q), q.quote_lines ?? [], settings, {
         professionName: professions.find((p) => p.id === q.profession_id)?.name,
         jobTypeName: jobTypes.find((jt) => jt.id === q.job_type_id)?.name,
         profession: professions.find((p) => p.id === q.profession_id) ?? null,
       }),
-    [settings, professions, jobTypes]
+    [settings, professions, jobTypes, asDocument]
   );
+
+  /**
+   * Creating a kind of work without leaving the quote.
+   *
+   * The rate lines are written too where the database can hold them, so the
+   * type behaves the same next time as one seeded by the script — and are
+   * left off where it cannot, rather than failing the insert.
+   */
+  async function addJobType(professionId: string, name: string): Promise<string | null> {
+    const template = RATE_CARD_TEMPLATES.find((t) => t.name === name);
+    const base: Record<string, unknown> = {
+      profession_id: professionId,
+      name,
+      sort_order: jobTypes.filter((jt) => jt.profession_id === professionId).length + 1,
+    };
+    let created = await supabase
+      .from("job_types")
+      .insert(has.rateCard && template ? { ...base, quote_rate_lines: template.lines } : base)
+      .select("id")
+      .single();
+    // a database without the column refuses the whole row, so try again plain
+    if (created.error && has.rateCard) {
+      created = await supabase.from("job_types").insert(base).select("id").single();
+    }
+    if (created.error) {
+      toast.error(errorMessage(created.error, "לא הצלחנו להוסיף את סוג העבודה"));
+      return null;
+    }
+    await refresh(true);
+    toast.success(`״${name}״ נוסף`);
+    return (created.data as { id: string }).id;
+  }
 
   async function save(draft: QuoteDraft, send: boolean) {
     try {
@@ -232,7 +285,7 @@ export default function QuotesPage() {
   // a price list has no single figure, so it is left out of the money totals
   // rather than contributing a sum nobody owes
   const money = (list: QuoteWithLines[]) =>
-    list.filter((q) => !q.is_rate_card).reduce((s, q) => s + quotePayable(q), 0);
+    list.filter((q) => !asDocument(q).is_rate_card).reduce((s, q) => s + quotePayable(q), 0);
   const waitingTotal = money(waiting);
   const acceptedTotal = money(quotes.filter((q) => q.status === "accepted"));
 
@@ -337,7 +390,7 @@ export default function QuotesPage() {
                       </span>
                       <Badge className={STATUS_STYLE[status]}>{QUOTE_STATUS_LABELS[status]}</Badge>
                       <span className="shrink-0 font-extrabold text-ink-900">
-                        {q.is_rate_card ? (
+                        {asDocument(q).is_rate_card ? (
                           <span className="text-xs font-bold text-ink-400">מחירון</span>
                         ) : (
                           formatAgorot(quotePayable(q))
@@ -455,6 +508,7 @@ export default function QuotesPage() {
         jobTypes={jobTypes}
         settings={settings}
         has={has}
+        onAddJobType={addJobType}
         onSubmit={save}
       />
 
@@ -468,7 +522,7 @@ export default function QuotesPage() {
               }`
             : ""
         }
-        quote={previewing?.quote ?? null}
+        quote={previewing ? asDocument(previewing.quote) : null}
         lines={previewing?.quote.quote_lines ?? []}
         business={
           previewing

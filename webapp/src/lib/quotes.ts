@@ -1,4 +1,4 @@
-import type { AppSettings, Profession, Quote, QuoteLine, QuoteStatus } from "@/lib/types";
+import type { AppSettings, JobType, Profession, Quote, QuoteLine, QuoteStatus } from "@/lib/types";
 import { formatAgorotPlain } from "@/lib/money";
 import { contactPhone } from "@/lib/whatsapp";
 
@@ -28,6 +28,45 @@ export const VALIDITY_CHOICES = [7, 14, 30, 60] as const;
  */
 export function quoteDocTitle(workDone: boolean | null | undefined): string {
   return workDone === true ? "הזמנת עבודה" : "הצעת מחיר";
+}
+
+/**
+ * Kinds of work sold by rate rather than by job.
+ *
+ * Built in rather than only in the database, so the feature works on a
+ * database that has not had the script run — which is most of them, most of
+ * the time, because the owner runs those by hand from a laptop and the work
+ * arrives on a phone. A job type that carries its own lines overrides this;
+ * this is the floor, not the ceiling.
+ */
+export const RATE_CARD_TEMPLATES: { name: string; lines: string[] }[] = [
+  { name: "שירותי ביובית", lines: ["יום עבודה מלא", "קריאת פתע — עד שעתיים עבודה"] },
+];
+
+type RateJobType = Pick<JobType, "name"> & { quote_rate_lines?: string[] | null };
+
+/** The lines a quote for this kind of work starts with, or null. */
+export function rateLinesFor(jobType: RateJobType | null | undefined): string[] | null {
+  if (!jobType) return null;
+  if (jobType.quote_rate_lines?.length) return jobType.quote_rate_lines;
+  return RATE_CARD_TEMPLATES.find((t) => t.name === jobType.name)?.lines ?? null;
+}
+
+/**
+ * Whether this quote prints as a price list.
+ *
+ * The quote's own flag decides once the database can hold one. Until then the
+ * kind of work decides, which is nearly as good: a tanker quote is a rate card
+ * because of what it is, and the flag exists for the rarer case of wanting to
+ * say otherwise.
+ */
+export function isRateCard(
+  quote: Pick<Quote, "is_rate_card">,
+  jobType: RateJobType | null | undefined,
+  stored: boolean
+): boolean {
+  if (stored) return !!quote.is_rate_card;
+  return !!rateLinesFor(jobType);
 }
 
 export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {

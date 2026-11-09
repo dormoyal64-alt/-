@@ -6036,4 +6036,19 @@ begin
      and quote_rate_lines is null;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- Quotes written before this column existed
+-- ---------------------------------------------------------------------------
+-- The screen works without the column by reading the kind of work instead, so
+-- tanker quotes have been going out as price lists already. The moment the
+-- column appears it takes over — and it defaults to false, which would quietly
+-- turn every one of those back into a quote with a total. So they are marked
+-- here, once, and the toggle is meaningful from then on.
+update quotes q
+   set is_rate_card = true
+  from job_types jt
+ where jt.id = q.job_type_id
+   and coalesce(array_length(jt.quote_rate_lines, 1), 0) > 0
+   and not q.is_rate_card;
+
 notify pgrst, 'reload schema';

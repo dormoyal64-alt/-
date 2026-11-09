@@ -6,7 +6,15 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select, Textarea } from "@/components/ui/Input";
 import { formatAgorot, shekelsToAgorot, agorotToShekels } from "@/lib/money";
-import { lineTotal, quoteBusinessName, quoteTotal, validUntilFrom, VALIDITY_CHOICES } from "@/lib/quotes";
+import {
+  lineTotal,
+  quoteBusinessName,
+  quoteTotal,
+  rateLinesFor,
+  RATE_CARD_TEMPLATES,
+  validUntilFrom,
+  VALIDITY_CHOICES,
+} from "@/lib/quotes";
 import type { QuoteColumns } from "@/lib/api/quotes";
 import type { QuoteDraft, QuoteLineDraft } from "@/lib/api/quotes";
 import type { AppSettings, JobType, Profession, QuoteWithLines } from "@/lib/types";
@@ -53,6 +61,7 @@ export function QuoteFormModal({
   jobTypes,
   settings,
   has,
+  onAddJobType,
   onSubmit,
 }: {
   open: boolean;
@@ -64,6 +73,8 @@ export function QuoteFormModal({
   settings: AppSettings | null;
   /** which of the later columns this database has; the form adapts to it */
   has: QuoteColumns;
+  /** creates a job type and returns its id, so the quote can go straight on */
+  onAddJobType: (professionId: string, name: string) => Promise<string | null>;
   onSubmit: (draft: QuoteDraft, send: boolean) => Promise<void>;
 }) {
   const [customerName, setCustomerName] = useState("");
@@ -79,6 +90,7 @@ export function QuoteFormModal({
   const [finalTotal, setFinalTotal] = useState("");
   const [workDone, setWorkDone] = useState<boolean | null>(null);
   const [rateCard, setRateCard] = useState(false);
+  const [adding, setAdding] = useState<string | null>(null);
   const [lines, setLines] = useState<LineRow[]>([emptyLine()]);
   const [busy, setBusy] = useState<"save" | "send" | null>(null);
 
@@ -131,15 +143,19 @@ export function QuoteFormModal({
    * Only ever fills empty rows. A breakdown already typed is never overwritten
    * by changing the dropdown.
    */
-  function applyJobType(id: string) {
+  function applyJobType(id: string, rates?: string[] | null) {
     setJobTypeId(id);
-    const rates = jobTypes.find((jt) => jt.id === id)?.quote_rate_lines ?? null;
-    if (!rates?.length) return;
+    // The job type's own lines where the database can hold them, and the
+    // built-in ones by name where it cannot — so this works before the script
+    // has been run. A caller that has just created the type passes them in:
+    // it is not in `jobTypes` yet, because that prop is a render behind.
+    const lines = rates ?? rateLinesFor(jobTypes.find((jt) => jt.id === id) ?? null);
+    if (!lines?.length) return;
     setRateCard(true);
     setLines((rows) => {
       const typed = rows.filter((r) => r.description.trim() || r.price.trim());
       if (typed.length) return rows;
-      return rates.map((description) => ({ key: newKey(), description, qty: "1", price: "" }));
+      return lines.map((description) => ({ key: newKey(), description, qty: "1", price: "" }));
     });
   }
 
@@ -163,6 +179,31 @@ export function QuoteFormModal({
 
   function patchLine(key: string, patch: Partial<LineRow>) {
     setLines((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
+
+  /**
+   * The rate-card kinds of work this business has not got yet.
+   *
+   * Offered right here rather than sending him to the settings screen: the
+   * moment he needs "שירותי ביובית" is the moment he is writing a quote for
+   * it, and a trip to another screen to type a name is a trip he will take
+   * once and resent.
+   */
+  const missingRateTypes = professionId
+    ? RATE_CARD_TEMPLATES.filter(
+        (t) => !jobTypes.some((jt) => jt.profession_id === professionId && jt.name === t.name)
+      )
+    : [];
+
+  async function addRateType(name: string) {
+    if (!professionId) return;
+    setAdding(name);
+    try {
+      const created = await onAddJobType(professionId, name);
+      if (created) applyJobType(created, RATE_CARD_TEMPLATES.find((t) => t.name === name)?.lines);
+    } finally {
+      setAdding(null);
+    }
   }
 
   async function submit(send: boolean) {
@@ -279,6 +320,18 @@ export function QuoteFormModal({
                   </option>
                 ))}
               </Select>
+              {missingRateTypes.map((t) => (
+                <button
+                  key={t.name}
+                  type="button"
+                  disabled={adding === t.name}
+                  onClick={() => addRateType(t.name)}
+                  className="mt-1.5 flex w-full items-center gap-1.5 rounded-xl border border-dashed border-brand-300 px-3 py-1.5 text-xs font-bold text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {adding === t.name ? "מוסיף..." : `להוסיף ״${t.name}״ לתחום הזה`}
+                </button>
+              ))}
             </div>
           </div>
           <div>
