@@ -31,6 +31,8 @@ export interface JobType {
   visit_fee_agorot: number | null;
   /** late-cancellation fee for this kind of fault; null falls back to the trade, then to settings */
   cancellation_fee_agorot: number | null;
+  /** lines a quote for this kind of work starts with; non-empty means it is quoted by rate */
+  quote_rate_lines: string[] | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -702,6 +704,8 @@ export interface Quote {
   final_total_agorot: number | null;
   /** null says nothing about it, false says not yet, true says already done */
   work_done: boolean | null;
+  /** true when the breakdown is a price list, printed without a total */
+  is_rate_card: boolean;
   valid_until: string | null;
   notes: string | null;
   status: QuoteStatus;

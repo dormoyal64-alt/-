@@ -228,16 +228,20 @@ export function buildQuoteWhatsappMessage(
   }
 
   const payable = quotePayable(quote);
-  const discounted = hasDiscount(quote);
+  const discounted = !quote.is_rate_card && hasDiscount(quote);
 
   parts.push(
     "",
+    // A rate card has no total. A day at 3,500 and a call-out at 1,200 is not
+    // 4,700 to pay — nobody owes that — and printing it would have the
+    // document contradict itself in front of an accounts department.
+    quote.is_rate_card ? "המחירים לעיל הם לכל קריאה/יום בנפרד." : null,
     // the breakdown's own sum, shown only when the agreed price is not it —
     // a customer whose lines add to 1,630 and whose total reads 1,500 should
     // be shown the discount, not left to find the arithmetic error
     discounted ? `סה״כ לפי הפירוט: ${formatAgorotPlain(quote.total_agorot)}` : null,
     discounted ? `הנחה: ${formatAgorotPlain(quote.total_agorot - payable)}` : null,
-    `*סה״כ לתשלום: ${formatAgorotPlain(payable)}*`,
+    quote.is_rate_card ? null : `*סה״כ לתשלום: ${formatAgorotPlain(payable)}*`,
     "",
     workDoneLine(quote.work_done),
     // a price for work already finished is not an offer waiting to be taken

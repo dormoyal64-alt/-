@@ -35,6 +35,8 @@ export interface QuoteDraft {
   final_total_agorot: number | null;
   /** null says nothing on the quote, false says not yet, true says already done */
   work_done: boolean | null;
+  /** true when the breakdown is a price list and must not be totalled */
+  is_rate_card: boolean;
   lines: QuoteLineDraft[];
 }
 
@@ -43,6 +45,8 @@ export interface QuoteColumns {
   nameOverride: boolean;
   /** final_total_agorot and work_done; they arrived together */
   finalTotal: boolean;
+  /** is_rate_card, and the rate lines on the job type */
+  rateCard: boolean;
 }
 
 /**
@@ -54,13 +58,14 @@ export interface QuoteColumns {
  * field out until the answer is yes.
  */
 export async function probeQuoteColumns(supabase: SupabaseClient): Promise<QuoteColumns> {
-  const [name, final] = await Promise.all([
+  const [name, final, rate] = await Promise.all([
     supabase.from("quotes").select("business_name_override").limit(1),
     supabase.from("quotes").select("final_total_agorot,work_done").limit(1),
+    supabase.from("quotes").select("is_rate_card").limit(1),
   ]);
   // asked separately because they shipped separately: a database that has had
-  // one script and not the next should lose one field, not both
-  return { nameOverride: !name.error, finalTotal: !final.error };
+  // one script and not the next should lose one field, not all of them
+  return { nameOverride: !name.error, finalTotal: !final.error, rateCard: !rate.error };
 }
 
 export async function listQuotes(
@@ -101,6 +106,7 @@ function quoteColumns(draft: QuoteDraft, has: QuoteColumns) {
     ...(has.finalTotal
       ? { final_total_agorot: draft.final_total_agorot, work_done: draft.work_done }
       : {}),
+    ...(has.rateCard ? { is_rate_card: draft.is_rate_card } : {}),
   };
 }
 

@@ -94,7 +94,7 @@ export default function QuotesPage() {
   const [available, setAvailable] = useState(true);
   // the later columns arrived after the table did, so they are asked about
   // separately: the screen works with any of them missing
-  const [has, setHas] = useState<QuoteColumns>({ nameOverride: false, finalTotal: false });
+  const [has, setHas] = useState<QuoteColumns>({ nameOverride: false, finalTotal: false, rateCard: false });
   const [filter, setFilter] = useState<"all" | QuoteStatus>("all");
 
   const [formOpen, setFormOpen] = useState(false);
@@ -229,10 +229,12 @@ export default function QuotesPage() {
 
   const listed = quotes.filter((q) => filter === "all" || shownStatus(q) === filter);
   const waiting = quotes.filter((q) => shownStatus(q) === "sent");
-  const waitingTotal = waiting.reduce((s, q) => s + quotePayable(q), 0);
-  const acceptedTotal = quotes
-    .filter((q) => q.status === "accepted")
-    .reduce((s, q) => s + quotePayable(q), 0);
+  // a price list has no single figure, so it is left out of the money totals
+  // rather than contributing a sum nobody owes
+  const money = (list: QuoteWithLines[]) =>
+    list.filter((q) => !q.is_rate_card).reduce((s, q) => s + quotePayable(q), 0);
+  const waitingTotal = money(waiting);
+  const acceptedTotal = money(quotes.filter((q) => q.status === "accepted"));
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -335,7 +337,11 @@ export default function QuotesPage() {
                       </span>
                       <Badge className={STATUS_STYLE[status]}>{QUOTE_STATUS_LABELS[status]}</Badge>
                       <span className="shrink-0 font-extrabold text-ink-900">
-                        {formatAgorot(quotePayable(q))}
+                        {q.is_rate_card ? (
+                          <span className="text-xs font-bold text-ink-400">מחירון</span>
+                        ) : (
+                          formatAgorot(quotePayable(q))
+                        )}
                       </span>
                     </div>
 

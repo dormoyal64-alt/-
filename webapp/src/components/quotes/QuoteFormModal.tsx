@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Send, Trash2, Save } from "lucide-react";
+import { Plus, Send, Trash2, Save, Check } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Select, Textarea } from "@/components/ui/Input";
@@ -78,6 +78,7 @@ export function QuoteFormModal({
   const [businessName, setBusinessName] = useState("");
   const [finalTotal, setFinalTotal] = useState("");
   const [workDone, setWorkDone] = useState<boolean | null>(null);
+  const [rateCard, setRateCard] = useState(false);
   const [lines, setLines] = useState<LineRow[]>([emptyLine()]);
   const [busy, setBusy] = useState<"save" | "send" | null>(null);
 
@@ -99,6 +100,7 @@ export function QuoteFormModal({
       editing?.final_total_agorot != null ? String(agorotToShekels(editing.final_total_agorot)) : ""
     );
     setWorkDone(editing?.work_done ?? null);
+    setRateCard(!!editing?.is_rate_card);
     const existing = [...(editing?.quote_lines ?? [])].sort((a, b) => a.sort_order - b.sort_order);
     setLines(
       existing.length
@@ -117,6 +119,30 @@ export function QuoteFormModal({
   const chosenProfession = professions.find((p) => p.id === professionId) ?? null;
   const fallbackName = quoteBusinessName(null, chosenProfession, settings) ?? "";
 
+  /**
+   * Picking a kind of work that is sold by rate.
+   *
+   * Tanker services are not quoted as a job: a council asks what a day costs
+   * and what a 2am call-out costs. The job type carries those lines, so
+   * choosing it writes them in and switches the quote to a price list — which
+   * is the part that matters, because adding a day to a call-out produces a
+   * number nobody owes.
+   *
+   * Only ever fills empty rows. A breakdown already typed is never overwritten
+   * by changing the dropdown.
+   */
+  function applyJobType(id: string) {
+    setJobTypeId(id);
+    const rates = jobTypes.find((jt) => jt.id === id)?.quote_rate_lines ?? null;
+    if (!rates?.length) return;
+    setRateCard(true);
+    setLines((rows) => {
+      const typed = rows.filter((r) => r.description.trim() || r.price.trim());
+      if (typed.length) return rows;
+      return rates.map((description) => ({ key: newKey(), description, qty: "1", price: "" }));
+    });
+  }
+
   const relevantJobTypes = useMemo(
     () => jobTypes.filter((jt) => jt.is_active && (!professionId || jt.profession_id === professionId)),
     [jobTypes, professionId]
@@ -130,7 +156,9 @@ export function QuoteFormModal({
   const discount = finalAgorot != null && linesTotal > 0 ? linesTotal - finalAgorot : 0;
   // a quote can now be a single number with no breakdown at all, so lines are
   // only required when nothing else says what the price is
-  const canSave = !!customerName.trim() && payable > 0;
+  // a price list has no total to be positive, so it is judged on its lines
+  const canSave =
+    !!customerName.trim() && (rateCard ? draftLines.some((l) => l.unit_price_agorot > 0) : payable > 0);
   const canSend = canSave && !!customerPhone.trim();
 
   function patchLine(key: string, patch: Partial<LineRow>) {
@@ -154,6 +182,7 @@ export function QuoteFormModal({
           business_name_override: businessName,
           final_total_agorot: has.finalTotal ? finalAgorot : null,
           work_done: has.finalTotal ? workDone : null,
+          is_rate_card: has.rateCard ? rateCard : false,
           lines: draftLines,
         },
         send
@@ -242,7 +271,7 @@ export function QuoteFormModal({
             </div>
             <div>
               <Label>סוג עבודה</Label>
-              <Select value={jobTypeId} onChange={(e) => setJobTypeId(e.target.value)}>
+              <Select value={jobTypeId} onChange={(e) => applyJobType(e.target.value)}>
                 <option value="">ללא</option>
                 {relevantJobTypes.map((jt) => (
                   <option key={jt.id} value={jt.id}>
@@ -362,7 +391,35 @@ export function QuoteFormModal({
             <Plus className="h-4 w-4" /> שורה נוספת
           </Button>
 
-          {has.finalTotal && (
+          {has.rateCard && (
+            <button
+              type="button"
+              onClick={() => setRateCard((v) => !v)}
+              className={`flex w-full items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-right transition ${
+                rateCard ? "border-brand-200 bg-brand-50/60" : "border-ink-200 hover:bg-ink-50"
+              }`}
+            >
+              <span
+                className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                  rateCard ? "border-brand-600 bg-brand-600 text-white" : "border-ink-300"
+                }`}
+              >
+                {rateCard && <Check className="h-3 w-3" />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-ink-900">
+                  מחירון — בלי סה״כ
+                </span>
+                <span className="block text-xs text-ink-500">
+                  לשירותים שנמכרים לפי תעריף, כמו ביובית. כל שורה היא מחיר בפני עצמו, ולכן ההצעה
+                  יוצאת בלי שורת ״סה״כ לתשלום״ — חיבור של יום עבודה עם קריאת פתע נותן סכום שאף אחד
+                  לא חייב.
+                </span>
+              </span>
+            </button>
+          )}
+
+          {has.finalTotal && !rateCard && (
             <div>
               <Label>סכום סופי לתשלום</Label>
               <Input
@@ -402,6 +459,11 @@ export function QuoteFormModal({
             </div>
           )}
 
+          {rateCard ? (
+            <p className="rounded-xl border border-ink-100 bg-ink-50 px-3.5 py-3 text-sm text-ink-500">
+              מחירון — ההצעה תצא עם {draftLines.length || 0} שורות מחיר, בלי סה״כ.
+            </p>
+          ) : (
           <div className="flex items-center justify-between rounded-xl border border-brand-100 bg-brand-50/60 px-3.5 py-3">
             <div>
               <span className="text-sm font-bold text-ink-900">סה״כ לתשלום</span>
@@ -413,6 +475,7 @@ export function QuoteFormModal({
             </div>
             <span className="text-lg font-extrabold text-brand-700">{formatAgorot(payable)}</span>
           </div>
+          )}
 
           {has.finalTotal && (
             <div>

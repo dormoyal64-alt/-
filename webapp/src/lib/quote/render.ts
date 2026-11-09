@@ -55,7 +55,7 @@ export function quoteHtml(
 ): string {
   const ordered = [...lines].sort((a, b) => a.sort_order - b.sort_order);
   const payable = quotePayable(quote);
-  const discounted = hasDiscount(quote);
+  const discounted = !quote.is_rate_card && hasDiscount(quote);
   const title = quoteDocTitle(quote.work_done);
   const done = workDoneLine(quote.work_done, { emoji: false });
 
@@ -64,8 +64,28 @@ export function quoteHtml(
 
   // a quote priced as one figure has nothing to tabulate, and an empty table
   // with a single "שירות" row invented to fill it is worse than no table
-  const itemsTable = ordered.length
-    ? `
+  // A price list has one number per row. Quantity and a second amount column
+  // repeating it are columns of noise on a document whose whole job is to be
+  // read quickly by somebody deciding on a rate.
+  const itemsTable = !ordered.length
+    ? ""
+    : quote.is_rate_card
+      ? `
+  <div class="section-title">מחירון</div>
+  <table class="items">
+    <thead><tr><th class="desc">שירות</th><th class="amt">מחיר</th></tr></thead>
+    <tbody>
+      ${ordered
+        .map(
+          (l) => `<tr>
+        <td class="desc">${esc(l.description)}</td>
+        <td class="amt">${formatAgorot(lineTotal(l))}</td>
+      </tr>`
+        )
+        .join("")}
+    </tbody>
+  </table>`
+      : `
   <div class="section-title">פירוט</div>
   <table class="items">
     <thead>
@@ -88,8 +108,7 @@ export function quoteHtml(
         )
         .join("")}
     </tbody>
-  </table>`
-    : "";
+  </table>`;
 
   const subTotals = discounted
     ? `
@@ -128,10 +147,14 @@ export function quoteHtml(
   ${itemsTable}
   ${subTotals}
 
-  <div class="total">
+  ${
+    quote.is_rate_card
+      ? `<div class="ratecard-note">המחירים לעיל הם לכל קריאה או יום עבודה בנפרד, ואינם מסתכמים זה עם זה.</div>`
+      : `<div class="total">
     <span class="total-label">סה״כ לתשלום</span>
     <span class="total-value">${formatAgorot(payable)}</span>
-  </div>
+  </div>`
+  }
 
   ${done ? `<div class="state">${esc(done)}</div>` : ""}
   ${
@@ -181,6 +204,8 @@ export const QUOTE_CSS = `
 .total-label { font-size: 15px; font-weight: 700; }
 .total-value { font-size: 24px; font-weight: 800; }
 .state { margin-top: 12px; font-size: 14px; font-weight: 600; }
+.ratecard-note { margin-top: 18px; padding: 14px 18px; background: #f4f5f8; border-radius: 10px;
+                 font-size: 14px; font-weight: 600; color: #4a5160; }
 .notes { margin-top: 22px; padding-top: 16px; border-top: 1px solid #e3e6eb;
          font-size: 14px; color: #4a5160; white-space: pre-wrap; }
 `;
