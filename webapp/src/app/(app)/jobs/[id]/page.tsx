@@ -201,6 +201,18 @@ export default function JobDetailPage() {
     );
   }
 
+
+  /**
+   * The note the receipt should carry.
+   *
+   * "הערות לסגירה" is the box filled in while closing the job, and it is the
+   * one a tradesman actually writes in — the note from when the job was
+   * opened goes into the receipt's description line instead. The same switch
+   * that keeps a note off the receipt governs both.
+   */
+  const receiptNote = (j: JobWithRelations | null) =>
+    j && (j.notes_on_receipt ?? true) ? (j.closing_notes?.trim() || null) : null;
+
   if (loading) return <PageSpinner />;
 
   if (!job) {
@@ -497,7 +509,11 @@ export default function JobDetailPage() {
 
       {job.is_closed && !!job.final_price_agorot && !(job.payment_terms_days > 0 && !job.paid_at) && (
         receipt && !receipt.cancelled_at ? (
-          <ReceiptCard receipt={receipt} customerTaxId={job.customer_tax_id} />
+          <ReceiptCard
+            receipt={receipt}
+            customerTaxId={job.customer_tax_id}
+            note={receiptNote(job)}
+          />
         ) : (
           <button
             type="button"
@@ -715,7 +731,7 @@ export default function JobDetailPage() {
             <p className="text-sm text-ink-500">
               העבודה נסגרה והקבלה הופקה. אפשר לשלוח אותה ללקוח עכשיו — או מאוחר יותר מדף העבודה.
             </p>
-            <ReceiptCard receipt={justIssued} />
+            <ReceiptCard receipt={justIssued} note={receiptNote(job)} />
             <Button variant="secondary" fullWidth onClick={() => setJustIssued(null)}>
               סגירה
             </Button>

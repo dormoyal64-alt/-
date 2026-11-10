@@ -547,6 +547,8 @@ export interface Receipt {
   /** the customer own ח.פ / ע.מ, as it stood when the receipt was issued */
   customer_tax_id: string | null;
   description: string | null;
+  /** the closing note, frozen at issue; absent until the column exists */
+  notes?: string | null;
   business_name: string | null;
   business_number: string | null;
   business_address: string | null;

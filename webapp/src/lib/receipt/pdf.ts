@@ -14,7 +14,8 @@ export function receiptFileName(r: Receipt): string {
  */
 export async function receiptPdfBlob(
   r: Receipt,
-  business?: BusinessDetails | AppSettings | null
+  business?: BusinessDetails | AppSettings | null,
+  noteFallback?: string | null
 ): Promise<Blob> {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import("html2canvas"),
@@ -24,7 +25,7 @@ export async function receiptPdfBlob(
   const host = document.createElement("div");
   host.setAttribute("dir", "rtl");
   host.style.cssText = "position:fixed;top:0;left:-10000px;width:794px;background:#fff;z-index:-1;";
-  host.innerHTML = `<style>${RECEIPT_CSS}</style>${receiptHtml(r, business)}`;
+  host.innerHTML = `<style>${RECEIPT_CSS}</style>${receiptHtml(r, business, noteFallback)}`;
   document.body.appendChild(host);
 
   try {
@@ -60,9 +61,10 @@ export type DeliveryResult = "shared" | "downloaded" | "cancelled";
  */
 export async function deliverReceipt(
   r: Receipt,
-  business?: BusinessDetails | AppSettings | null
+  business?: BusinessDetails | AppSettings | null,
+  noteFallback?: string | null
 ): Promise<DeliveryResult> {
-  const blob = await receiptPdfBlob(r, business);
+  const blob = await receiptPdfBlob(r, business, noteFallback);
   const name = receiptFileName(r);
   const file = new File([blob], name, { type: "application/pdf" });
 

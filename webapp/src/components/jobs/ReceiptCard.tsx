@@ -10,7 +10,7 @@ import { formatAgorot, formatAgorotPlain } from "@/lib/money";
 import { formatDateTimeHe } from "@/lib/dates";
 import { buildWhatsappLink } from "@/lib/whatsapp";
 import { deliverReceipt } from "@/lib/receipt/pdf";
-import { businessOnReceipt } from "@/lib/receipt/render";
+import { businessOnReceipt, noteOnReceipt } from "@/lib/receipt/render";
 import type { Receipt } from "@/lib/types";
 
 /** True on a device whose share sheet accepts a file — phones, essentially. */
@@ -40,8 +40,15 @@ function canShareFiles() {
 export function ReceiptCard({
   receipt,
   customerTaxId,
+  note,
 }: {
   receipt: Receipt;
+  /**
+   * The job's closing note, for a receipt issued before receipts kept one.
+   * Same rule as the business details: what the receipt captured stands, and
+   * a blank is filled from what is true now.
+   */
+  note?: string | null;
   /**
    * The customer's number as the job holds it now.
    *
@@ -64,6 +71,7 @@ export function ReceiptCard({
   const doc: Receipt =
     receipt.customer_tax_id || !customerTaxId ? receipt : { ...receipt, customer_tax_id: customerTaxId };
   const unsigned = !biz.business_name || !biz.business_number;
+  const shownNote = noteOnReceipt(doc, note);
 
   // the name and number go in the message too, so the customer can see who it
   // is from before they open anything — an unsaved number shows only digits
@@ -91,7 +99,7 @@ export function ReceiptCard({
   async function sendFile() {
     setBusy(true);
     try {
-      const how = await deliverReceipt(doc, settings);
+      const how = await deliverReceipt(doc, settings, note);
       if (how === "downloaded") toast.success("הקבלה ירדה למכשיר — אפשר לצרף אותה לשיחה");
       else if (how === "shared") toast.success("הקבלה נשלחה");
     } catch {
@@ -113,6 +121,12 @@ export function ReceiptCard({
           {formatAgorot(receipt.amount_agorot)} · {receipt.customer_name} · הופקה{" "}
           {formatDateTimeHe(receipt.issued_at)}
         </p>
+        {shownNote && (
+          <p className="rounded-xl border border-ink-100 bg-ink-50 px-3.5 py-2.5 text-sm text-ink-700">
+            <span className="font-bold text-ink-500">הערות בקבלה: </span>
+            <span className="whitespace-pre-wrap">{shownNote}</span>
+          </p>
+        )}
 
         {unsigned ? (
           // a receipt with no business on it is not a receipt, and nothing in

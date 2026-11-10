@@ -41,6 +41,27 @@ export function businessOnReceipt(r: Receipt, current?: BusinessDetails | AppSet
 }
 
 /**
+ * The note printed on the receipt, under הערות.
+ *
+ * Two fields have always been called "notes" on a job: the one written when
+ * it is opened, which goes into the receipt's description line, and
+ * closing_notes — the "הערות לסגירה" box filled in while closing the job,
+ * which is the one a tradesman actually types into and which the receipt
+ * never carried. This is that one.
+ *
+ * Frozen onto the receipt where the database can hold it, and read live from
+ * the job where it cannot, which is the same bargain businessOnReceipt makes
+ * and for the same reason: a receipt with the note missing is not history, it
+ * is a receipt issued before the system knew to keep it.
+ */
+export function noteOnReceipt(
+  r: Pick<Receipt, "notes">,
+  fallback?: string | null
+): string | null {
+  return r.notes?.trim() || fallback?.trim() || null;
+}
+
+/**
  * The receipt as HTML.
  *
  * It is drawn by the browser rather than laid out inside a PDF library on
@@ -52,8 +73,14 @@ export function businessOnReceipt(r: Receipt, current?: BusinessDetails | AppSet
  * Width is A4 at 96dpi (794px) so the capture maps onto the page without
  * stretching.
  */
-export function receiptHtml(r: Receipt, current?: BusinessDetails | AppSettings | null): string {
+export function receiptHtml(
+  r: Receipt,
+  current?: BusinessDetails | AppSettings | null,
+  /** the job's closing note, for a receipt issued before it was kept */
+  noteFallback?: string | null
+): string {
   const biz = businessOnReceipt(r, current);
+  const note = noteOnReceipt(r, noteFallback);
   const issued = new Date(r.issued_at);
   // Pinned to Israel rather than the device: a receipt printed on a laptop set
   // to another timezone would otherwise carry a different hour — sometimes a
@@ -104,6 +131,12 @@ export function receiptHtml(r: Receipt, current?: BusinessDetails | AppSettings 
   </div>
   ${r.payment_method_name ? `<div class="paid-by">אמצעי תשלום: ${esc(r.payment_method_name)}</div>` : ""}
 
+  ${
+    note
+      ? `<div class="section-title">הערות</div><div class="rnotes">${esc(note)}</div>`
+      : ""
+  }
+
   ${biz.footer ? `<div class="footer">${esc(biz.footer)}</div>` : ""}
 </div>`;
 }
@@ -139,6 +172,7 @@ export const RECEIPT_CSS = `
 .total-label { font-size: 15px; font-weight: 700; }
 .total-value { font-size: 24px; font-weight: 800; }
 .paid-by { margin-top: 10px; font-size: 13px; color: #4a5160; }
+.rnotes { font-size: 14px; color: #10131a; white-space: pre-wrap; }
 .footer { margin-top: 44px; padding-top: 16px; border-top: 1px solid #e3e6eb;
           font-size: 13px; color: #4a5160; text-align: center; white-space: pre-wrap; }
 `;
